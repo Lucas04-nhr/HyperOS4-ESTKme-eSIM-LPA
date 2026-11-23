@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_ok">確定</string>
+    <string name="ui_cancel">取消</string>
+    <string name="ui_back">返回</string>
+    <string name="theme_title">主題設定</string>
+    <string name="theme_section_appearance">外觀</string>
+    <string name="theme_style">介面風格</string>
+    <string name="theme_style_summary">Material 3 或 Miuix</string>
+    <string name="theme_style_material3">Material 3</string>
+    <string name="theme_style_miuix">Miuix</string>
+    <string name="theme_night">深色模式</string>
+    <string name="theme_night_system">跟隨系統</string>
+    <string name="theme_night_light">淺色</string>
+    <string name="theme_night_dark">深色</string>
+    <string name="theme_dynamic_color">動態取色</string>
+    <string name="theme_dynamic_color_summary_material3">使用桌布顏色</string>
+    <string name="theme_dynamic_color_summary_miuix">使用桌布顏色代替 HyperOS 藍</string>
+    <string name="theme_section_bottom_bar">底欄</string>
+    <string name="theme_miuix_only">僅 Miuix 風格可用</string>
+    <string name="theme_bar_glass">毛玻璃效果</string>
+    <string name="theme_bar_glass_summary">模糊底欄後方的頁面</string>
+    <string name="theme_bar_floating">懸浮底欄</string>
+    <string name="theme_bar_floating_summary">底欄顯示為懸浮膠囊</string>
+    <string name="theme_section_background">應用程式背景</string>
+    <string name="theme_bg_image">背景圖片</string>
+    <string name="theme_bg_image_summary">顯示在所有頁面後方</string>
+    <string name="theme_bg_image_set">已設定</string>
+    <string name="theme_bg_image_unset">未設定</string>
+    <string name="theme_bg_image_replace">更換圖片</string>
+    <string name="theme_bg_image_remove">移除背景</string>
+    <string name="theme_bg_blur">背景模糊</string>
+    <string name="theme_bg_dim">背景暗化</string>
+    <string name="theme_card_alpha">卡片不透明度</string>
+    <string name="theme_bg_hint">設定背景圖片後可調整以上選項</string>
+    <string name="theme_bg_pick_failed">無法讀取該圖片</string>
+</resources>

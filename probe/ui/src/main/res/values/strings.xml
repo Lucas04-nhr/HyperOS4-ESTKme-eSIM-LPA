@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_ok">OK</string>
+    <string name="ui_cancel">Cancel</string>
+    <string name="ui_back">Back</string>
+    <string name="theme_title">Theme</string>
+    <string name="theme_section_appearance">Appearance</string>
+    <string name="theme_style">UI style</string>
+    <string name="theme_style_summary">Material 3 or Miuix</string>
+    <string name="theme_style_material3">Material 3</string>
+    <string name="theme_style_miuix">Miuix</string>
+    <string name="theme_night">Dark mode</string>
+    <string name="theme_night_system">Follow system</string>
+    <string name="theme_night_light">Light</string>
+    <string name="theme_night_dark">Dark</string>
+    <string name="theme_dynamic_color">Dynamic color</string>
+    <string name="theme_dynamic_color_summary_material3">Use colors from the wallpaper</string>
+    <string name="theme_dynamic_color_summary_miuix">Use wallpaper colors instead of HyperOS blue</string>
+    <string name="theme_section_bottom_bar">Bottom bar</string>
+    <string name="theme_miuix_only">Miuix style only</string>
+    <string name="theme_bar_glass">Frosted glass</string>
+    <string name="theme_bar_glass_summary">Blur the page behind the bar</string>
+    <string name="theme_bar_floating">Floating bottom bar</string>
+    <string name="theme_bar_floating_summary">Show the bar as a floating capsule</string>
+    <string name="theme_section_background">Background</string>
+    <string name="theme_bg_image">Background image</string>
+    <string name="theme_bg_image_summary">Shown behind all pages</string>
+    <string name="theme_bg_image_set">Set</string>
+    <string name="theme_bg_image_unset">Not set</string>
+    <string name="theme_bg_image_replace">Choose another image</string>
+    <string name="theme_bg_image_remove">Remove background</string>
+    <string name="theme_bg_blur">Background blur</string>
+    <string name="theme_bg_dim">Background dim</string>
+    <string name="theme_card_alpha">Card opacity</string>
+    <string name="theme_bg_hint">Set a background image to use these options</string>
+    <string name="theme_bg_pick_failed">Could not load the image</string>
+</resources>

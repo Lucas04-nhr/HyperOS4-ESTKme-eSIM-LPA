@@ -1,7 +1,5 @@
 package io.github.local.esimh4probe;
 
-import android.animation.ValueAnimator;
-import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -9,28 +7,26 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
-import android.telephony.euicc.EuiccManager;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.WindowInsets;
-import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
+import io.github.local.esimh4ui.BottomBar;
+import io.github.local.esimh4ui.Scaffold;
+import io.github.local.esimh4ui.ThemedActivity;
+import io.github.local.esimh4ui.UiKit;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,12 +35,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONObject;
 
 /**
- * Pure OS-native Material Design 3 Expressive control panel and live diagnostics dashboard
- * for Xiaomi HyperOS 4 removable eSIM (SIM2) native LPA bridge.
+ * Control panel for the Xiaomi HyperOS 4 removable eSIM (SIM2) bridge.
+ * Home tab: status banner and live diagnostics. Settings tab: feature switches and theme.
  */
-public final class MainActivity extends Activity {
+public final class MainActivity extends ThemedActivity {
     private static final String TAG = "EsimH4Probe";
     private static final String ACTION_SCRIPT = "/data/adb/modules/XiaomiEsimLPAHyperOS4/action.sh";
+    private static final String STATE_TAB = "tab";
+    private static final int TAB_HOME = 0;
+    private static final int TAB_SETTINGS = 1;
 
     private static final ExecutorService IO_EXEC = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "EsimH4-UIWorker");
@@ -57,25 +56,24 @@ public final class MainActivity extends Activity {
     private boolean bindingUi = false;
     private JSONObject lastReport = null;
 
-    private M3Ui.Palette palette;
-    private FrameLayout rootOverlay;
-    private IndeterminateM3Bar progressBar;
-    private TextView snackView;
-    private Runnable hideSnackTask;
+    private Scaffold scaffold;
+    private BottomBar bottomBar;
+    private int currentTab = TAB_HOME;
 
-    // 1. Hero Master Switch Card
-    private LinearLayout cardMasterHero;
-    private FrameLayout heroIconContainer;
-    private ImageView ivHeroIcon;
-    private TextView tvHeroTitle;
-    private TextView tvHeroSubtitle;
-    private M3Ui.M3Switch switchMasterMode;
+    // Home: status banner
+    private FrameLayout cardStatus;
+    private FrameLayout statusIconWrap;
+    private ImageView ivStatusIcon;
+    private ImageView ivStatusDecor;
+    private TextView tvStatusTitle;
+    private TextView tvStatusSubtitle;
+    private TextView tvStatusVersion;
 
-    // 2. Conditional Alert Banner
+    // Home: alert banner
     private LinearLayout cardAlertBanner;
     private TextView tvAlertMessage;
 
-    // 3. SIM2 Hardware & Framework Health Card
+    // Home: SIM2 hardware & framework card
     private TextView tvSim2Meta;
     private TextView tvSim2Badge;
     private TextView tvSim2Detail;
@@ -84,267 +82,298 @@ public final class MainActivity extends Activity {
     private TextView tvBadgeLpaHook;
     private TextView tvBadgeEuicc;
     private LinearLayout btnManageEsim;
-    private LinearLayout btnMobileNetwork;
     private LinearLayout btnLaunchTester;
 
-    // 4. Segmented Feature Switch Rows
-    private M3Ui.SwitchRow rowSystemEsim;
-    private M3Ui.SwitchRow rowCarrierBridge;
-    private M3Ui.SwitchRow rowLpaUriBridge;
-    private M3Ui.SwitchRow rowRewriteText;
-    private M3Ui.SwitchRow rowUmountGuard;
-    private M3Ui.SwitchRow rowTesterApp;
-    private M3Ui.SwitchRow rowEstkSe1;
-    private M3Ui.SwitchRow rowMiuixStyle;
+    // Home: device info card
+    private TextView tvInfoLpa;
+    private TextView tvInfoCardId;
+
+    // Settings
+    private UiKit.SwitchRow rowMaster;
+    private UiKit.ToggleSwitch switchMasterMode;
+    private UiKit.SwitchRow rowSystemEsim;
+    private UiKit.SwitchRow rowCarrierBridge;
+    private UiKit.SwitchRow rowLpaUriBridge;
+    private UiKit.SwitchRow rowRewriteText;
+    private UiKit.SwitchRow rowUmountGuard;
+    private UiKit.SwitchRow rowTesterApp;
+    private UiKit.SwitchRow rowEstkSe1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        M3Ui.loadStyle(this);
-        palette = M3Ui.Palette.resolve(this);
+        currentTab = savedInstanceState != null ? savedInstanceState.getInt(STATE_TAB, TAB_HOME) : TAB_HOME;
 
-        setContentView(buildContentView());
-        M3Ui.applyEdgeToEdge(this, palette);
+        scaffold = new Scaffold(this, palette, getString(R.string.app_name), versionSubtitle(), false);
+        scaffold.addAction(UiKit.createIconButton(
+                this, palette, R.drawable.ic_refresh_24, getString(R.string.action_refresh), () -> {
+                    refreshDashboard();
+                    showSnack(getString(R.string.snack_refreshed));
+                }));
+        scaffold.addAction(UiKit.createIconButton(
+                this, palette, R.drawable.ic_terminal_24, getString(R.string.action_diagnostics),
+                this::showDiagnosticsDialog));
+        scaffold.addPage(buildHomePage(), io.github.local.esimh4ui.R.id.ui_page_1);
+        scaffold.addPage(buildSettingsPage(), io.github.local.esimh4ui.R.id.ui_page_2);
+
+        bottomBar = new BottomBar(
+                this,
+                palette,
+                new String[]{getString(R.string.tab_home), getString(R.string.tab_settings)},
+                new int[]{R.drawable.ic_home_24, R.drawable.ic_settings_24});
+        bottomBar.setOnSelectListener(this::switchTab);
+        scaffold.setBottomBar(bottomBar);
+
+        setContentView(scaffold.root);
+        UiKit.applyEdgeToEdge(this, palette);
         setupSwitches();
+        switchTab(currentTab);
         refreshDashboard();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (isThemeRecreating()) return;
         refreshDashboard();
     }
 
     @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt(STATE_TAB, currentTab);
+    }
+
+    @Override
     protected void onDestroy() {
-        if (progressBar != null) {
-            progressBar.stopAnimation();
-        }
+        if (scaffold != null) scaffold.release();
         uiHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
-    private View buildContentView() {
-        rootOverlay = new FrameLayout(this);
-        rootOverlay.setBackgroundColor(palette.pageBg);
+    private String versionSubtitle() {
+        return getString(R.string.top_subtitle, ProbeInspector.MODULE_VERSION);
+    }
 
-        LinearLayout mainCol = new LinearLayout(this);
-        mainCol.setOrientation(LinearLayout.VERTICAL);
-        mainCol.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
-        // Top App Bar
-        LinearLayout topBar = new LinearLayout(this);
-        topBar.setOrientation(LinearLayout.HORIZONTAL);
-        topBar.setGravity(Gravity.CENTER_VERTICAL);
-        topBar.setBackgroundColor(palette.pageBg);
-        int barPadH = M3Ui.dp(this, 18);
-        int barPadV = M3Ui.dp(this, 12);
-        topBar.setPadding(barPadH, barPadV, barPadH, barPadV);
-
-        LinearLayout titleWrap = new LinearLayout(this);
-        titleWrap.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams twLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        twLp.rightMargin = M3Ui.dp(this, 10);
-        titleWrap.setLayoutParams(twLp);
-
-        TextView tvAppTitle = new TextView(this);
-        tvAppTitle.setText(R.string.app_name);
-        tvAppTitle.setTextColor(palette.onSurface);
-        if (M3Ui.isMiuix()) {
-            // Miuix large title: single line, shrinks to fit next to the action icons.
-            tvAppTitle.setSingleLine(true);
-            tvAppTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            tvAppTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f);
-            tvAppTitle.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-                if (r - l == or - ol) return;
-                float avail = (r - l) - tvAppTitle.getPaddingLeft() - tvAppTitle.getPaddingRight();
-                float sizeSp = 28f;
-                android.text.TextPaint tp = new android.text.TextPaint(tvAppTitle.getPaint());
-                String text = tvAppTitle.getText().toString();
-                while (sizeSp > 16f) {
-                    tp.setTextSize(TypedValue.applyDimension(
-                            TypedValue.COMPLEX_UNIT_SP, sizeSp, getResources().getDisplayMetrics()));
-                    if (tp.measureText(text) <= avail) break;
-                    sizeSp -= 1f;
-                }
-                final float fit = sizeSp;
-                tvAppTitle.post(() -> tvAppTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, fit));
-            });
+    private void switchTab(int tab) {
+        currentTab = tab;
+        scaffold.showPage(tab);
+        bottomBar.select(tab);
+        if (tab == TAB_HOME) {
+            scaffold.setTitle(getString(R.string.app_name));
+            scaffold.setSubtitle(versionSubtitle());
+            scaffold.setActionsVisible(true);
         } else {
-            tvAppTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f);
-            tvAppTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+            scaffold.setTitle(getString(R.string.tab_settings));
+            scaffold.setSubtitle(null);
+            scaffold.setActionsVisible(false);
         }
-        titleWrap.addView(tvAppTitle);
+    }
 
-        TextView tvVerPill = new TextView(this);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        vlp.topMargin = M3Ui.dp(this, 3);
-        tvVerPill.setLayoutParams(vlp);
-        tvVerPill.setText(ProbeInspector.MODULE_VERSION + " · SIM2 实体卡桥接");
-        if (M3Ui.isMiuix()) {
-            // Miuix shows the subtitle as plain secondary text, not a pill.
-            tvVerPill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-            tvVerPill.setTextColor(palette.onSurfaceVariant);
-        } else {
-            tvVerPill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-            tvVerPill.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            tvVerPill.setTextColor(palette.onSecondaryContainer);
-            tvVerPill.setPadding(M3Ui.dp(this, 8), M3Ui.dp(this, 2), M3Ui.dp(this, 8), M3Ui.dp(this, 2));
-            tvVerPill.setBackground(M3Ui.roundedRect(this, palette.secondaryContainer, 999f, 0, 0));
-        }
-        titleWrap.addView(tvVerPill);
-        topBar.addView(titleWrap);
+    // ---------------------------------------------------------------------------------------------
+    // Home page
+    // ---------------------------------------------------------------------------------------------
 
-        ImageView btnRefreshTop = M3Ui.createIconButton(
-                this, palette, R.drawable.ic_refresh_24, "刷新底层诊断", () -> {
-                    refreshDashboard();
-                    showSnack("已刷新底层挂载与卡槽状态");
-                });
-        LinearLayout.LayoutParams rlp = (LinearLayout.LayoutParams) btnRefreshTop.getLayoutParams();
-        rlp.rightMargin = M3Ui.dp(this, 8);
-        topBar.addView(btnRefreshTop);
+    private View buildHomePage() {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
 
-        ImageView btnDiagTop = M3Ui.createIconButton(
-                this, palette, R.drawable.ic_terminal_24, "底层脱敏诊断报告", this::showDiagnosticsDialog);
-        topBar.addView(btnDiagTop);
-        mainCol.addView(topBar);
+        col.addView(buildStatusBanner());
 
-        // Thin M3 Indeterminate Progress Bar (3dp)
-        progressBar = new IndeterminateM3Bar(this, palette);
-        progressBar.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, M3Ui.dp(this, 3)));
-        progressBar.setVisibility(View.INVISIBLE);
-        mainCol.addView(progressBar);
-
-        // Main ScrollView
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        scrollView.setFillViewport(false);
-        scrollView.setVerticalScrollBarEnabled(false);
-        scrollView.setClipToPadding(false);
-
-        LinearLayout contentCol = new LinearLayout(this);
-        contentCol.setOrientation(LinearLayout.VERTICAL);
-        contentCol.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        // 1. Hero Master Switch Banner (28dp Expressive Extra-Large Card)
-        cardMasterHero = new LinearLayout(this);
-        cardMasterHero.setOrientation(LinearLayout.HORIZONTAL);
-        cardMasterHero.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams heroLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        heroLp.topMargin = M3Ui.dp(this, 4);
-        cardMasterHero.setLayoutParams(heroLp);
-        int heroPadH = M3Ui.dp(this, 20);
-        int heroPadV = M3Ui.dp(this, 20);
-        cardMasterHero.setPadding(heroPadH, heroPadV, heroPadH, heroPadV);
-        cardMasterHero.setClickable(true);
-        cardMasterHero.setFocusable(true);
-
-        heroIconContainer = new FrameLayout(this);
-        int heroCirclePx = M3Ui.dp(this, 48);
-        LinearLayout.LayoutParams hicLp = new LinearLayout.LayoutParams(heroCirclePx, heroCirclePx);
-        hicLp.rightMargin = M3Ui.dp(this, 16);
-        heroIconContainer.setLayoutParams(hicLp);
-
-        ivHeroIcon = new ImageView(this);
-        int heroIconPx = M3Ui.dp(this, 24);
-        ivHeroIcon.setLayoutParams(new FrameLayout.LayoutParams(heroIconPx, heroIconPx, Gravity.CENTER));
-        ivHeroIcon.setImageResource(R.drawable.ic_power_24);
-        heroIconContainer.addView(ivHeroIcon);
-        cardMasterHero.addView(heroIconContainer);
-
-        LinearLayout heroTextCol = new LinearLayout(this);
-        heroTextCol.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams htLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        htLp.rightMargin = M3Ui.dp(this, 12);
-        heroTextCol.setLayoutParams(htLp);
-
-        tvHeroTitle = new TextView(this);
-        tvHeroTitle.setText("正在读取桥接状态…");
-        tvHeroTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17.5f);
-        tvHeroTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        heroTextCol.addView(tvHeroTitle);
-
-        tvHeroSubtitle = new TextView(this);
-        LinearLayout.LayoutParams hsLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        hsLp.topMargin = M3Ui.dp(this, 3);
-        tvHeroSubtitle.setLayoutParams(hsLp);
-        tvHeroSubtitle.setText("正在检测系统特权与电话框架");
-        tvHeroSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.8f);
-        tvHeroSubtitle.setLineSpacing(M3Ui.dpf(this, 2f), 1.0f);
-        heroTextCol.addView(tvHeroSubtitle);
-        cardMasterHero.addView(heroTextCol);
-
-        switchMasterMode = new M3Ui.M3Switch(this, palette);
-        cardMasterHero.addView(switchMasterMode);
-        styleHeroCard(true, true);
-        contentCol.addView(cardMasterHero);
-
-        // 2. Conditional Alert Banner
+        // Alert banner (shown only when something needs attention)
         cardAlertBanner = new LinearLayout(this);
         cardAlertBanner.setOrientation(LinearLayout.HORIZONTAL);
         cardAlertBanner.setGravity(Gravity.TOP);
         LinearLayout.LayoutParams alertLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        alertLp.topMargin = M3Ui.dp(this, 10);
+        alertLp.topMargin = UiKit.dp(this, 10);
         cardAlertBanner.setLayoutParams(alertLp);
-        int alertPad = M3Ui.dp(this, 16);
-        cardAlertBanner.setPadding(alertPad, M3Ui.dp(this, 14), alertPad, M3Ui.dp(this, 14));
-        cardAlertBanner.setBackground(M3Ui.roundedRect(this, palette.errorContainer, M3Ui.radius(20f, 16f), 0, 0));
+        int alertPad = UiKit.dp(this, 16);
+        cardAlertBanner.setPadding(alertPad, UiKit.dp(this, 14), alertPad, UiKit.dp(this, 14));
+        cardAlertBanner.setBackground(UiKit.roundedRect(this, palette.errorContainer, UiKit.radius(20f, 16f), 0, 0));
         cardAlertBanner.setVisibility(View.GONE);
 
         ImageView ivAlert = new ImageView(this);
-        int alertIconPx = M3Ui.dp(this, 20);
+        int alertIconPx = UiKit.dp(this, 20);
         LinearLayout.LayoutParams aiLp = new LinearLayout.LayoutParams(alertIconPx, alertIconPx);
-        aiLp.rightMargin = M3Ui.dp(this, 12);
-        aiLp.topMargin = M3Ui.dp(this, 2);
+        aiLp.rightMargin = UiKit.dp(this, 12);
+        aiLp.topMargin = UiKit.dp(this, 2);
         ivAlert.setLayoutParams(aiLp);
         ivAlert.setImageResource(R.drawable.ic_error_24);
         ivAlert.setImageTintList(ColorStateList.valueOf(palette.onErrorContainer));
         cardAlertBanner.addView(ivAlert);
 
         tvAlertMessage = new TextView(this);
-        tvAlertMessage.setLayoutParams(new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        tvAlertMessage.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         tvAlertMessage.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.8f);
-        tvAlertMessage.setLineSpacing(M3Ui.dpf(this, 2.5f), 1.0f);
+        tvAlertMessage.setLineSpacing(UiKit.dpf(this, 2.5f), 1.0f);
         tvAlertMessage.setTextColor(palette.onErrorContainer);
         cardAlertBanner.addView(tvAlertMessage);
-        contentCol.addView(cardAlertBanner);
+        col.addView(cardAlertBanner);
 
-        // 3. Hardware & Framework Health Section
-        contentCol.addView(M3Ui.createSectionHeader(this, palette, "硬件与框架状态"));
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_health)));
+        col.addView(buildSimCard());
 
-        LinearLayout simCard = new LinearLayout(this);
-        simCard.setOrientation(LinearLayout.VERTICAL);
-        simCard.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        int cardPad = M3Ui.dp(this, 18);
-        simCard.setPadding(cardPad, cardPad, cardPad, cardPad);
-        simCard.setBackground(M3Ui.roundedRect(this, palette.cardBg, M3Ui.radius(24f, 16f), 0, 0));
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_device)));
+        col.addView(buildInfoCard());
 
-        // SIM2 Header Row
+        // Utility buttons
+        LinearLayout footerRow = new LinearLayout(this);
+        footerRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams frLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        frLp.topMargin = UiKit.dp(this, 16);
+        footerRow.setLayoutParams(frLp);
+
+        LinearLayout btnReprobe = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.OUTLINED, R.drawable.ic_refresh_24,
+                getString(R.string.btn_reprobe), 42, this::triggerReprobeSim2);
+        LinearLayout.LayoutParams rpLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        rpLp.rightMargin = UiKit.dp(this, 5);
+        footerRow.addView(btnReprobe, rpLp);
+
+        LinearLayout btnShowDiag = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.OUTLINED, R.drawable.ic_terminal_24,
+                getString(R.string.btn_diagnostics), 42, this::showDiagnosticsDialog);
+        LinearLayout.LayoutParams sdLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        sdLp.leftMargin = UiKit.dp(this, 5);
+        footerRow.addView(btnShowDiag, sdLp);
+        col.addView(footerRow);
+        return col;
+    }
+
+    /** SukiSU-style status banner: large state icon, state title, summary and version line. */
+    private View buildStatusBanner() {
+        cardStatus = new FrameLayout(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = UiKit.dp(this, 4);
+        cardStatus.setLayoutParams(lp);
+        cardStatus.setMinimumHeight(UiKit.dp(this, 120));
+        cardStatus.setClipToOutline(true);
+
+        // Large faded glyph in the corner, as on the SukiSU status card.
+        ivStatusDecor = new ImageView(this);
+        int decor = UiKit.dp(this, 132);
+        FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(decor, decor, Gravity.END | Gravity.BOTTOM);
+        dlp.rightMargin = -UiKit.dp(this, 28);
+        dlp.bottomMargin = -UiKit.dp(this, 34);
+        ivStatusDecor.setLayoutParams(dlp);
+        ivStatusDecor.setAlpha(0.13f);
+        cardStatus.addView(ivStatusDecor);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.HORIZONTAL);
+        content.setGravity(Gravity.CENTER_VERTICAL);
+        int pad = UiKit.dp(this, 20);
+        content.setPadding(pad, UiKit.dp(this, 22), pad, UiKit.dp(this, 22));
+        cardStatus.addView(content, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+
+        statusIconWrap = new FrameLayout(this);
+        int wrap = UiKit.dp(this, 56);
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(wrap, wrap);
+        wlp.rightMargin = UiKit.dp(this, 18);
+        content.addView(statusIconWrap, wlp);
+        ivStatusIcon = new ImageView(this);
+        int icon = UiKit.dp(this, UiKit.isMiuix() ? 40 : 30);
+        statusIconWrap.addView(ivStatusIcon, new FrameLayout.LayoutParams(icon, icon, Gravity.CENTER));
+
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        content.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        tvStatusTitle = new TextView(this);
+        tvStatusTitle.setText(R.string.status_loading);
+        tvStatusTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, UiKit.isMiuix() ? 22f : 21f);
+        tvStatusTitle.setTypeface(Typeface.create("sans-serif-medium", UiKit.isMiuix() ? Typeface.NORMAL : Typeface.BOLD));
+        texts.addView(tvStatusTitle);
+
+        tvStatusSubtitle = new TextView(this);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        slp.topMargin = UiKit.dp(this, 4);
+        tvStatusSubtitle.setText(R.string.status_loading_summary);
+        tvStatusSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        tvStatusSubtitle.setLineSpacing(UiKit.dpf(this, 2f), 1.0f);
+        texts.addView(tvStatusSubtitle, slp);
+
+        tvStatusVersion = new TextView(this);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        vlp.topMargin = UiKit.dp(this, 6);
+        tvStatusVersion.setText(getString(R.string.status_version, ProbeInspector.MODULE_VERSION));
+        tvStatusVersion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        texts.addView(tvStatusVersion, vlp);
+
+        cardStatus.setOnClickListener(v -> {
+            if (lastReport == null || !lastReport.optBoolean("moduleActive", false)) {
+                switchTab(TAB_SETTINGS);
+            }
+        });
+        styleStatusBanner(StatusState.LOADING);
+        return cardStatus;
+    }
+
+    private enum StatusState {
+        LOADING,
+        OFF,
+        ATTENTION,
+        RUNNING
+    }
+
+    private void styleStatusBanner(StatusState state) {
+        int bg;
+        int fg;
+        int iconRes;
+        boolean miuix = UiKit.isMiuix();
+        switch (state) {
+            case RUNNING:
+                bg = miuix ? palette.primary : palette.primaryContainer;
+                fg = miuix ? palette.onPrimary : palette.onPrimaryContainer;
+                iconRes = R.drawable.ic_check_circle_24;
+                break;
+            case ATTENTION:
+                bg = palette.errorContainer;
+                fg = palette.onErrorContainer;
+                iconRes = R.drawable.ic_error_24;
+                break;
+            case OFF:
+            case LOADING:
+            default:
+                bg = miuix ? palette.cardBg : palette.surfaceHigh;
+                fg = palette.onSurface;
+                iconRes = state == StatusState.OFF ? R.drawable.ic_power_24 : R.drawable.ic_sim_card_24;
+                break;
+        }
+        cardStatus.setBackground(UiKit.roundedRect(this, bg, UiKit.radius(28f, 16f), 0, 0));
+        tvStatusTitle.setTextColor(fg);
+        tvStatusSubtitle.setTextColor(UiKit.withAlpha(fg, 0xDB));
+        tvStatusVersion.setTextColor(UiKit.withAlpha(fg, 0xA8));
+        ivStatusIcon.setImageResource(iconRes);
+        ivStatusIcon.setImageTintList(ColorStateList.valueOf(fg));
+        ivStatusDecor.setImageResource(iconRes);
+        ivStatusDecor.setImageTintList(ColorStateList.valueOf(fg));
+        // Material 3 puts the icon on a tonal circle; Miuix shows the bare glyph.
+        statusIconWrap.setBackground(miuix ? null : UiKit.oval(UiKit.withAlpha(fg, 0x1A)));
+    }
+
+    private View buildSimCard() {
+        LinearLayout simCard = UiKit.createCard(this, palette);
+
         LinearLayout simHead = new LinearLayout(this);
         simHead.setOrientation(LinearLayout.HORIZONTAL);
         simHead.setGravity(Gravity.CENTER_VERTICAL);
 
         FrameLayout simIconBox = new FrameLayout(this);
-        int simBoxPx = M3Ui.dp(this, 44);
+        int simBoxPx = UiKit.dp(this, 44);
         LinearLayout.LayoutParams sibLp = new LinearLayout.LayoutParams(simBoxPx, simBoxPx);
-        sibLp.rightMargin = M3Ui.dp(this, 14);
+        sibLp.rightMargin = UiKit.dp(this, 14);
         simIconBox.setLayoutParams(sibLp);
-        simIconBox.setBackground(M3Ui.roundedRect(this, palette.secondaryContainer, M3Ui.radius(14f, 12f), 0, 0));
+        simIconBox.setBackground(UiKit.roundedRect(this, palette.secondaryContainer, UiKit.radius(14f, 12f), 0, 0));
 
         ImageView ivSim = new ImageView(this);
-        int simIcPx = M3Ui.dp(this, 22);
+        int simIcPx = UiKit.dp(this, 22);
         ivSim.setLayoutParams(new FrameLayout.LayoutParams(simIcPx, simIcPx, Gravity.CENTER));
         ivSim.setImageResource(R.drawable.ic_sim_card_24);
         ivSim.setImageTintList(ColorStateList.valueOf(palette.onSecondaryContainer));
@@ -353,13 +382,12 @@ public final class MainActivity extends Activity {
 
         LinearLayout simTitleCol = new LinearLayout(this);
         simTitleCol.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams stcLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        stcLp.rightMargin = M3Ui.dp(this, 8);
+        LinearLayout.LayoutParams stcLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        stcLp.rightMargin = UiKit.dp(this, 8);
         simTitleCol.setLayoutParams(stcLp);
 
         TextView tvSimTitle = new TextView(this);
-        tvSimTitle.setText("物理卡槽 2 (SIM2)");
+        tvSimTitle.setText(R.string.sim2_title);
         tvSimTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f);
         tvSimTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         tvSimTitle.setTextColor(palette.onSurface);
@@ -368,310 +396,130 @@ public final class MainActivity extends Activity {
         tvSim2Meta = new TextView(this);
         LinearLayout.LayoutParams metaLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        metaLp.topMargin = M3Ui.dp(this, 2);
+        metaLp.topMargin = UiKit.dp(this, 2);
         tvSim2Meta.setLayoutParams(metaLp);
-        tvSim2Meta.setText("小米 LPA · 正在检测…");
+        tvSim2Meta.setText(R.string.sim2_meta_loading);
         tvSim2Meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         tvSim2Meta.setTextColor(palette.onSurfaceVariant);
         simTitleCol.addView(tvSim2Meta);
         simHead.addView(simTitleCol);
 
         tvSim2Badge = new TextView(this);
-        tvSim2Badge.setText("检测中");
+        tvSim2Badge.setText(R.string.badge_checking);
         tvSim2Badge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         tvSim2Badge.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        tvSim2Badge.setPadding(M3Ui.dp(this, 11), M3Ui.dp(this, 5), M3Ui.dp(this, 11), M3Ui.dp(this, 5));
+        tvSim2Badge.setPadding(UiKit.dp(this, 11), UiKit.dp(this, 5), UiKit.dp(this, 11), UiKit.dp(this, 5));
         simHead.addView(tvSim2Badge);
         simCard.addView(simHead);
 
         tvSim2Detail = new TextView(this);
         LinearLayout.LayoutParams detLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        detLp.topMargin = M3Ui.dp(this, 12);
+        detLp.topMargin = UiKit.dp(this, 12);
         tvSim2Detail.setLayoutParams(detLp);
-        tvSim2Detail.setText("正在通过 ISD-R 通道读取卡片状态…");
+        tvSim2Detail.setText(R.string.sim2_detail_loading);
         tvSim2Detail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        tvSim2Detail.setLineSpacing(M3Ui.dpf(this, 2.5f), 1.0f);
+        tvSim2Detail.setLineSpacing(UiKit.dpf(this, 2.5f), 1.0f);
         tvSim2Detail.setTextColor(palette.onSurfaceVariant);
         simCard.addView(tvSim2Detail);
 
-        // 2x2 Tonal Health Grid
+        // 2x2 health grid
         LinearLayout gridRow1 = new LinearLayout(this);
         gridRow1.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams gr1Lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        gr1Lp.topMargin = M3Ui.dp(this, 14);
+        gr1Lp.topMargin = UiKit.dp(this, 14);
         gridRow1.setLayoutParams(gr1Lp);
-        tvBadgeMount = addHealthTile(gridRow1, "LPA 特权挂载", true);
-        tvBadgePhoneHook = addHealthTile(gridRow1, "电话框架 Hook", false);
+        tvBadgeMount = addHealthTile(gridRow1, getString(R.string.tile_mount), true);
+        tvBadgePhoneHook = addHealthTile(gridRow1, getString(R.string.tile_phone_hook), false);
         simCard.addView(gridRow1);
 
         LinearLayout gridRow2 = new LinearLayout(this);
         gridRow2.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams gr2Lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        gr2Lp.topMargin = M3Ui.dp(this, 8);
+        gr2Lp.topMargin = UiKit.dp(this, 8);
         gridRow2.setLayoutParams(gr2Lp);
-        tvBadgeLpaHook = addHealthTile(gridRow2, "小米 LPA Hook", true);
-        tvBadgeEuicc = addHealthTile(gridRow2, "系统 eUICC 服务", false);
+        tvBadgeLpaHook = addHealthTile(gridRow2, getString(R.string.tile_lpa_hook), true);
+        tvBadgeEuicc = addHealthTile(gridRow2, getString(R.string.tile_euicc), false);
         simCard.addView(gridRow2);
 
-        // Quick Action Buttons inside Hardware Card
-        btnManageEsim = M3Ui.createActionButton(
-                this,
-                palette,
-                M3Ui.ButtonStyle.FILLED,
-                R.drawable.ic_qr_code_scanner_24,
-                "打开小米原生 eSIM 管理与写卡",
-                48,
-                this::openNativeEsimManager);
+        btnManageEsim = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.FILLED, R.drawable.ic_qr_code_scanner_24,
+                getString(R.string.btn_manage_esim), 48, this::openNativeEsimManager);
         LinearLayout.LayoutParams manageLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        manageLp.topMargin = M3Ui.dp(this, 16);
-        btnManageEsim.setLayoutParams(manageLp);
-        simCard.addView(btnManageEsim);
+        manageLp.topMargin = UiKit.dp(this, 16);
+        simCard.addView(btnManageEsim, manageLp);
 
         LinearLayout secBtnRow = new LinearLayout(this);
         secBtnRow.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams sbrLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        sbrLp.topMargin = M3Ui.dp(this, 10);
+        sbrLp.topMargin = UiKit.dp(this, 10);
         secBtnRow.setLayoutParams(sbrLp);
 
-        btnMobileNetwork = M3Ui.createActionButton(
-                this,
-                palette,
-                M3Ui.ButtonStyle.TONAL,
-                R.drawable.ic_settings_cell_24,
-                "移动网络设置",
-                44,
-                () -> {
+        LinearLayout btnMobileNetwork = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.TONAL, R.drawable.ic_settings_cell_24,
+                getString(R.string.btn_mobile_network), 44, () -> {
                     try {
                         startActivity(new Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS));
                     } catch (Throwable e) {
-                        showSnack("无法打开系统移动网络设置");
+                        showSnack(getString(R.string.snack_mobile_network_failed));
                     }
                 });
-        LinearLayout.LayoutParams mnLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        mnLp.rightMargin = M3Ui.dp(this, 5);
-        btnMobileNetwork.setLayoutParams(mnLp);
-        secBtnRow.addView(btnMobileNetwork);
+        LinearLayout.LayoutParams mnLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        mnLp.rightMargin = UiKit.dp(this, 5);
+        secBtnRow.addView(btnMobileNetwork, mnLp);
 
-        btnLaunchTester = M3Ui.createActionButton(
-                this,
-                palette,
-                M3Ui.ButtonStyle.TONAL,
-                R.drawable.ic_science_24,
-                "模拟写卡测试",
-                44,
-                () -> {
+        btnLaunchTester = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.TONAL, R.drawable.ic_science_24,
+                getString(R.string.btn_tester), 44, () -> {
                     try {
                         Intent launch = getPackageManager().getLaunchIntentForPackage(ProbeInspector.TESTER_PKG);
                         if (launch != null) {
                             startActivity(launch);
                         } else {
-                            showSnack("独立测试应用当前已隐藏，可在下方开启「模拟写卡测试」工具");
+                            showSnack(getString(R.string.snack_tester_hidden));
                         }
                     } catch (Throwable e) {
-                        showSnack("无法启动模拟写卡测试工具");
+                        showSnack(getString(R.string.snack_tester_failed));
                     }
                 });
-        LinearLayout.LayoutParams ltLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        ltLp.leftMargin = M3Ui.dp(this, 5);
-        btnLaunchTester.setLayoutParams(ltLp);
-        secBtnRow.addView(btnLaunchTester);
+        LinearLayout.LayoutParams ltLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        ltLp.leftMargin = UiKit.dp(this, 5);
+        secBtnRow.addView(btnLaunchTester, ltLp);
         simCard.addView(secBtnRow);
+        return simCard;
+    }
 
-        contentCol.addView(simCard);
-
-        // 4. Core Runtime Switches (Zero-Root Instant Switches, Segmented 24dp/6dp Group)
-        contentCol.addView(M3Ui.createSectionHeader(this, palette, "核心功能开关 · 免 Root 实时生效"));
-
-        rowSystemEsim = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_sync_alt_24,
-                "开启系统 eSIM（同步卡槽 2）",
-                "与移动网络页 eSIM 开关实时双向同步",
-                24f, 6f, 2);
-        contentCol.addView(rowSystemEsim.card);
-
-        rowCarrierBridge = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_verified_user_24,
-                "运营商 App 一键写卡授权桥接",
-                "允许漫游与运营商应用调起小米原生写卡确认弹窗",
-                6f, 6f, 2);
-        contentCol.addView(rowCarrierBridge.card);
-
-        rowLpaUriBridge = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_link_24,
-                "接管 LPA:// 激活链接与扫码动作",
-                "点击 LPA:1$ 链接自动拉起小米写卡页；关闭可交由其他工具处理",
-                6f, 6f, 2);
-        contentCol.addView(rowLpaUriBridge.card);
-
-        rowRewriteText = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_translate_24,
-                "系统设置 eSIM 提示文案修正",
-                "将移动网络页“替换 SIM 卡 2”文案修正为实体卡同步说明",
-                6f, 24f, 0);
-        contentCol.addView(rowRewriteText.card);
-
-        // 5. Kernel Mount Immunity & Component Management (Root Switches, Segmented 24dp/6dp Group)
-        contentCol.addView(M3Ui.createSectionHeader(this, palette, "内核兼容与组件管理 · 需 Root 授权"));
-
-        rowUmountGuard = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_shield_24,
-                "SukiSU / KernelSU 挂载卸载免疫",
-                "同步 /data/app 系统更新层，彻底免疫内核 umount 导致的写卡闪退",
-                24f, 6f, 2);
-        contentCol.addView(rowUmountGuard.card);
-
-        rowEstkSe1 = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_sync_alt_24,
-                "eSTK.me 使用 SE1",
-                "关闭时使用 SE0（标准 ISD-R），开启后改为管理 SE1",
-                6f, 6f, 2);
-        contentCol.addView(rowEstkSe1.card);
-
-        rowTesterApp = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_science_24,
-                "桌面保留「模拟写卡测试」工具",
-                "控制是否在桌面显示零风险一键写卡测试应用图标",
-                6f, 24f, 0);
-        contentCol.addView(rowTesterApp.card);
-
-        // 6. Appearance (UI design language)
-        contentCol.addView(M3Ui.createSectionHeader(this, palette, "界面外观"));
-
-        rowMiuixStyle = new M3Ui.SwitchRow(
-                this,
-                palette,
-                R.drawable.ic_palette_24,
-                "使用 Miuix 界面风格",
-                "",
-                24f, 24f, 0);
-        rowMiuixStyle.setRowState(
-                M3Ui.isMiuix(),
-                true,
-                M3Ui.isMiuix()
-                        ? "当前为 Miuix（HyperOS）风格 · 关闭后恢复 Material 3 动态取色"
-                        : "当前为 Material 3 动态取色 · 开启后切换为 Miuix（HyperOS）风格");
-        contentCol.addView(rowMiuixStyle.card);
-
-        // 7. Footer Utility Buttons
-        LinearLayout footerRow = new LinearLayout(this);
-        footerRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams frLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        frLp.topMargin = M3Ui.dp(this, 16);
-        footerRow.setLayoutParams(frLp);
-
-        LinearLayout btnReprobe = M3Ui.createActionButton(
-                this,
-                palette,
-                M3Ui.ButtonStyle.OUTLINED,
-                R.drawable.ic_refresh_24,
-                "重新识别卡槽 2",
-                42,
-                this::triggerReprobeSim2);
-        LinearLayout.LayoutParams rpLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        rpLp.rightMargin = M3Ui.dp(this, 5);
-        btnReprobe.setLayoutParams(rpLp);
-        footerRow.addView(btnReprobe);
-
-        LinearLayout btnShowDiag = M3Ui.createActionButton(
-                this,
-                palette,
-                M3Ui.ButtonStyle.OUTLINED,
-                R.drawable.ic_terminal_24,
-                "查看诊断报告",
-                42,
-                this::showDiagnosticsDialog);
-        LinearLayout.LayoutParams sdLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        sdLp.leftMargin = M3Ui.dp(this, 5);
-        btnShowDiag.setLayoutParams(sdLp);
-        footerRow.addView(btnShowDiag);
-
-        contentCol.addView(footerRow);
-
-        scrollView.addView(contentCol);
-        mainCol.addView(scrollView);
-        rootOverlay.addView(mainCol);
-
-        // Floating M3 Bottom Snackbar
-        snackView = new TextView(this);
-        FrameLayout.LayoutParams snackLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
-        snackLp.leftMargin = M3Ui.dp(this, 18);
-        snackLp.rightMargin = M3Ui.dp(this, 18);
-        snackLp.bottomMargin = M3Ui.dp(this, 24);
-        snackView.setLayoutParams(snackLp);
-        snackView.setPadding(M3Ui.dp(this, 16), M3Ui.dp(this, 13), M3Ui.dp(this, 16), M3Ui.dp(this, 13));
-        snackView.setBackground(M3Ui.roundedRect(this, palette.inverseSurface, M3Ui.radius(14f, 16f), 0, 0));
-        snackView.setTextColor(palette.inverseOnSurface);
-        snackView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
-        snackView.setElevation(M3Ui.dpf(this, 6f));
-        snackView.setVisibility(View.GONE);
-        rootOverlay.addView(snackView);
-
-        // Edge-to-Edge System Bar Insets
-        final int baseSide = M3Ui.dp(this, 16);
-        final int baseBottom = M3Ui.dp(this, 28);
-        final int topBarPadSide = M3Ui.dp(this, 18);
-        final int topBarPadVert = M3Ui.dp(this, 12);
-        rootOverlay.setOnApplyWindowInsetsListener((v, insets) -> {
-            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-            topBar.setPadding(
-                    topBarPadSide + bars.left,
-                    topBarPadVert + bars.top,
-                    topBarPadSide + bars.right,
-                    topBarPadVert);
-            scrollView.setPadding(
-                    baseSide + bars.left,
-                    M3Ui.dp(this, 4),
-                    baseSide + bars.right,
-                    baseBottom + bars.bottom);
-            FrameLayout.LayoutParams slp = (FrameLayout.LayoutParams) snackView.getLayoutParams();
-            slp.bottomMargin = M3Ui.dp(this, 20) + bars.bottom;
-            snackView.setLayoutParams(slp);
-            return WindowInsets.CONSUMED;
-        });
-
-        return rootOverlay;
+    private View buildInfoCard() {
+        LinearLayout card = UiKit.createCard(this, palette);
+        UiKit.addInfoLine(this, palette, card, getString(R.string.info_device),
+                Build.MANUFACTURER + " " + Build.MODEL);
+        UiKit.addInfoLine(this, palette, card, getString(R.string.info_android),
+                getString(R.string.info_android_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT));
+        UiKit.addInfoLine(this, palette, card, getString(R.string.info_build), Build.DISPLAY);
+        UiKit.addInfoLine(this, palette, card, getString(R.string.info_module), ProbeInspector.MODULE_VERSION);
+        tvInfoLpa = UiKit.addInfoLine(this, palette, card, getString(R.string.info_lpa), "…");
+        tvInfoCardId = UiKit.addInfoLine(this, palette, card, getString(R.string.info_card_id), "…");
+        return card;
     }
 
     private TextView addHealthTile(LinearLayout parentRow, String label, boolean isLeft) {
         LinearLayout tile = new LinearLayout(this);
         tile.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         if (isLeft) {
-            lp.rightMargin = M3Ui.dp(this, 4);
+            lp.rightMargin = UiKit.dp(this, 4);
         } else {
-            lp.leftMargin = M3Ui.dp(this, 4);
+            lp.leftMargin = UiKit.dp(this, 4);
         }
         tile.setLayoutParams(lp);
-        int padH = M3Ui.dp(this, 12);
-        int padV = M3Ui.dp(this, 10);
+        int padH = UiKit.dp(this, 12);
+        int padV = UiKit.dp(this, 10);
         tile.setPadding(padH, padV, padH, padV);
-        tile.setBackground(M3Ui.roundedRect(this, palette.tileBg, M3Ui.radius(14f, 12f), 0, 0));
+        tile.setBackground(UiKit.roundedRect(this, palette.tileBg, UiKit.radius(14f, 12f), 0, 0));
 
         TextView tvLabel = new TextView(this);
         tvLabel.setText(label);
@@ -682,9 +530,9 @@ public final class MainActivity extends Activity {
         TextView tvVal = new TextView(this);
         LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        vlp.topMargin = M3Ui.dp(this, 3);
+        vlp.topMargin = UiKit.dp(this, 3);
         tvVal.setLayoutParams(vlp);
-        tvVal.setText("○ 检测中");
+        tvVal.setText("○ " + getString(R.string.badge_checking));
         tvVal.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         tvVal.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         tvVal.setTextColor(palette.onSurface);
@@ -694,30 +542,86 @@ public final class MainActivity extends Activity {
         return tvVal;
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Settings page
+    // ---------------------------------------------------------------------------------------------
+
+    private View buildSettingsPage() {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_bridge)));
+        rowMaster = new UiKit.SwitchRow(
+                this, palette, R.drawable.ic_power_24,
+                getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 24f, 0);
+        switchMasterMode = rowMaster.toggle;
+        col.addView(rowMaster.card);
+
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_core)));
+        rowSystemEsim = new UiKit.SwitchRow(this, palette, R.drawable.ic_sync_alt_24,
+                getString(R.string.row_system_esim), getString(R.string.row_system_esim_summary), 24f, 6f, 2);
+        col.addView(rowSystemEsim.card);
+        rowCarrierBridge = new UiKit.SwitchRow(this, palette, R.drawable.ic_verified_user_24,
+                getString(R.string.row_carrier_bridge), getString(R.string.row_carrier_bridge_summary), 6f, 6f, 2);
+        col.addView(rowCarrierBridge.card);
+        rowLpaUriBridge = new UiKit.SwitchRow(this, palette, R.drawable.ic_link_24,
+                getString(R.string.row_lpa_uri), getString(R.string.row_lpa_uri_summary), 6f, 6f, 2);
+        col.addView(rowLpaUriBridge.card);
+        rowRewriteText = new UiKit.SwitchRow(this, palette, R.drawable.ic_translate_24,
+                getString(R.string.row_rewrite_text), getString(R.string.row_rewrite_text_summary), 6f, 24f, 0);
+        col.addView(rowRewriteText.card);
+
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_root)));
+        rowUmountGuard = new UiKit.SwitchRow(this, palette, R.drawable.ic_shield_24,
+                getString(R.string.row_umount_guard), getString(R.string.row_umount_guard_summary), 24f, 6f, 2);
+        col.addView(rowUmountGuard.card);
+        rowEstkSe1 = new UiKit.SwitchRow(this, palette, R.drawable.ic_sync_alt_24,
+                getString(R.string.row_estk_se1), getString(R.string.row_estk_se1_summary), 6f, 6f, 2);
+        col.addView(rowEstkSe1.card);
+        rowTesterApp = new UiKit.SwitchRow(this, palette, R.drawable.ic_science_24,
+                getString(R.string.row_tester), getString(R.string.row_tester_summary), 6f, 24f, 0);
+        col.addView(rowTesterApp.card);
+
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_personalize)));
+        UiKit.NavRow rowTheme = new UiKit.NavRow(
+                this, palette, io.github.local.esimh4ui.R.drawable.ic_palette_24,
+                getString(io.github.local.esimh4ui.R.string.theme_title), getString(R.string.row_theme_summary),
+                24f, 24f, 0, this::openThemeSettings);
+        rowTheme.setValue(getString(UiKit.isMiuix()
+                ? io.github.local.esimh4ui.R.string.theme_style_miuix
+                : io.github.local.esimh4ui.R.string.theme_style_material3));
+        col.addView(rowTheme.card);
+        return col;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Actions
+    // ---------------------------------------------------------------------------------------------
+
     private void openNativeEsimManager() {
         if (lastReport != null) {
             if (!lastReport.optBoolean("moduleActive", true)) {
-                showSnack("请先开启上方「实体 eSIM 桥接」总开关");
+                showSnack(getString(R.string.snack_enable_master_first));
                 return;
             }
             if (!lastReport.optBoolean("lpaPrivMounted", true)) {
-                showSnack("小米 LPA 特权目录尚未挂载生效，请检查元模块并重启");
+                showSnack(getString(R.string.snack_lpa_not_mounted));
                 return;
             }
             int cardType = lastReport.optInt("cardType", -1);
             if (cardType == 0) {
-                showSnack("卡槽 2 当前未插入实体 eSIM 卡（普通卡安全隔离保护中）");
+                showSnack(getString(R.string.snack_no_esim_card));
                 return;
             }
             int esimSwitch = lastReport.optInt("esimSwitch", 1);
             if (cardType == 1 && esimSwitch == 0) {
-                M3Ui.showM3Dialog(
+                UiKit.showDialog(
                         this,
                         palette,
-                        "系统 eSIM 开关当前已关闭",
-                        "进入小米原生 eSIM 管理页需要先唤醒激活卡槽 2 中的实体 eSIM 卡。\n\n是否立即开启系统 eSIM 并打开管理页面？",
+                        getString(R.string.dialog_esim_off_title),
+                        getString(R.string.dialog_esim_off_message),
                         false,
-                        "开启并打开",
+                        getString(R.string.dialog_esim_off_confirm),
                         () -> {
                             setBusy(true);
                             IO_EXEC.execute(() -> {
@@ -731,12 +635,12 @@ public final class MainActivity extends Activity {
                                         refreshDashboard();
                                         launchMiuiEsimProfileList();
                                     } else {
-                                        showSnack("唤醒卡槽 2 失败：请确认电话框架 Hook 已激活");
+                                        showSnack(getString(R.string.snack_wake_failed));
                                     }
                                 });
                             });
                         },
-                        "取消");
+                        getString(io.github.local.esimh4ui.R.string.ui_cancel));
                 return;
             }
         }
@@ -767,8 +671,9 @@ public final class MainActivity extends Activity {
             boolean ok = res != null && res.getBoolean("ok", false);
             if (!ok) {
                 String err = res != null ? res.getString("error", "") : "";
-                runOnUiThread(() -> showSnack(
-                        "无法拉起小米 eSIM 管理页" + (err.isEmpty() ? "" : " (" + err + ")")));
+                runOnUiThread(() -> showSnack(err.isEmpty()
+                        ? getString(R.string.snack_open_lpa_failed)
+                        : getString(R.string.snack_open_lpa_failed_detail, err)));
             }
         });
     }
@@ -784,13 +689,13 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> {
                 setBusy(false);
                 boolean ok = res != null && res.getBoolean("ok", false);
-                showSnack(ok ? "已触发卡槽 2 重新检测" : "请先启用模块并激活电话框架 Hook");
+                showSnack(getString(ok ? R.string.snack_reprobe_ok : R.string.snack_reprobe_failed));
                 refreshDashboard();
             });
         });
     }
 
-    private void bindRowClick(M3Ui.SwitchRow row, String disabledHint) {
+    private void bindRowClick(UiKit.SwitchRow row, String disabledHint) {
         row.card.setOnClickListener(v -> {
             if (row.toggle.isEnabled()) {
                 row.toggle.performUserToggle();
@@ -801,55 +706,39 @@ public final class MainActivity extends Activity {
     }
 
     private void setupSwitches() {
-        cardMasterHero.setOnClickListener(v -> {
-            if (switchMasterMode.isEnabled()) {
-                switchMasterMode.performUserToggle();
-            }
-        });
-
-        bindRowClick(rowSystemEsim, "需启用桥接模块且卡槽 2 识别为实体 eSIM 卡后可切换");
-        bindRowClick(rowCarrierBridge, "请先启用桥接服务并确认电话框架 Hook 已生效");
+        String hintHook = getString(R.string.hint_need_hook);
+        String hintMaster = getString(R.string.hint_need_master);
+        bindRowClick(rowMaster, null);
+        bindRowClick(rowSystemEsim, getString(R.string.hint_need_esim_card));
+        bindRowClick(rowCarrierBridge, hintHook);
         bindRowClick(rowLpaUriBridge, null);
-        bindRowClick(rowRewriteText, "请先启用桥接服务并确认电话框架 Hook 已生效");
-        bindRowClick(rowUmountGuard, "需 LPA 系统特权挂载生效后方可切换双层驻留保护");
-        bindRowClick(rowTesterApp, "请先开启上方主桥接服务开关");
-        bindRowClick(rowEstkSe1, "请先开启上方主桥接服务开关");
-        bindRowClick(rowMiuixStyle, null);
-        rowMiuixStyle.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            M3Ui.saveStyle(this, isChecked ? M3Ui.Style.MIUIX : M3Ui.Style.MATERIAL3);
-            // Let the switch animation finish, then rebuild the views with the new style.
-            uiHandler.postDelayed(() -> {
-                if (!isFinishing() && !isDestroyed()) {
-                    recreate();
-                }
-            }, 220L);
-        });
+        bindRowClick(rowRewriteText, hintHook);
+        bindRowClick(rowUmountGuard, getString(R.string.hint_need_mount));
+        bindRowClick(rowTesterApp, hintMaster);
+        bindRowClick(rowEstkSe1, hintMaster);
 
         switchMasterMode.setOnCheckedChangeListener((btn, isChecked) -> {
             if (bindingUi) return;
+            rowMaster.refreshIconTint(isChecked);
             runRootSwitchAction(
                     switchMasterMode,
-                    null,
+                    rowMaster,
                     isChecked,
                     new String[]{isChecked ? "on" : "off"},
                     output -> {
                         if (output.contains("RESULT=MISSING_METAMODULE")) {
-                            showInfoDialog(
-                                    "缺少系统挂载元模块",
-                                    "检测到当前 KernelSU / SukiSU 环境尚未启用系统挂载元模块。\n\n"
-                                            + "请先安装并启用 Hybrid Mount 或 meta-overlayfs（澎湃 OS 4 原厂多层 Overlay 分区不建议使用 Magic Mount-rs），重启手机后再开启本开关。");
+                            showInfoDialog(getString(R.string.dialog_missing_metamodule_title),
+                                    getString(R.string.dialog_missing_metamodule_message));
                         } else if (output.contains("RESULT=NEED_REBOOT")) {
-                            showInfoDialog(
-                                    "已切换为开启（需重启生效）",
-                                    "模块配置已设为开启状态。请重启手机，由系统挂载小米原生 LPA 特权声明后即可使用。");
+                            showInfoDialog(getString(R.string.dialog_need_reboot_title),
+                                    getString(R.string.dialog_need_reboot_message));
                         } else if (output.contains("RESULT=ACTIVE_NOW")) {
-                            showSnack("实体 eSIM 桥接服务已即时开启");
+                            showSnack(getString(R.string.snack_master_on));
                         } else if (output.contains("RESULT=OFF_APPLIED")) {
-                            showInfoDialog(
-                                    "已关闭桥接服务",
-                                    "已还原系统设置与卡槽 2 状态并清理更新层。重启手机后彻底卸载系统底层能力声明。");
+                            showInfoDialog(getString(R.string.dialog_master_off_title),
+                                    getString(R.string.dialog_master_off_message));
                         } else {
-                            showSnack(isChecked ? "已执行开启指令" : "已执行关闭指令");
+                            showSnack(getString(isChecked ? R.string.snack_master_on_sent : R.string.snack_master_off_sent));
                         }
                         refreshDashboard();
                     });
@@ -870,9 +759,9 @@ public final class MainActivity extends Activity {
                     rowSystemEsim.toggle.setEnabled(true);
                     if (!ok) {
                         setSwitchSilently(rowSystemEsim.toggle, rowSystemEsim, !isChecked);
-                        showSnack("切换未成功：请确认卡槽 2 已插入实体 eSIM 卡且电话 Hook 正常");
+                        showSnack(getString(R.string.snack_esim_toggle_failed));
                     } else {
-                        showSnack(isChecked ? "系统 eSIM 与卡槽 2 已同步开启" : "系统 eSIM 与卡槽 2 已同步停用");
+                        showSnack(getString(isChecked ? R.string.snack_esim_on : R.string.snack_esim_off));
                         refreshDashboard();
                     }
                 });
@@ -883,7 +772,7 @@ public final class MainActivity extends Activity {
             if (bindingUi) return;
             rowCarrierBridge.refreshIconTint(isChecked);
             updatePhonePref(rowCarrierBridge, CardTypeGuard.KEY_CARRIER_BRIDGE, isChecked,
-                    isChecked ? "已开启第三方运营商一键写卡授权桥接" : "已关闭第三方运营商一键写卡授权桥接");
+                    getString(isChecked ? R.string.snack_carrier_on : R.string.snack_carrier_off));
         });
 
         rowLpaUriBridge.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
@@ -899,7 +788,7 @@ public final class MainActivity extends Activity {
                         PackageManager.DONT_KILL_APP);
             } catch (Throwable e) {
                 setSwitchSilently(rowLpaUriBridge.toggle, rowLpaUriBridge, !isChecked);
-                showSnack("组件状态修改失败：" + e.getClass().getSimpleName());
+                showSnack(getString(R.string.snack_component_failed, e.getClass().getSimpleName()));
                 return;
             }
             IO_EXEC.execute(() -> {
@@ -908,9 +797,7 @@ public final class MainActivity extends Activity {
                 extras.putBoolean("enabled", isChecked);
                 ProbeInspector.callPhoneCtrl(MainActivity.this, "set_pref", extras);
                 runOnUiThread(() -> {
-                    showSnack(isChecked
-                            ? "已开启 LPA:// 激活码链接与扫码动作接管"
-                            : "已释放 LPA:// 链接接管（可交由其他写卡工具处理）");
+                    showSnack(getString(isChecked ? R.string.snack_lpa_uri_on : R.string.snack_lpa_uri_off));
                     refreshDashboard();
                 });
             });
@@ -920,7 +807,7 @@ public final class MainActivity extends Activity {
             if (bindingUi) return;
             rowRewriteText.refreshIconTint(isChecked);
             updatePhonePref(rowRewriteText, CardTypeGuard.KEY_REWRITE_TEXT, isChecked,
-                    isChecked ? "已开启系统设置提示文案修正" : "已恢复系统原始 eSIM 提示文案");
+                    getString(isChecked ? R.string.snack_rewrite_on : R.string.snack_rewrite_off));
         });
 
         rowUmountGuard.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
@@ -932,9 +819,7 @@ public final class MainActivity extends Activity {
                     isChecked,
                     new String[]{"umount_guard", isChecked ? "on" : "off"},
                     output -> {
-                        showSnack(isChecked
-                                ? "已开启内核 umount 卸载免疫（系统更新层已同步）"
-                                : "已剥离 /data/app 更新层，回退至纯 Overlay 挂载");
+                        showSnack(getString(isChecked ? R.string.snack_umount_on : R.string.snack_umount_off));
                         refreshDashboard();
                     });
         });
@@ -949,8 +834,8 @@ public final class MainActivity extends Activity {
                     new String[]{"isdr_se", isChecked ? "se1" : "auto"},
                     output -> {
                         showInfoDialog(
-                                isChecked ? "已切换到 SE1" : "已切换回 SE0",
-                                "新开启的 eSIM 通道会立即使用所选 SE。系统设置里的 EID 和配置列表有缓存，请重启手机后再管理配置。");
+                                getString(isChecked ? R.string.dialog_se1_title : R.string.dialog_se0_title),
+                                getString(R.string.dialog_se_message));
                         refreshDashboard();
                     });
         });
@@ -964,15 +849,13 @@ public final class MainActivity extends Activity {
                     isChecked,
                     new String[]{"tester", isChecked ? "on" : "off"},
                     output -> {
-                        showSnack(isChecked
-                                ? "已在桌面恢复安装「eSIM 模拟写卡测试」工具"
-                                : "已卸载隐藏独立测试工具图标");
+                        showSnack(getString(isChecked ? R.string.snack_tester_on : R.string.snack_tester_off));
                         refreshDashboard();
                     });
         });
     }
 
-    private void updatePhonePref(M3Ui.SwitchRow row, String key, boolean isChecked, String okMsg) {
+    private void updatePhonePref(UiKit.SwitchRow row, String key, boolean isChecked, String okMsg) {
         IO_EXEC.execute(() -> {
             Bundle extras = new Bundle();
             extras.putString("key", key);
@@ -982,7 +865,7 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> {
                 if (!ok) {
                     setSwitchSilently(row.toggle, row, !isChecked);
-                    showSnack("无法保存设置：请确认模块已开启且 LSPosed 电话框架作用域已生效");
+                    showSnack(getString(R.string.snack_pref_failed));
                 } else {
                     showSnack(okMsg);
                     refreshDashboard();
@@ -996,8 +879,8 @@ public final class MainActivity extends Activity {
     }
 
     private void runRootSwitchAction(
-            M3Ui.M3Switch sw,
-            M3Ui.SwitchRow ownerRow,
+            UiKit.ToggleSwitch sw,
+            UiKit.SwitchRow ownerRow,
             boolean desiredState,
             String[] args,
             ActionCallback callback) {
@@ -1038,21 +921,19 @@ public final class MainActivity extends Activity {
     }
 
     private void showRootPermissionDialog() {
-        M3Ui.showM3Dialog(
+        UiKit.showDialog(
                 this,
                 palette,
-                "需要授予 Root 控制权限",
-                "修改底层模块总开关或内核挂载策略需要 Root 权限。\n\n"
-                        + "请在 KernelSU / SukiSU Ultra / Magisk / APatch 的「超级用户」列表中为「HYPEROS4实体ESIM桥接」开启 Root 授权后再操作。\n\n"
-                        + "（注：上方 4 项日常核心功能开关无需 Root 授权即可实时生效。）",
+                getString(R.string.dialog_root_title),
+                getString(R.string.dialog_root_message, getString(R.string.app_name)),
                 false,
                 null,
                 null,
-                "我知道了");
+                getString(R.string.dialog_got_it));
     }
 
     private void showInfoDialog(String title, String message) {
-        M3Ui.showM3Dialog(this, palette, title, message, false, null, null, "确定");
+        UiKit.showDialog(this, palette, title, message, false, null, null, null);
     }
 
     private void showDiagnosticsDialog() {
@@ -1063,38 +944,31 @@ public final class MainActivity extends Activity {
                     : new JSONObject(ProbeInspector.inspect(this));
             pretty = obj.toString(2);
         } catch (Throwable e) {
-            pretty = "诊断数据读取失败：" + e.getMessage();
+            pretty = getString(R.string.diag_read_failed, String.valueOf(e.getMessage()));
         }
         final String reportText = pretty;
-        M3Ui.showM3Dialog(
+        UiKit.showDialog(
                 this,
                 palette,
-                "底层脱敏诊断报告",
+                getString(R.string.diag_title),
                 reportText,
                 true,
-                "复制报告",
+                getString(R.string.diag_copy),
                 () -> {
                     ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                     if (cm != null) {
                         cm.setPrimaryClip(ClipData.newPlainText("EsimH4Diagnostics", reportText));
-                        showSnack("脱敏诊断报告已复制到剪贴板");
+                        showSnack(getString(R.string.snack_diag_copied));
                     }
                 },
-                "关闭");
+                getString(R.string.diag_close));
     }
 
     private void setBusy(boolean busy) {
-        if (progressBar == null) return;
-        if (busy) {
-            progressBar.setVisibility(View.VISIBLE);
-            progressBar.startAnimation();
-        } else {
-            progressBar.stopAnimation();
-            progressBar.setVisibility(View.INVISIBLE);
-        }
+        if (scaffold != null) scaffold.setBusy(busy);
     }
 
-    private void setSwitchSilently(M3Ui.M3Switch sw, M3Ui.SwitchRow ownerRow, boolean checked) {
+    private void setSwitchSilently(UiKit.ToggleSwitch sw, UiKit.SwitchRow ownerRow, boolean checked) {
         boolean prev = bindingUi;
         bindingUi = true;
         try {
@@ -1108,30 +982,12 @@ public final class MainActivity extends Activity {
     }
 
     private void showSnack(String msg) {
-        if (snackView == null || isFinishing() || isDestroyed()) return;
-        if (hideSnackTask != null) {
-            uiHandler.removeCallbacks(hideSnackTask);
-        }
-        snackView.setText(msg);
-        if (snackView.getVisibility() != View.VISIBLE) {
-            snackView.setAlpha(0f);
-            snackView.setTranslationY(M3Ui.dpf(this, 14f));
-            snackView.setVisibility(View.VISIBLE);
-        }
-        snackView.animate()
-                .alpha(1f)
-                .translationY(0f)
-                .setDuration(180L)
-                .setInterpolator(M3Ui.M3_STANDARD_EASING)
-                .start();
-        hideSnackTask = () -> snackView.animate()
-                .alpha(0f)
-                .translationY(M3Ui.dpf(this, 10f))
-                .setDuration(160L)
-                .withEndAction(() -> snackView.setVisibility(View.GONE))
-                .start();
-        uiHandler.postDelayed(hideSnackTask, 2600L);
+        if (scaffold != null) scaffold.showSnack(msg);
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // Dashboard binding
+    // ---------------------------------------------------------------------------------------------
 
     private void refreshDashboard() {
         if (!refreshing.compareAndSet(false, true)) {
@@ -1179,150 +1035,121 @@ public final class MainActivity extends Activity {
             int defaultCardId = r.optInt("defaultCardId", -1);
             boolean hasActiveSub = r.optBoolean("sim2HasActiveSub", false);
             String carrierName = r.optString("sim2CarrierName", "");
-            String lpaVer = r.optString("lpaVersion", "未安装");
+            String lpaVer = r.has("lpaVersion") ? r.optString("lpaVersion") : getString(R.string.lpa_not_installed);
             boolean realEid = r.optBoolean("realEidPresent", false);
 
             boolean carrierBridge = r.optBoolean("carrierBridgeEnabled", true);
             boolean lpaUriBridge = r.optBoolean("lpaUriBridgeEnabled", true);
             boolean rewriteText = r.optBoolean("rewriteTextEnabled", true);
 
-            // 1. Bind Master Hero Banner
-            switchMasterMode.setChecked(moduleActive, false);
-            styleHeroCard(moduleActive, lpaPrivMounted && phoneHook);
+            // 1. Status banner + master switch
             if (!moduleActive) {
-                tvHeroTitle.setText("实体 eSIM 桥接已关闭");
-                tvHeroSubtitle.setText("点击右侧开关启用底层桥接服务");
+                styleStatusBanner(StatusState.OFF);
+                tvStatusTitle.setText(R.string.status_off);
+                tvStatusSubtitle.setText(R.string.status_off_summary);
             } else if (!lpaPrivMounted) {
-                tvHeroTitle.setText("桥接已开启 · 等待系统挂载");
-                tvHeroSubtitle.setText("小米 LPA 特权目录尚未挂载生效，请查看下方提示");
+                styleStatusBanner(StatusState.ATTENTION);
+                tvStatusTitle.setText(R.string.status_attention);
+                tvStatusSubtitle.setText(R.string.status_wait_mount);
             } else if (!phoneHook) {
-                tvHeroTitle.setText("桥接已开启 · 等待 LSPosed 激活");
-                tvHeroSubtitle.setText("请在 LSPosed 中确认勾选电话服务与小米 eSIM 并重启");
+                styleStatusBanner(StatusState.ATTENTION);
+                tvStatusTitle.setText(R.string.status_attention);
+                tvStatusSubtitle.setText(R.string.status_wait_lsposed);
             } else {
-                tvHeroTitle.setText("实体 eSIM 桥接运行中");
-                tvHeroSubtitle.setText(cardType == 1
-                        ? "底层特权与双通道通信已就绪 · 卡槽 2 已接管"
-                        : "底层特权与框架已就绪 · 等待卡槽 2 插入实体 eSIM");
+                styleStatusBanner(StatusState.RUNNING);
+                tvStatusTitle.setText(R.string.status_running);
+                tvStatusSubtitle.setText(cardType == 1 ? R.string.status_running_card : R.string.status_running_no_card);
             }
+            tvStatusVersion.setText(getString(R.string.status_version_lpa, ProbeInspector.MODULE_VERSION, lpaVer));
 
-            // 2. Bind Conditional Actionable Alert Banner
+            switchMasterMode.setChecked(moduleActive, false);
+            rowMaster.setRowState(moduleActive, true, getString(moduleActive
+                    ? R.string.row_master_on
+                    : R.string.row_master_off));
+
+            // 2. Alert banner
             if (moduleActive && !lpaPrivMounted) {
                 cardAlertBanner.setVisibility(View.VISIBLE);
-                tvAlertMessage.setText("LPA 系统特权挂载未生效：KernelSU / SukiSU 用户请确认已安装并启用 Hybrid Mount 或 meta-overlayfs 元模块（澎湃 OS 4 原厂多层 Overlay 分区不建议使用 Magic Mount-rs），重启手机后生效。");
+                tvAlertMessage.setText(R.string.alert_mount);
             } else if (moduleActive && !phoneHook) {
                 cardAlertBanner.setVisibility(View.VISIBLE);
-                tvAlertMessage.setText("未检测到电话框架 Hook 响应：请在 LSPosed 管理器中启用「HYPEROS4实体ESIM桥接」，勾选作用域 com.android.phone 与 com.miui.euicc 后重启手机。");
+                tvAlertMessage.setText(getString(R.string.alert_hook, getString(R.string.app_name)));
             } else {
                 cardAlertBanner.setVisibility(View.GONE);
             }
 
-            // 3. Bind SIM2 Hardware & Framework Overview Card
-            String eidTag = realEid ? "EID 已校验" : (cardType == 1 ? "ISD-R 已校验" : "待识别卡片");
-            tvSim2Meta.setText("小米 LPA " + lpaVer
-                    + (defaultCardId >= 0 ? " · 卡槽 ID: " + defaultCardId : "")
-                    + " · " + eidTag);
+            // 3. SIM2 card
+            String eidTag = getString(realEid
+                    ? R.string.eid_verified
+                    : (cardType == 1 ? R.string.isdr_verified : R.string.card_pending));
+            String meta = getString(R.string.sim2_meta_lpa, lpaVer);
+            if (defaultCardId >= 0) {
+                meta += " · " + getString(R.string.sim2_meta_card_id, defaultCardId);
+            }
+            tvSim2Meta.setText(meta + " · " + eidTag);
 
             bindSim2Status(cardType, esimSwitch, sim2State, hasActiveSub, carrierName, lpaPrivMounted, moduleActive);
 
-            setHealthTile(tvBadgeMount, lpaPrivMounted, lpaPrivMounted ? "已生效" : "未挂载", !moduleActive);
-            setHealthTile(tvBadgePhoneHook, phoneHook, phoneHook ? "已激活" : "未生效", false);
-            setHealthTile(tvBadgeLpaHook, lpaHook, lpaHook ? "已激活" : (lpaPrivMounted ? "待检查" : "未挂载"), !moduleActive);
+            setHealthTile(tvBadgeMount, lpaPrivMounted,
+                    getString(lpaPrivMounted ? R.string.health_active : R.string.health_not_mounted), !moduleActive);
+            setHealthTile(tvBadgePhoneHook, phoneHook,
+                    getString(phoneHook ? R.string.health_hooked : R.string.health_inactive), false);
+            setHealthTile(tvBadgeLpaHook, lpaHook,
+                    getString(lpaHook ? R.string.health_hooked
+                            : (lpaPrivMounted ? R.string.health_check : R.string.health_not_mounted)), !moduleActive);
             setHealthTile(tvBadgeEuicc, hasFeature && euiccEnabled,
-                    euiccEnabled ? "已启用" : (hasFeature ? "待启用" : "未声明"), !moduleActive);
+                    getString(euiccEnabled ? R.string.health_enabled
+                            : (hasFeature ? R.string.health_pending : R.string.health_undeclared)), !moduleActive);
 
-            M3Ui.setButtonEnabled(btnManageEsim, moduleActive && lpaPrivMounted && cardType != 0);
+            UiKit.setButtonEnabled(btnManageEsim, moduleActive && lpaPrivMounted && cardType != 0);
             btnLaunchTester.setAlpha(testerInstalled ? 1.0f : 0.65f);
 
-            // 4. Bind Core Runtime Switches
+            // 4. Device info
+            tvInfoLpa.setText(lpaVer);
+            tvInfoCardId.setText(defaultCardId >= 0 ? String.valueOf(defaultCardId) : "—");
+
+            // 5. Core switches
             boolean canToggleEsim = moduleActive && lpaPrivMounted && phoneHook && cardType == 1;
             String subEsim;
             if (!moduleActive) {
-                subEsim = "桥接服务关闭中 · 开启模块后可同步控制卡槽 2";
+                subEsim = getString(R.string.esim_sub_module_off);
             } else if (cardType == 1) {
-                subEsim = (esimSwitch == 1)
-                        ? "已开启 · 与系统移动网络 eSIM 开关实时双向同步"
-                        : "已关闭 · 点击立即唤醒激活卡槽 2 中的实体 eSIM 卡";
+                subEsim = getString(esimSwitch == 1 ? R.string.esim_sub_on : R.string.esim_sub_off);
             } else if (cardType == 0) {
-                subEsim = "安全隔离生效 · 卡槽 2 未插卡或为普通物理 SIM 卡";
+                subEsim = getString(R.string.esim_sub_isolated);
             } else {
-                subEsim = "正在识别卡槽 2 卡片类型，请稍候…";
+                subEsim = getString(R.string.esim_sub_detecting);
             }
             rowSystemEsim.setRowState(cardType == 1 && esimSwitch == 1, canToggleEsim, subEsim);
 
             boolean canUpdatePhonePrefs = moduleActive && phoneHook;
-            rowCarrierBridge.setRowState(
-                    carrierBridge,
-                    canUpdatePhonePrefs,
-                    carrierBridge
-                            ? "已开启 · 允许漫游与运营商 App 调起小米系统写卡确认弹窗"
-                            : "已关闭 · 仅具有运营商特权签名的官方应用可直接写卡");
+            rowCarrierBridge.setRowState(carrierBridge, canUpdatePhonePrefs,
+                    getString(carrierBridge ? R.string.carrier_sub_on : R.string.carrier_sub_off));
+            rowLpaUriBridge.setRowState(lpaUriBridge, true,
+                    getString(lpaUriBridge ? R.string.lpa_uri_sub_on : R.string.lpa_uri_sub_off));
+            rowRewriteText.setRowState(rewriteText, canUpdatePhonePrefs,
+                    getString(rewriteText ? R.string.rewrite_sub_on : R.string.rewrite_sub_off));
 
-            rowLpaUriBridge.setRowState(
-                    lpaUriBridge,
-                    true,
-                    lpaUriBridge
-                            ? "已开启 · 点击 LPA:1$ 激活链接自动拉起小米原生写卡页"
-                            : "已关闭 · 不拦截 LPA:// 链接，可交由 EasyLPAC 等工具打开");
-
-            rowRewriteText.setRowState(
-                    rewriteText,
-                    canUpdatePhonePrefs,
-                    rewriteText
-                            ? "已开启 · 将移动网络页“替换 SIM 卡 2”修正为实体卡同步说明"
-                            : "已关闭 · 显示澎湃 OS 原厂默认 eSIM 开关提示文案");
-
-            // 5. Bind Root / Component Switches
+            // 6. Root / component switches
             String subUmount;
             if (lpaUpdatedSys) {
-                subUmount = "已生效 · 系统特权 + /data/app 双层驻留，彻底免疫内核 umount 闪退";
+                subUmount = getString(R.string.umount_sub_active);
             } else if (lpaPrivMounted) {
-                subUmount = "当前为纯 Overlay 挂载 · 开启后同步更新层以免疫 SukiSU 默认卸载";
+                subUmount = getString(R.string.umount_sub_overlay);
             } else {
-                subUmount = "等待 LPA 特权挂载生效后自动同步系统更新层";
+                subUmount = getString(R.string.umount_sub_waiting);
             }
             rowUmountGuard.setRowState(lpaUpdatedSys, moduleActive && lpaPrivMounted, subUmount);
 
             boolean se1 = "se1".equals(EuiccCardReader.isdrSePref());
-            rowEstkSe1.setRowState(
-                    se1,
-                    moduleActive,
-                    se1 ? "当前管理 SE1 · 关闭后切回 SE0（标准 ISD-R）"
-                        : "当前管理 SE0（标准 ISD-R）· 开启后改为管理 SE1");
+            rowEstkSe1.setRowState(se1, moduleActive,
+                    getString(se1 ? R.string.se1_sub_on : R.string.se1_sub_off));
 
-            rowTesterApp.setRowState(
-                    testerInstalled,
-                    moduleActive,
-                    testerInstalled
-                            ? "已在桌面保留「eSIM 模拟写卡测试」图标，可随时验证写卡链路"
-                            : "已隐藏独立测试工具图标，开启后自动恢复安装");
+            rowTesterApp.setRowState(testerInstalled, moduleActive,
+                    getString(testerInstalled ? R.string.tester_sub_on : R.string.tester_sub_off));
         } finally {
             bindingUi = false;
         }
-    }
-
-    private void styleHeroCard(boolean moduleActive, boolean allHealthy) {
-        int bg;
-        int fg;
-        int circleBg;
-        if (!moduleActive) {
-            bg = palette.surfaceHigh;
-            fg = palette.onSurface;
-            circleBg = palette.tileBg;
-        } else if (!allHealthy) {
-            bg = palette.errorContainer;
-            fg = palette.onErrorContainer;
-            circleBg = M3Ui.withAlpha(fg, 0x1E);
-        } else {
-            bg = palette.primaryContainer;
-            fg = palette.onPrimaryContainer;
-            circleBg = M3Ui.withAlpha(fg, 0x1A);
-        }
-        cardMasterHero.setBackground(M3Ui.rippleSegmented(
-                this, bg, M3Ui.withAlpha(fg, 0x1F), M3Ui.radius(28f, 16f), M3Ui.radius(28f, 16f), 0, 0));
-        tvHeroTitle.setTextColor(fg);
-        tvHeroSubtitle.setTextColor(M3Ui.withAlpha(fg, 0xDB));
-        ivHeroIcon.setImageTintList(ColorStateList.valueOf(fg));
-        heroIconContainer.setBackground(M3Ui.oval(circleBg));
     }
 
     private void setHealthTile(TextView tv, boolean ok, String text, boolean muted) {
@@ -1348,117 +1175,64 @@ public final class MainActivity extends Activity {
             boolean moduleActive) {
         int pillBgRes;
         int pillFgRes;
-        String badge;
+        int badge;
         String detail;
 
         if (!moduleActive) {
-            badge = "未启用";
+            badge = R.string.badge_disabled;
             pillBgRes = R.color.status_off_bg;
             pillFgRes = R.color.status_off_fg;
-            detail = "桥接模块当前处于关闭状态，开启后将自动检测卡槽 2 中的可插拔实体 eSIM 卡。";
+            detail = getString(R.string.sim2_detail_module_off);
         } else if (cardType == 1) {
             boolean profileReady = hasActiveSub
                     || sim2State == TelephonyManager.SIM_STATE_READY
                     || sim2State == 10;
             if (profileReady && esimSwitch != 0) {
-                badge = "套餐已启用";
+                badge = R.string.badge_profile_on;
                 pillBgRes = R.color.status_ok_bg;
                 pillFgRes = R.color.status_ok_fg;
-                String carrierSuffix = (carrierName != null && !carrierName.isEmpty())
-                        ? "（" + carrierName + " · 驻网就绪）"
-                        : "（套餐已启用就绪）";
-                detail = "已识别可插拔实体 eSIM 卡" + carrierSuffix + "，可直接管理套餐或扫码新增配置。";
+                detail = (carrierName != null && !carrierName.isEmpty())
+                        ? getString(R.string.sim2_detail_ready_carrier, carrierName)
+                        : getString(R.string.sim2_detail_ready);
             } else if (esimSwitch == 0) {
-                badge = "已停用";
+                badge = R.string.badge_stopped;
                 pillBgRes = R.color.status_warn_bg;
                 pillFgRes = R.color.status_warn_fg;
-                detail = "已识别实体 eSIM 卡，当前系统 eSIM 开关已关闭（可在下方一键开启唤醒）。";
+                detail = getString(R.string.sim2_detail_switch_off);
             } else {
-                badge = "空白/待启用";
+                badge = R.string.badge_empty;
                 pillBgRes = R.color.status_ok_bg;
                 pillFgRes = R.color.status_ok_fg;
-                detail = "已识别实体 eSIM 卡（零套餐空白卡或暂无启用配置），可直接点击下方「打开小米原生 eSIM 管理与写卡」下载首个套餐。";
+                detail = getString(R.string.sim2_detail_empty, getString(R.string.btn_manage_esim));
             }
         } else if (cardType == 0) {
             if (sim2State == TelephonyManager.SIM_STATE_ABSENT) {
-                badge = "未插卡";
+                badge = R.string.badge_no_card;
                 pillBgRes = R.color.status_off_bg;
                 pillFgRes = R.color.status_off_fg;
-                detail = "物理卡槽 2 当前未插入卡片，请将 ESTKme / 小白卡 / 9eSIM 等可插拔 eSIM 卡放入卡槽 2。";
+                detail = getString(R.string.sim2_detail_absent);
             } else {
-                badge = "普通 SIM 保护";
+                badge = R.string.badge_normal_sim;
                 pillBgRes = R.color.status_warn_bg;
                 pillFgRes = R.color.status_warn_fg;
-                detail = "卡槽 2 当前为普通物理 SIM 卡（Fail-Closed 硬件隔离保护已生效，不会干扰普通卡通信）。";
+                detail = getString(R.string.sim2_detail_normal_sim);
             }
         } else if (!lpaPrivMounted) {
-            badge = "待挂载";
+            badge = R.string.badge_wait_mount;
             pillBgRes = R.color.status_err_bg;
             pillFgRes = R.color.status_err_fg;
-            detail = "等待小米 LPA 系统特权目录挂载生效后再完成卡片校验。";
+            detail = getString(R.string.sim2_detail_wait_mount);
         } else {
-            badge = "识别中";
+            badge = R.string.badge_detecting;
             pillBgRes = R.color.status_off_bg;
             pillFgRes = R.color.status_off_fg;
-            detail = "正在通过 ISD-R 安全通道校验卡槽 2 卡片类型…";
+            detail = getString(R.string.sim2_detail_detecting);
         }
 
         tvSim2Badge.setText(badge);
         tvSim2Badge.setTextColor(getColor(pillFgRes));
-        tvSim2Badge.setBackground(M3Ui.roundedRect(this, getColor(pillBgRes), 999f, 0, 0));
+        tvSim2Badge.setBackground(UiKit.roundedRect(this, getColor(pillBgRes), 999f, 0, 0));
         tvSim2Detail.setText(detail);
-    }
-
-    /**
-     * Sleek 3dp Material Design 3 indeterminate progress track.
-     */
-    private static final class IndeterminateM3Bar extends View {
-        private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF rect = new RectF();
-        private ValueAnimator anim;
-        private float phase = 0f;
-
-        IndeterminateM3Bar(Context ctx, M3Ui.Palette p) {
-            super(ctx);
-            trackPaint.setColor(p.secondaryContainer);
-            barPaint.setColor(p.primary);
-        }
-
-        void startAnimation() {
-            if (anim != null && anim.isRunning()) return;
-            anim = ValueAnimator.ofFloat(0f, 1f);
-            anim.setDuration(1050L);
-            anim.setRepeatCount(ValueAnimator.INFINITE);
-            anim.setInterpolator(new LinearInterpolator());
-            anim.addUpdateListener(a -> {
-                phase = (float) a.getAnimatedValue();
-                invalidate();
-            });
-            anim.start();
-        }
-
-        void stopAnimation() {
-            if (anim != null) {
-                anim.cancel();
-                anim = null;
-            }
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-            float w = getWidth();
-            float h = getHeight();
-            float r = h / 2f;
-            rect.set(0, 0, w, h);
-            canvas.drawRoundRect(rect, r, r, trackPaint);
-
-            float segW = w * 0.36f;
-            float left = -segW + (w + segW) * phase;
-            rect.set(left, 0, left + segW, h);
-            canvas.drawRoundRect(rect, r, r, barPaint);
-        }
     }
 
     public static String inspect(Context ctx) {

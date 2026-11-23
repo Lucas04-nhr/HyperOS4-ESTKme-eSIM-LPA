@@ -50,5 +50,6 @@ android {
     }
 }
 dependencies {
+    implementation(project(":ui"))
     compileOnly("io.github.libxposed:api:101.0.1")
 }

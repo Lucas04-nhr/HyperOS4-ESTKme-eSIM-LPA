@@ -8,16 +8,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.RippleDrawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
@@ -29,22 +21,21 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowInsets;
-import android.view.WindowInsetsController;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
+import io.github.local.esimh4ui.Scaffold;
+import io.github.local.esimh4ui.ThemedActivity;
+import io.github.local.esimh4ui.UiKit;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
 /**
- * Pure OS-native Material Design 3 Expressive mock carrier app to verify EuiccManager
- * one-click eSIM installation, LPA:// URI bridging, and authorization dialog safely.
+ * Mock carrier app to verify EuiccManager one-click eSIM installation, LPA:// URI bridging and
+ * the authorization dialog safely. Shares the Material 3 / Miuix UI kit with the main app.
  */
-public final class TesterActivity extends Activity {
+public final class TesterActivity extends ThemedActivity {
     private static final String TAG = "EsimH4Tester";
     private static final String MODULE_VERSION = "v0.6.1";
     private static final String LPA_PKG = "com.miui.euicc";
@@ -54,6 +45,8 @@ public final class TesterActivity extends Activity {
     private static final String PERM_SE_PRIVILEGED = "android.permission.SECURE_ELEMENT_PRIVILEGED_OPERATION";
     private static final String ACTION_DOWNLOAD_CB = "io.github.local.esimh4tester.ACTION_DOWNLOAD_CB";
     private static final String DEFAULT_MOCK_CODE = "LPA:1$test.esim.local$MOCK-TEST-001";
+    private static final String OK = "● ";
+    private static final String BAD = "○ ";
     private static final int REQ_RESOLVE = 1001;
     private static final int REQ_ACTIVATE = 1002;
     private static final java.lang.reflect.Method GET_DEFAULT_CARD_ID;
@@ -67,6 +60,7 @@ public final class TesterActivity extends Activity {
         GET_DEFAULT_CARD_ID = m;
     }
 
+    private Scaffold scaffold;
     private TextView statusView;
     private EditText codeInput;
     private TextView logView;
@@ -86,8 +80,8 @@ public final class TesterActivity extends Activity {
 
             if ("initial".equals(phase)) {
                 if (resultCode == EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_RESOLVABLE_ERROR) {
-                    appendLog("收到系统回调: RESOLVABLE_ERROR (1)");
-                    appendLog("说明: 系统已识别写卡请求，正在弹出小米原生写卡授权窗口...");
+                    appendLog(getString(R.string.log_resolvable));
+                    appendLog(getString(R.string.log_resolvable_note));
                     try {
                         EuiccManager em = getSystemService(EuiccManager.class);
                         Intent cb = new Intent(ACTION_DOWNLOAD_CB)
@@ -101,23 +95,24 @@ public final class TesterActivity extends Activity {
                         );
                         em.startResolutionActivity(TesterActivity.this, REQ_RESOLVE, intent, pi);
                     } catch (Throwable t) {
-                        appendLog("调起授权窗口失败: " + t.getClass().getSimpleName() + ": " + t.getMessage());
+                        appendLog(getString(R.string.log_resolution_failed,
+                                t.getClass().getSimpleName() + ": " + t.getMessage()));
                     }
                 } else if (resultCode == EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK) {
-                    appendLog("直接写卡完成: RESULT_OK (0)");
+                    appendLog(getString(R.string.log_direct_ok));
                 } else {
-                    appendLog("写卡请求返回错误: resultCode=" + resultCode + ", detailedCode=" + detailed);
+                    appendLog(getString(R.string.log_request_error, resultCode, detailed));
                 }
             } else {
                 if (resultCode == EuiccManager.EMBEDDED_SUBSCRIPTION_RESULT_OK) {
                     if (mockIntercepted) {
-                        appendLog("授权后回调: RESULT_OK (0)");
-                        appendLog("【安全保护】检测到 test.esim.local 模拟码，已在底层拦截，未向实体卡写入测试数据！");
+                        appendLog(getString(R.string.log_after_auth_ok));
+                        appendLog(getString(R.string.log_mock_intercepted));
                     } else {
-                        appendLog("授权后回调: 真实激活码写卡成功 (RESULT_OK)");
+                        appendLog(getString(R.string.log_real_ok));
                     }
                 } else {
-                    appendLog("授权后回调结束: resultCode=" + resultCode + " (已取消或中止，未修改卡内数据)");
+                    appendLog(getString(R.string.log_after_auth_end, resultCode));
                 }
             }
         }
@@ -126,381 +121,141 @@ public final class TesterActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        int nightFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        boolean isNight = (nightFlags == Configuration.UI_MODE_NIGHT_YES);
-
         registerReceiver(downloadReceiver, new IntentFilter(ACTION_DOWNLOAD_CB), Context.RECEIVER_EXPORTED);
-        View root = buildM3View(isNight);
-        setContentView(root);
 
-        Window window = getWindow();
-        if (window != null) {
-            window.setDecorFitsSystemWindows(false);
-            window.setStatusBarColor(Color.TRANSPARENT);
-            window.setNavigationBarColor(Color.TRANSPARENT);
-            if (Build.VERSION.SDK_INT >= 29) {
-                window.setNavigationBarContrastEnforced(false);
-            }
-            View decor = window.getDecorView();
-            WindowInsetsController ctrl = decor != null ? decor.getWindowInsetsController() : null;
-            if (ctrl != null) {
-                int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
-                ctrl.setSystemBarsAppearance(isNight ? 0 : mask, mask);
-            }
-        }
+        scaffold = new Scaffold(this, palette, getString(R.string.app_name),
+                getString(R.string.tester_subtitle, MODULE_VERSION), false);
+        scaffold.addAction(UiKit.createIconButton(
+                this, palette, R.drawable.ic_refresh_24, getString(R.string.tester_refresh), this::refreshStatus));
+        scaffold.addAction(UiKit.createIconButton(
+                this, palette, io.github.local.esimh4ui.R.drawable.ic_palette_24,
+                getString(io.github.local.esimh4ui.R.string.theme_title), this::openThemeSettings));
+        scaffold.addPage(buildContent(), io.github.local.esimh4ui.R.id.ui_page_1);
+        setContentView(scaffold.root);
+        UiKit.applyEdgeToEdge(this, palette);
 
         refreshStatus();
-        appendLog("就绪（" + MODULE_VERSION + "）。点击上方「测试 1」验证运营商一键写卡授权弹窗。");
+        appendLog(getString(R.string.log_ready, MODULE_VERSION));
 
         if (getIntent() != null && getIntent().getBooleanExtra("auto_test", false)) {
-            root.postDelayed(this::startMockDownload, 400);
+            scaffold.root.postDelayed(this::startMockDownload, 400);
         }
     }
 
-    private View buildM3View(boolean isNight) {
-        int pageBg = isNight
-                ? sysColor("system_surface_container_lowest_dark", 0xFF0C0E13)
-                : sysColor("system_surface_container_low_light", 0xFFF3F4F9);
-        int cardBg = isNight
-                ? sysColor("system_surface_container_dark", 0xFF1B1F26)
-                : sysColor("system_surface_container_lowest_light", 0xFFFFFFFF);
-        int tileBg = isNight
-                ? sysColor("system_surface_container_high_dark", 0xFF252A32)
-                : sysColor("system_surface_container_light", 0xFFECEEF4);
-        int primary = isNight
-                ? sysColor("system_primary_dark", 0xFFA5C8FF)
-                : sysColor("system_primary_light", 0xFF1B5E9E);
-        int onPrimary = isNight
-                ? sysColor("system_on_primary_dark", 0xFF00315E)
-                : sysColor("system_on_primary_light", 0xFFFFFFFF);
-        int secContainer = isNight
-                ? sysColor("system_secondary_container_dark", 0xFF3B4858)
-                : sysColor("system_secondary_container_light", 0xFFD7E3F8);
-        int onSecContainer = isNight
-                ? sysColor("system_on_secondary_container_dark", 0xFFD7E3F8)
-                : sysColor("system_on_secondary_container_light", 0xFF101C2B);
-        int onSurface = isNight
-                ? sysColor("system_on_surface_dark", 0xFFE1E2E8)
-                : sysColor("system_on_surface_light", 0xFF191C20);
-        int onSurfaceVar = isNight
-                ? sysColor("system_on_surface_variant_dark", 0xFFC3C6CF)
-                : sysColor("system_on_surface_variant_light", 0xFF43474E);
-        int outlineVar = isNight
-                ? sysColor("system_outline_variant_dark", 0xFF43474E)
-                : sysColor("system_outline_variant_light", 0xFFC3C6CF);
-        int ripple = (primary & 0x00FFFFFF) | 0x24000000;
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(pageBg);
-
-        // Top App Bar
-        LinearLayout topBar = new LinearLayout(this);
-        topBar.setOrientation(LinearLayout.HORIZONTAL);
-        topBar.setGravity(Gravity.CENTER_VERTICAL);
-        int topH = dp(18);
-        int topV = dp(12);
-        topBar.setPadding(topH, topV, topH, topV);
-
-        LinearLayout titleWrap = new LinearLayout(this);
-        titleWrap.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams twLp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        twLp.rightMargin = dp(10);
-        titleWrap.setLayoutParams(twLp);
-
-        TextView tvTitle = new TextView(this);
-        tvTitle.setText("eSIM 模拟写卡测试");
-        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f);
-        tvTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        tvTitle.setTextColor(onSurface);
-        titleWrap.addView(tvTitle);
-
-        TextView tvVer = new TextView(this);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        vlp.topMargin = dp(3);
-        tvVer.setLayoutParams(vlp);
-        tvVer.setText(MODULE_VERSION + " · 安全拦截验证");
-        tvVer.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-        tvVer.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        tvVer.setTextColor(onSecContainer);
-        tvVer.setPadding(dp(8), dp(2), dp(8), dp(2));
-        tvVer.setBackground(rounded(secContainer, 999f, 0, 0));
-        titleWrap.addView(tvVer);
-        topBar.addView(titleWrap);
-
-        TextView btnRefresh = createPillButton("刷新状态", secContainer, onSecContainer, ripple, 0, 0, 38, this::refreshStatus);
-        btnRefresh.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        topBar.addView(btnRefresh);
-        root.addView(topBar);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        scroll.setClipToPadding(false);
-        scroll.setVerticalScrollBarEnabled(false);
-
+    private View buildContent() {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setLayoutParams(new ScrollView.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        boolean miuix = UiKit.isMiuix();
 
-        // Card 1: Live eUICC Status Card
-        LinearLayout statusCard = new LinearLayout(this);
-        statusCard.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(18);
-        statusCard.setPadding(pad, pad, pad, pad);
-        statusCard.setBackground(rounded(cardBg, 24f, 0, 0));
-
-        TextView tvStatusHdr = new TextView(this);
-        tvStatusHdr.setText("当前系统 eUICC 链路状态");
-        tvStatusHdr.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f);
-        tvStatusHdr.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        tvStatusHdr.setTextColor(onSurface);
-        statusCard.addView(tvStatusHdr);
-
+        // Card 1: live eUICC status
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.tester_status_title)));
+        LinearLayout statusCard = UiKit.createCard(this, palette);
         statusView = new TextView(this);
-        LinearLayout.LayoutParams svLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        svLp.topMargin = dp(10);
-        statusView.setLayoutParams(svLp);
-        int tilePad = dp(14);
-        statusView.setPadding(tilePad, dp(12), tilePad, dp(12));
-        statusView.setBackground(rounded(tileBg, 16f, 0, 0));
+        int tilePad = UiKit.dp(this, 14);
+        statusView.setPadding(tilePad, UiKit.dp(this, 12), tilePad, UiKit.dp(this, 12));
+        statusView.setBackground(UiKit.roundedRect(this, palette.tileBg, UiKit.radius(16f, 12f), 0, 0));
         statusView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        statusView.setLineSpacing(dp(4), 1.0f);
-        statusView.setTextColor(onSurface);
+        statusView.setLineSpacing(UiKit.dpf(this, 4f), 1.0f);
+        statusView.setTextColor(palette.onSurface);
         statusCard.addView(statusView);
         col.addView(statusCard);
 
-        // Card 2: Mock Carrier Actions Card
-        LinearLayout testCard = new LinearLayout(this);
-        testCard.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams tcLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tcLp.topMargin = dp(14);
-        testCard.setLayoutParams(tcLp);
-        testCard.setPadding(pad, pad, pad, pad);
-        testCard.setBackground(rounded(cardBg, 24f, 0, 0));
-
-        LinearLayout hdrRow = new LinearLayout(this);
-        hdrRow.setOrientation(LinearLayout.HORIZONTAL);
-        hdrRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        TextView tvTestHdr = new TextView(this);
-        tvTestHdr.setLayoutParams(new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        tvTestHdr.setText("模拟写卡验证（零写卡风险）");
-        tvTestHdr.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f);
-        tvTestHdr.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        tvTestHdr.setTextColor(onSurface);
-        hdrRow.addView(tvTestHdr);
-
-        TextView btnReset = createPillButton("恢复默认码", tileBg, onSurfaceVar, ripple, 0, 0, 32, () -> {
-            codeInput.setText(DEFAULT_MOCK_CODE);
-            appendLog("已恢复默认安全测试激活码: " + DEFAULT_MOCK_CODE);
-        });
-        btnReset.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
-        hdrRow.addView(btnReset);
-        testCard.addView(hdrRow);
+        // Card 2: mock carrier actions
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.tester_mock_title)));
+        LinearLayout testCard = UiKit.createCard(this, palette);
 
         TextView tvSafety = new TextView(this);
-        LinearLayout.LayoutParams sfLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        sfLp.topMargin = dp(6);
-        tvSafety.setLayoutParams(sfLp);
-        tvSafety.setText("包含 test.esim.local 的模拟激活码会在授权确认后由底层自动安全拦截，绝不向实体 eSIM 卡发送真实写卡 APDU。");
+        tvSafety.setText(R.string.tester_safety_note);
         tvSafety.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
-        tvSafety.setLineSpacing(dp(2), 1.0f);
-        tvSafety.setTextColor(onSurfaceVar);
+        tvSafety.setLineSpacing(UiKit.dpf(this, 2f), 1.0f);
+        tvSafety.setTextColor(palette.onSurfaceVariant);
         testCard.addView(tvSafety);
 
         codeInput = new EditText(this);
         LinearLayout.LayoutParams ciLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        ciLp.topMargin = dp(12);
+        ciLp.topMargin = UiKit.dp(this, 12);
         codeInput.setLayoutParams(ciLp);
         codeInput.setText(DEFAULT_MOCK_CODE);
         codeInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         codeInput.setSingleLine(true);
         codeInput.setTypeface(Typeface.MONOSPACE);
         codeInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        codeInput.setTextColor(onSurface);
-        codeInput.setPadding(dp(14), dp(12), dp(14), dp(12));
-        codeInput.setBackground(rounded(tileBg, 14f, Math.max(1, dp(1)), outlineVar));
+        codeInput.setTextColor(palette.onSurface);
+        codeInput.setPadding(UiKit.dp(this, 14), UiKit.dp(this, 12), UiKit.dp(this, 14), UiKit.dp(this, 12));
+        codeInput.setBackground(miuix
+                ? UiKit.roundedRect(this, palette.tileBg, 12f, 0, 0)
+                : UiKit.roundedRect(this, palette.tileBg, 14f, Math.max(1, UiKit.dp(this, 1)), palette.outlineVariant));
         testCard.addView(codeInput);
 
-        TextView btnTest1 = createPillButton(
-                "测试 1：运营商一键写卡授权弹窗",
-                primary,
-                onPrimary,
-                (onPrimary & 0x00FFFFFF) | 0x26000000,
-                0,
-                0,
-                48,
-                this::startMockDownload);
-        LinearLayout.LayoutParams b1Lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        b1Lp.topMargin = dp(14);
-        btnTest1.setLayoutParams(b1Lp);
-        testCard.addView(btnTest1);
+        LinearLayout btnReset = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.TONAL, 0, getString(R.string.tester_reset_code), 36, () -> {
+                    codeInput.setText(DEFAULT_MOCK_CODE);
+                    appendLog(getString(R.string.log_reset_code, DEFAULT_MOCK_CODE));
+                });
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rlp.topMargin = UiKit.dp(this, 8);
+        rlp.gravity = Gravity.END;
+        testCard.addView(btnReset, rlp);
 
-        TextView btnTest2 = createPillButton(
-                "测试 2：LPA:// 激活链接拉起写卡页",
-                secContainer,
-                onSecContainer,
-                ripple,
-                0,
-                0,
-                44,
-                this::startLpaUriTest);
-        LinearLayout.LayoutParams b2Lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        b2Lp.topMargin = dp(10);
-        btnTest2.setLayoutParams(b2Lp);
-        testCard.addView(btnTest2);
-
-        TextView btnTest3 = createPillButton(
-                "测试 3：标准激活扫码页跳转",
-                Color.TRANSPARENT,
-                primary,
-                ripple,
-                Math.max(1, dp(1)),
-                outlineVar,
-                44,
-                this::startStandardActivationTest);
-        LinearLayout.LayoutParams b3Lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        b3Lp.topMargin = dp(10);
-        btnTest3.setLayoutParams(b3Lp);
-        testCard.addView(btnTest3);
-
+        addFullWidth(testCard, UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.FILLED, R.drawable.ic_science_24,
+                getString(R.string.tester_test1), 48, this::startMockDownload), 12);
+        addFullWidth(testCard, UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.TONAL, 0,
+                getString(R.string.tester_test2), 44, this::startLpaUriTest), 10);
+        addFullWidth(testCard, UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.OUTLINED, 0,
+                getString(R.string.tester_test3), 44, this::startStandardActivationTest), 10);
         col.addView(testCard);
 
-        // Card 3: Real-time Callback Console
-        LinearLayout logCard = new LinearLayout(this);
-        logCard.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams lcLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lcLp.topMargin = dp(14);
-        logCard.setLayoutParams(lcLp);
-        logCard.setPadding(pad, pad, pad, pad);
-        logCard.setBackground(rounded(cardBg, 24f, 0, 0));
-
+        // Card 3: callback console
         LinearLayout logHdr = new LinearLayout(this);
         logHdr.setOrientation(LinearLayout.HORIZONTAL);
         logHdr.setGravity(Gravity.CENTER_VERTICAL);
+        TextView hdr = UiKit.createSectionHeader(this, palette, getString(R.string.tester_console_title));
+        LinearLayout.LayoutParams hlp = (LinearLayout.LayoutParams) hdr.getLayoutParams();
+        hlp.width = 0;
+        hlp.weight = 1f;
+        logHdr.addView(hdr);
+        LinearLayout btnClear = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.TONAL, 0, getString(R.string.tester_clear_log), 32, () -> {
+                    logBuffer.setLength(0);
+                    logView.setText(getString(R.string.log_cleared) + "\n");
+                });
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        clp.topMargin = UiKit.dp(this, 10);
+        logHdr.addView(btnClear, clp);
+        col.addView(logHdr);
 
-        TextView tvLogTitle = new TextView(this);
-        tvLogTitle.setLayoutParams(new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        tvLogTitle.setText("实时回调控制台");
-        tvLogTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f);
-        tvLogTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        tvLogTitle.setTextColor(onSurface);
-        logHdr.addView(tvLogTitle);
-
-        TextView btnClear = createPillButton("清空日志", tileBg, onSurfaceVar, ripple, 0, 0, 32, () -> {
-            logBuffer.setLength(0);
-            logView.setText("日志已清空。\n");
-        });
-        btnClear.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
-        logHdr.addView(btnClear);
-        logCard.addView(logHdr);
-
+        LinearLayout logCard = UiKit.createCard(this, palette);
         logView = new TextView(this);
-        LinearLayout.LayoutParams lvLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lvLp.topMargin = dp(10);
-        logView.setLayoutParams(lvLp);
-        logView.setMinimumHeight(dp(120));
-        logView.setPadding(dp(14), dp(12), dp(14), dp(12));
-        logView.setBackground(rounded(0xFF12151C, 16f, 0, 0));
+        logView.setMinimumHeight(UiKit.dp(this, 120));
+        logView.setPadding(UiKit.dp(this, 14), UiKit.dp(this, 12), UiKit.dp(this, 14), UiKit.dp(this, 12));
+        logView.setBackground(UiKit.roundedRect(this, 0xFF12151C, UiKit.radius(16f, 12f), 0, 0));
         logView.setTypeface(Typeface.MONOSPACE);
         logView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
-        logView.setLineSpacing(dp(3), 1.0f);
+        logView.setLineSpacing(UiKit.dpf(this, 3f), 1.0f);
         logView.setTextColor(0xFFD8E4F8);
         logView.setTextIsSelectable(true);
         logCard.addView(logView);
-
         col.addView(logCard);
-        scroll.addView(col);
-        root.addView(scroll);
-
-        final int sidePad = dp(16);
-        final int botPad = dp(28);
-        root.setOnApplyWindowInsetsListener((v, insets) -> {
-            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-            topBar.setPadding(topH + bars.left, topV + bars.top, topH + bars.right, topV);
-            scroll.setPadding(sidePad + bars.left, dp(4), sidePad + bars.right, botPad + bars.bottom);
-            return WindowInsets.CONSUMED;
-        });
-
-        return root;
+        return col;
     }
 
-    private int dp(float v) {
-        return Math.round(v * getResources().getDisplayMetrics().density);
-    }
-
-    private int sysColor(String name, int fallback) {
-        if (Build.VERSION.SDK_INT < 34) return fallback;
-        try {
-            Resources res = getResources();
-            int id = res.getIdentifier(name, "color", "android");
-            if (id != 0) {
-                return getColor(id);
-            }
-        } catch (Throwable ignored) {
-        }
-        return fallback;
-    }
-
-    private GradientDrawable rounded(int fill, float radiusDp, int strokePx, int strokeColor) {
-        GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE);
-        gd.setCornerRadius(radiusDp * getResources().getDisplayMetrics().density);
-        gd.setColor(fill);
-        if (strokePx > 0) {
-            gd.setStroke(strokePx, strokeColor);
-        }
-        return gd;
-    }
-
-    private TextView createPillButton(
-            String label,
-            int bg,
-            int fg,
-            int rippleColor,
-            int strokePx,
-            int strokeColor,
-            int minHeightDp,
-            Runnable action) {
-        TextView tv = new TextView(this);
-        tv.setText(label);
-        tv.setGravity(Gravity.CENTER);
-        tv.setMinimumHeight(dp(minHeightDp));
-        tv.setPadding(dp(16), dp(8), dp(16), dp(8));
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
-        tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        tv.setTextColor(fg);
-        float radius = minHeightDp / 2f;
-        Drawable content = rounded(bg, radius, strokePx, strokeColor);
-        Drawable mask = rounded(Color.WHITE, radius, 0, 0);
-        tv.setBackground(new RippleDrawable(ColorStateList.valueOf(rippleColor), content, mask));
-        tv.setClickable(true);
-        tv.setFocusable(true);
-        tv.setOnClickListener(v -> action.run());
-        return tv;
+    private void addFullWidth(LinearLayout parent, View child, int topMarginDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = UiKit.dp(this, topMarginDp);
+        parent.addView(child, lp);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (isThemeRecreating()) return;
         refreshStatus();
     }
 
@@ -510,6 +265,7 @@ public final class TesterActivity extends Activity {
             unregisterReceiver(downloadReceiver);
         } catch (Throwable ignored) {
         }
+        if (scaffold != null) scaffold.release();
         super.onDestroy();
     }
 
@@ -518,11 +274,11 @@ public final class TesterActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_RESOLVE) {
-            appendLog("系统授权窗口返回: resultCode=" + (resultCode == Activity.RESULT_OK
-                    ? "RESULT_OK (-1，用户点击确定)"
-                    : "RESULT_CANCELED (0，用户取消)"));
+            appendLog(getString(resultCode == Activity.RESULT_OK
+                    ? R.string.log_auth_result_ok
+                    : R.string.log_auth_result_cancel));
         } else if (requestCode == REQ_ACTIVATE) {
-            appendLog("系统扫码写卡页返回: resultCode=" + resultCode);
+            appendLog(getString(R.string.log_activate_result, resultCode));
         }
     }
 
@@ -551,23 +307,23 @@ public final class TesterActivity extends Activity {
         }
         if (cardType == 1) {
             if (sim2State == TelephonyManager.SIM_STATE_READY || sim2State == 10) {
-                return "✅ 已识别实体 eSIM 卡（套餐已启用）";
+                return OK + getString(R.string.card_esim_active);
             }
             if (esimSwitch == 0) {
-                return "⚠️ 已识别实体 eSIM 卡（系统 eSIM 开关已关闭）";
+                return BAD + getString(R.string.card_esim_switch_off);
             }
-            return "✅ 已识别实体 eSIM 卡（空白卡/待启用，可直接写卡）";
+            return OK + getString(R.string.card_esim_empty);
         }
         if (cardType == 0) {
             if (sim2State == TelephonyManager.SIM_STATE_ABSENT) {
-                return "❌ 卡槽 2 未插卡";
+                return BAD + getString(R.string.card_absent);
             }
-            return "❌ 普通 SIM 卡或未启用适配";
+            return BAD + getString(R.string.card_regular);
         }
         if (!lpaPrivMounted) {
-            return "❌ 等待 LPA 系统特权挂载";
+            return BAD + getString(R.string.card_wait_mount);
         }
-        return "⏳ 正在识别卡槽 2...";
+        return "◌ " + getString(R.string.card_detecting);
     }
 
     private void refreshStatus() {
@@ -589,30 +345,40 @@ public final class TesterActivity extends Activity {
             boolean startActOk = pm.resolveActivity(new Intent(EuiccManager.ACTION_START_EUICC_ACTIVATION), 0) != null;
             String cardStatus = describeCardStatus(lpaPrivMounted, tm);
 
-            String text = "• LPA 系统特权挂载：" + (lpaPrivMounted
-                            ? "✅ 已生效"
-                            : "❌ 未挂载（请检查 Hybrid Mount / meta-overlayfs）") + "\n"
-                    + "• 硬件特性声明 (EUICC)：" + (hasFeature ? "✅ true" : "❌ false") + "\n"
-                    + "• 服务可用 (isEnabled)：" + (enabled ? "✅ true" : "❌ false") + "\n"
-                    + "• 默认 eSIM 卡槽 ID：" + (defaultCardId >= 0 ? "✅ cardId = " + defaultCardId : "❌ " + defaultCardId) + "\n"
-                    + "• 卡槽 2 卡片状态：" + cardStatus + "\n"
-                    + "• LPA:// 协议接管：" + (lpaSchemeOk ? "✅ 已开启" : "⚪ 已释放/关闭") + "\n"
-                    + "• 标准激活跳转：" + (startActOk ? "✅ 已就绪" : "❌ 未就绪");
+            String text = line(R.string.st_mount, lpaPrivMounted
+                            ? OK + getString(R.string.st_mount_ok)
+                            : BAD + getString(R.string.st_mount_bad))
+                    + line(R.string.st_feature, (hasFeature ? OK : BAD) + hasFeature)
+                    + line(R.string.st_enabled, (enabled ? OK : BAD) + enabled)
+                    + line(R.string.st_card_id, defaultCardId >= 0
+                            ? OK + "cardId = " + defaultCardId
+                            : BAD + defaultCardId)
+                    + line(R.string.st_card, cardStatus)
+                    + line(R.string.st_lpa_scheme, lpaSchemeOk
+                            ? OK + getString(R.string.st_lpa_scheme_on)
+                            : BAD + getString(R.string.st_lpa_scheme_off))
+                    + getString(R.string.st_activation) + (startActOk
+                            ? OK + getString(R.string.st_activation_ok)
+                            : BAD + getString(R.string.st_activation_bad));
             statusView.setText(text);
         } catch (Throwable t) {
-            statusView.setText("状态检测异常: " + t.getMessage());
+            statusView.setText(getString(R.string.st_error, String.valueOf(t.getMessage())));
         }
+    }
+
+    private String line(int labelRes, String value) {
+        return getString(labelRes) + value + "\n";
     }
 
     private void startMockDownload() {
         try {
             if (!isLpaPrivMounted(getPackageManager())) {
-                appendLog("错误: LPA 系统特权挂载未生效！请检查 Hybrid Mount / meta-overlayfs 元模块并重启。");
+                appendLog(getString(R.string.log_err_mount));
                 return;
             }
             EuiccManager em = getSystemService(EuiccManager.class);
             if (em == null || !em.isEnabled()) {
-                appendLog("错误: EuiccManager 未启用，请确认模块已开启且卡槽 2 插入了实体 eSIM 卡。");
+                appendLog(getString(R.string.log_err_euicc));
                 return;
             }
             String raw = codeInput.getText() != null ? codeInput.getText().toString().trim() : "";
@@ -621,8 +387,8 @@ public final class TesterActivity extends Activity {
                 codeInput.setText(raw);
             }
             appendLog("----------------------------------------");
-            appendLog("发起 EuiccManager.downloadSubscription...");
-            appendLog("激活码: " + raw);
+            appendLog(getString(R.string.log_start_download));
+            appendLog(getString(R.string.log_code, raw));
             DownloadableSubscription sub = DownloadableSubscription.forActivationCode(raw);
             Intent cb = new Intent(ACTION_DOWNLOAD_CB).setPackage(getPackageName()).putExtra("phase", "initial");
             PendingIntent pi = PendingIntent.getBroadcast(
@@ -633,7 +399,7 @@ public final class TesterActivity extends Activity {
             );
             em.downloadSubscription(sub, true, pi);
         } catch (Throwable t) {
-            appendLog("调用异常: " + t.getClass().getSimpleName() + ": " + t.getMessage());
+            appendLog(getString(R.string.log_call_error, t.getClass().getSimpleName() + ": " + t.getMessage()));
         }
     }
 
@@ -644,11 +410,11 @@ public final class TesterActivity extends Activity {
                 raw = "LPA:" + raw;
             }
             appendLog("----------------------------------------");
-            appendLog("发起 ACTION_VIEW 跳转: " + raw);
+            appendLog(getString(R.string.log_start_view, raw));
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(raw));
             startActivity(intent);
         } catch (Throwable t) {
-            appendLog("LPA:// 跳转失败（请检查主界面是否关闭了 LPA:// 链接接管）: " + t.getClass().getSimpleName());
+            appendLog(getString(R.string.log_view_failed, t.getClass().getSimpleName()));
         }
     }
 
@@ -656,11 +422,11 @@ public final class TesterActivity extends Activity {
     private void startStandardActivationTest() {
         try {
             appendLog("----------------------------------------");
-            appendLog("发起 ACTION_START_EUICC_ACTIVATION...");
+            appendLog(getString(R.string.log_start_activation));
             Intent intent = new Intent(EuiccManager.ACTION_START_EUICC_ACTIVATION);
             startActivityForResult(intent, REQ_ACTIVATE);
         } catch (Throwable t) {
-            appendLog("标准激活调用失败: " + t.getClass().getSimpleName());
+            appendLog(getString(R.string.log_activation_failed, t.getClass().getSimpleName()));
         }
     }
 

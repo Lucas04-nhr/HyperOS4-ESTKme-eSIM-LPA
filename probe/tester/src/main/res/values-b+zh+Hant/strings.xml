@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">eSIM 模擬寫卡測試</string>
+    <string name="tester_subtitle">%1$s · 模擬碼攔截驗證</string>
+    <string name="tester_refresh">重新整理狀態</string>
+    <string name="tester_status_title">eUICC 狀態</string>
+    <string name="tester_mock_title">模擬寫卡</string>
+    <string name="tester_safety_note">包含 test.esim.local 的啟用碼會在確認後被攔截，不會寫入卡片。</string>
+    <string name="tester_reset_code">恢復預設碼</string>
+    <string name="tester_test1">測試 1：電信業者寫卡授權視窗</string>
+    <string name="tester_test2">測試 2：開啟 LPA:// 連結</string>
+    <string name="tester_test3">測試 3：標準啟用頁</string>
+    <string name="tester_console_title">回呼記錄</string>
+    <string name="tester_clear_log">清除</string>
+    <string name="st_mount">• LPA 特權掛載：</string>
+    <string name="st_mount_ok">已生效</string>
+    <string name="st_mount_bad">未掛載（請檢查 Hybrid Mount / meta-overlayfs）</string>
+    <string name="st_feature">• EUICC 特性：</string>
+    <string name="st_enabled">• 服務可用：</string>
+    <string name="st_card_id">• 預設 eSIM 卡槽 ID：</string>
+    <string name="st_card">• 卡槽 2：</string>
+    <string name="st_lpa_scheme">• LPA:// 連結：</string>
+    <string name="st_lpa_scheme_on">已接管</string>
+    <string name="st_lpa_scheme_off">已釋放</string>
+    <string name="st_activation">• 標準啟用：</string>
+    <string name="st_activation_ok">可用</string>
+    <string name="st_activation_bad">不可用</string>
+    <string name="st_error">狀態檢測失敗：%1$s</string>
+    <string name="card_esim_active">實體 eSIM，方案已啟用</string>
+    <string name="card_esim_switch_off">實體 eSIM，系統 eSIM 開關已關閉</string>
+    <string name="card_esim_empty">實體 eSIM，暫無啟用的方案</string>
+    <string name="card_absent">未插卡</string>
+    <string name="card_regular">一般 SIM 卡或未適配</string>
+    <string name="card_wait_mount">等待 LPA 掛載</string>
+    <string name="card_detecting">識別中…</string>
+    <string name="log_ready">就緒（%1$s）。點擊「測試 1」檢查電信業者寫卡視窗。</string>
+    <string name="log_reset_code">已恢復預設啟用碼：%1$s</string>
+    <string name="log_cleared">記錄已清除。</string>
+    <string name="log_resolvable">系統回呼：RESOLVABLE_ERROR (1)</string>
+    <string name="log_resolvable_note">請求已接受，正在開啟小米確認視窗…</string>
+    <string name="log_resolution_failed">無法開啟確認視窗：%1$s</string>
+    <string name="log_direct_ok">直接寫卡完成：RESULT_OK (0)</string>
+    <string name="log_request_error">寫卡請求失敗：resultCode=%1$d，detailedCode=%2$d</string>
+    <string name="log_after_auth_ok">確認後回呼：RESULT_OK (0)</string>
+    <string name="log_mock_intercepted">模擬碼 test.esim.local 已被攔截，未寫入卡片。</string>
+    <string name="log_real_ok">確認後回呼：啟用碼寫卡成功 (RESULT_OK)</string>
+    <string name="log_after_auth_end">確認後回呼：resultCode=%1$d（已取消，卡片未變更）</string>
+    <string name="log_auth_result_ok">確認視窗返回：RESULT_OK（-1，已確認）</string>
+    <string name="log_auth_result_cancel">確認視窗返回：RESULT_CANCELED（0，已取消）</string>
+    <string name="log_activate_result">啟用頁返回：resultCode=%1$d</string>
+    <string name="log_err_mount">錯誤：LPA 特權掛載未生效，請檢查元模組並重新開機。</string>
+    <string name="log_err_euicc">錯誤：EuiccManager 未啟用，請確認模組已開啟且卡槽 2 有實體 eSIM。</string>
+    <string name="log_start_download">呼叫 EuiccManager.downloadSubscription…</string>
+    <string name="log_code">啟用碼：%1$s</string>
+    <string name="log_call_error">呼叫失敗：%1$s</string>
+    <string name="log_start_view">透過 ACTION_VIEW 開啟：%1$s</string>
+    <string name="log_view_failed">無法開啟 LPA:// 連結（主應用程式可能已關閉連結接管）：%1$s</string>
+    <string name="log_start_activation">呼叫 ACTION_START_EUICC_ACTIVATION…</string>
+    <string name="log_activation_failed">標準啟用呼叫失敗：%1$s</string>
+</resources>
