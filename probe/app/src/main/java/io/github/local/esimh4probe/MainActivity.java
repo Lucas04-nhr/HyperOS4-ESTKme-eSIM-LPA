@@ -238,6 +238,10 @@ public final class MainActivity extends ThemedActivity {
         lp.topMargin = UiKit.dp(this, 4);
         statusBanner.setLayoutParams(lp);
         statusBanner.showLoading(getString(R.string.status_loading));
+        statusBanner.setOnClickListener(v -> {
+            refreshDashboard();
+            showSnack(getString(R.string.snack_refreshed));
+        });
         return statusBanner;
     }
 

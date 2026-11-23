@@ -296,6 +296,8 @@ public final class Scaffold {
     public void setBottomBar(BottomBar bar) {
         this.bottomBar = bar;
         bar.setBlurSource(stage);
+        // The selection slides with the finger while the pages are swiped.
+        pager.setOnPageScrollListener(bar::setIndicatorPosition);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, bar.contentHeightPx(), Gravity.BOTTOM);
         root.addView(bar, root.indexOfChild(snackView), lp);

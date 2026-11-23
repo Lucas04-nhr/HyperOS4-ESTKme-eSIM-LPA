@@ -1,14 +1,21 @@
 package io.github.local.esimh4ui;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Outline;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
@@ -25,6 +32,10 @@ import android.widget.TextView;
  *       floating capsule: 28dp side margins, 64dp tall, a 56dp selection capsule, and liquid
  *       glass when enabled (see {@link GlassLinearLayout}).</li>
  * </ul>
+ *
+ * Dragging sideways across the bar switches tabs as the finger passes over them. In Miuix the
+ * selection (the capsule of the floating bar, and the icon colors) slides with the finger and
+ * with page swipes, see {@link #setIndicatorPosition}.
  */
 public final class BottomBar extends GlassLinearLayout {
     public interface OnSelectListener {
@@ -40,6 +51,20 @@ public final class BottomBar extends GlassLinearLayout {
     private OnSelectListener listener;
     private int selected = -1;
 
+    private final int touchSlop;
+    private final Paint indicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint indicatorRimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF indicatorRect = new RectF();
+    /** Fractional index of the selection, e.g. 0.5 is halfway between the first two tabs. */
+    private float indicatorPos = -1f;
+    private ValueAnimator indicatorAnim;
+    /** 0..1: how much the capsule is lifted while dragging. */
+    private float pressProgress = 0f;
+    private ValueAnimator pressAnim;
+    private boolean dragging;
+    private float downX;
+    private float downY;
+
     public BottomBar(Context ctx, UiKit.Palette p, String[] titles, int[] iconRes) {
         super(ctx, p);
         this.miuix = UiKit.isMiuix();
@@ -47,6 +72,9 @@ public final class BottomBar extends GlassLinearLayout {
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER);
         setClickable(true); // swallow touches so they do not reach the page underneath
+        touchSlop = ViewConfiguration.get(ctx).getScaledTouchSlop();
+        indicatorRimPaint.setStyle(Paint.Style.STROKE);
+        indicatorRimPaint.setStrokeWidth(UiKit.dpf(ctx, 1f));
 
         int n = titles.length;
         items = new LinearLayout[n];
@@ -70,7 +98,7 @@ public final class BottomBar extends GlassLinearLayout {
             });
             setClipToOutline(true);
             if (ThemeConfig.liquidGlass) {
-                setGlass(true, UiKit.withAlpha(container, 0x66), container);
+                setGlass(true, UiKit.withAlpha(container, p.isNight ? 0x66 : 0x4D), container);
                 setLiquid(true, true);
             } else {
                 onGlassFailed(container);
@@ -164,15 +192,7 @@ public final class BottomBar extends GlassLinearLayout {
         Context ctx = getContext();
         for (int i = 0; i < items.length; i++) {
             boolean sel = i == index;
-            if (miuix) {
-                int fg = sel ? (floating ? palette.primary : palette.onSurface) : palette.onSurfaceVariant;
-                // SukiSU floating bar: a neutral 56dp capsule behind the selected tab.
-                items[i].setBackground(floating && sel
-                        ? UiKit.roundedRect(ctx, palette.isNight ? 0x1AFFFFFF : 0x1A000000, 999f, 0, 0)
-                        : null);
-                labels[i].setTextColor(fg);
-                icons[i].setImageTintList(ColorStateList.valueOf(fg));
-            } else {
+            if (!miuix) {
                 indicators[i].setBackground(sel
                         ? UiKit.roundedRect(ctx, palette.secondaryContainer, 16f, 0, 0)
                         : UiKit.roundedRect(ctx, Color.TRANSPARENT, 16f, 0, 0));
@@ -182,5 +202,169 @@ public final class BottomBar extends GlassLinearLayout {
             }
             labels[i].setTypeface(Typeface.create("sans-serif-medium", sel ? Typeface.BOLD : Typeface.NORMAL));
         }
+        if (miuix && !dragging) {
+            if (indicatorPos < 0f || getWidth() == 0) {
+                setIndicator(index);
+            } else {
+                animateIndicatorTo(index);
+            }
+        }
+    }
+
+    /**
+     * Moves the Miuix selection to a fractional tab position, for example while the pages are
+     * swiped. Ignored while the user drags across the bar.
+     */
+    public void setIndicatorPosition(float position) {
+        if (!miuix || dragging) return;
+        if (indicatorAnim != null) indicatorAnim.cancel();
+        setIndicator(position);
+    }
+
+    private void setIndicator(float position) {
+        float pos = Math.max(0f, Math.min(items.length - 1, position));
+        if (pos == indicatorPos) return;
+        indicatorPos = pos;
+        applyMiuixColors();
+        invalidate();
+    }
+
+    private void animateIndicatorTo(int index) {
+        if (indicatorAnim != null) indicatorAnim.cancel();
+        if (indicatorPos == index) return;
+        indicatorAnim = ValueAnimator.ofFloat(indicatorPos, index);
+        indicatorAnim.setDuration(320L);
+        indicatorAnim.setInterpolator(UiKit.STANDARD_EASING);
+        indicatorAnim.addUpdateListener(a -> setIndicator((float) a.getAnimatedValue()));
+        indicatorAnim.start();
+    }
+
+    /** Icon and label colors follow the indicator, so they cross-fade while it slides. */
+    private void applyMiuixColors() {
+        int on = floating ? palette.primary : palette.onSurface;
+        for (int i = 0; i < items.length; i++) {
+            float f = Math.max(0f, 1f - Math.abs(i - indicatorPos));
+            int fg = UiKit.blend(palette.onSurfaceVariant, on, f);
+            labels[i].setTextColor(fg);
+            icons[i].setImageTintList(ColorStateList.valueOf(fg));
+        }
+    }
+
+    private void animatePress(float target) {
+        if (pressAnim != null) pressAnim.cancel();
+        pressAnim = ValueAnimator.ofFloat(pressProgress, target);
+        pressAnim.setDuration(target > pressProgress ? 160L : 260L);
+        pressAnim.setInterpolator(UiKit.STANDARD_EASING);
+        pressAnim.addUpdateListener(a -> {
+            pressProgress = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        pressAnim.start();
+    }
+
+    @Override
+    protected void onDrawBehindChildren(Canvas canvas) {
+        if (!floating || indicatorPos < 0f || items.length == 0) return;
+        // SukiSU floating bar: a neutral capsule behind the selected tab. While dragging it
+        // grows a little and gets a light rim, like a glass droplet lifted off the bar.
+        float itemW = (getWidth() - getPaddingLeft() - getPaddingRight()) / (float) items.length;
+        float left = getPaddingLeft() + indicatorPos * itemW;
+        float grow = UiKit.dpf(getContext(), 3f) * pressProgress;
+        indicatorRect.set(left - grow, getPaddingTop() - grow,
+                left + itemW + grow, getHeight() - getPaddingBottom() + grow);
+        float r = indicatorRect.height() / 2f;
+        int base = palette.isNight ? 0x1AFFFFFF : 0x1A000000;
+        int lifted = palette.isNight ? 0x2EFFFFFF : 0x24000000;
+        indicatorPaint.setColor(UiKit.blend(base, lifted, pressProgress));
+        canvas.drawRoundRect(indicatorRect, r, r, indicatorPaint);
+        if (pressProgress > 0.01f) {
+            int rim = palette.isNight ? 0x59FFFFFF : 0x99FFFFFF;
+            indicatorRimPaint.setColor(UiKit.withAlpha(rim, Math.round(Color.alpha(rim) * pressProgress)));
+            float half = indicatorRimPaint.getStrokeWidth() / 2f;
+            indicatorRect.inset(half, half);
+            canvas.drawRoundRect(indicatorRect, r - half, r - half, indicatorRimPaint);
+        }
+    }
+
+    // --- drag to switch tabs ------------------------------------------------------------------
+
+    @Override
+    public boolean onInterceptTouchEvent(MotionEvent e) {
+        if (items.length < 2) return false;
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                downX = e.getX();
+                downY = e.getY();
+                dragging = false;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (!dragging && startDragIfNeeded(e)) dragTo(e.getX());
+                break;
+            default:
+                break;
+        }
+        return dragging;
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent e) {
+        if (items.length < 2) return super.onTouchEvent(e);
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                downX = e.getX();
+                downY = e.getY();
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                if (!dragging) startDragIfNeeded(e);
+                if (dragging) dragTo(e.getX());
+                return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (dragging) endDrag();
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    private boolean startDragIfNeeded(MotionEvent e) {
+        float dx = e.getX() - downX;
+        float dy = e.getY() - downY;
+        if (Math.abs(dx) <= touchSlop || Math.abs(dx) <= Math.abs(dy)) return false;
+        dragging = true;
+        if (indicatorAnim != null) indicatorAnim.cancel();
+        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+        if (floating) animatePress(1f);
+        return true;
+    }
+
+    private void dragTo(float x) {
+        float itemW = (getWidth() - getPaddingLeft() - getPaddingRight()) / (float) items.length;
+        if (itemW <= 0f) return;
+        float pos = Math.max(0f, Math.min(items.length - 1, (x - getPaddingLeft()) / itemW - 0.5f));
+        if (miuix) {
+            indicatorPos = pos;
+            applyMiuixColors();
+            invalidate();
+        }
+        int index = Math.round(pos);
+        if (index != selected) {
+            select(index);
+            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+            if (listener != null) listener.onSelect(index);
+        }
+    }
+
+    private void endDrag() {
+        dragging = false;
+        if (floating) animatePress(0f);
+        if (miuix && selected >= 0) animateIndicatorTo(selected);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (indicatorAnim != null) indicatorAnim.cancel();
+        if (pressAnim != null) pressAnim.cancel();
+        super.onDetachedFromWindow();
     }
 }

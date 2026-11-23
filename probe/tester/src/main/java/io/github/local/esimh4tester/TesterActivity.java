@@ -161,6 +161,7 @@ public final class TesterActivity extends ThemedActivity {
         blp.topMargin = UiKit.dp(this, 4);
         banner.setLayoutParams(blp);
         banner.showLoading(getString(R.string.tester_state_checking));
+        banner.setOnClickListener(v -> refreshStatus());
         col.addView(banner);
 
         // Card 1: live eUICC status, laid out like the main app's device card

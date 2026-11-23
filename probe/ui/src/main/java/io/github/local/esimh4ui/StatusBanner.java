@@ -5,6 +5,8 @@ import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.graphics.drawable.RippleDrawable;
+import android.view.MotionEvent;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -49,6 +51,7 @@ public final class StatusBanner extends FrameLayout {
     private final ImageView decor;
     private final LinearLayout content;
     private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final PressFeedback pressFeedback = new PressFeedback(this);
     private Mode mode = Mode.LOADING;
 
     public StatusBanner(Context ctx, UiKit.Palette p) {
@@ -57,6 +60,11 @@ public final class StatusBanner extends FrameLayout {
         this.miuix = UiKit.isMiuix();
         setClipToOutline(true);
         setWillNotDraw(false);
+        // A real card: sinks and tilts under the finger, with a ripple on top.
+        setClickable(true);
+        setForeground(new RippleDrawable(
+                ColorStateList.valueOf(UiKit.withAlpha(p.onSurface, 0x1F)), null,
+                UiKit.roundedRect(ctx, 0xFF000000, UiKit.radius(28f, 16f), 0, 0)));
         ringPaint.setStyle(Paint.Style.STROKE);
         ringPaint.setStrokeWidth(UiKit.dpf(ctx, 1.5f));
 
@@ -74,6 +82,12 @@ public final class StatusBanner extends FrameLayout {
         content.setPadding(pad, pad, pad, pad);
         addView(content, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent e) {
+        if (isEnabled() && hasOnClickListeners()) pressFeedback.onTouchEvent(e);
+        return super.onTouchEvent(e);
     }
 
     private boolean dynamic() {

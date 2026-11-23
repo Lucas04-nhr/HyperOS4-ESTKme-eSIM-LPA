@@ -3,6 +3,7 @@ package io.github.local.esimh4ui;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.LinearGradient;
@@ -27,8 +28,8 @@ import android.widget.LinearLayout;
  *   <li>Frosted: the page underneath is blurred (radius 25) under a translucent tint.</li>
  *   <li>Progressive: the frosted layer fades out from the strong edge (screen edge) toward the
  *       content, like the HyperOS 4 bars.</li>
- *   <li>Liquid: a light 4dp blur with lens refraction near the edges and a light rim (floating
- *       bar only).</li>
+ *   <li>Liquid: a light 4dp blur with vibrancy, refraction along the rim (with a little
+ *       chromatic dispersion), and a specular rim light (floating bar only).</li>
  * </ul>
  *
  * The page ({@code source}) is redrawn into a 1/4-scale bitmap whenever any view scrolls or the
@@ -44,27 +45,64 @@ public class GlassLinearLayout extends LinearLayout {
     }
 
     private static final int CAPTURE_SCALE = 4;
+    /** Liquid glass refracts the page, so it needs a sharper capture than frosted glass. */
+    private static final int LIQUID_CAPTURE_SCALE = 2;
 
-    /** Lens refraction near the edges of a (rounded) rectangle plus a specular rim. */
+    /**
+     * Liquid glass lens, modelled on Kyant's backdrop library (used by SukiSU and iOS-like
+     * glass): the page is refracted along the shape's surface normal near the rim, with a
+     * little chromatic dispersion, then tinted, and lit by a specular rim and a soft inner glow.
+     */
     private static final String LENS_AGSL =
             "uniform shader content;\n"
             + "uniform float2 size;\n"
             + "uniform float radius;\n"
-            + "uniform float bezel;\n"
-            + "uniform float strength;\n"
+            + "uniform float height;\n"
+            + "uniform float amount;\n"
+            + "uniform float dispersion;\n"
+            + "uniform half4 tint;\n"
             + "uniform float rimLight;\n"
-            + "half4 main(float2 p) {\n"
-            + "  float2 c = size * 0.5;\n"
-            + "  float2 q = abs(p - c) - (c - float2(radius));\n"
-            + "  float d = length(max(q, float2(0.0))) + min(max(q.x, q.y), 0.0) - radius;\n"
-            + "  float inside = max(-d, 0.0);\n"
-            + "  float t = clamp(1.0 - inside / bezel, 0.0, 1.0);\n"
-            + "  float2 dir = (p - c) / (length(p - c) + 0.0001);\n"
-            + "  float2 sp = clamp(p - dir * strength * t * t, float2(0.5), size - float2(0.5));\n"
-            + "  half4 col = content.eval(sp);\n"
-            + "  float rim = 1.0 - smoothstep(0.0, 1.5, inside);\n"
-            + "  float light = clamp(dot(dir, float2(-0.6, -0.8)) * 0.5 + 0.5, 0.0, 1.0);\n"
-            + "  col.rgb = col.rgb + half3(rim * rimLight * (0.35 + 0.65 * light));\n"
+            + "uniform float rimWidth;\n"
+            + "float sdRoundRect(float2 p, float2 b, float r) {\n"
+            + "  float2 q = abs(p) - b + float2(r);\n"
+            + "  return min(max(q.x, q.y), 0.0) + length(max(q, float2(0.0))) - r;\n"
+            + "}\n"
+            + "float2 sdNormal(float2 p, float2 b, float r) {\n"
+            + "  float2 q = abs(p) - b + float2(r);\n"
+            + "  float2 g;\n"
+            + "  if (q.x > 0.0 && q.y > 0.0) { g = normalize(q); }\n"
+            + "  else if (q.x > q.y) { g = float2(1.0, 0.0); }\n"
+            + "  else { g = float2(0.0, 1.0); }\n"
+            + "  float2 s = float2(p.x < 0.0 ? -1.0 : 1.0, p.y < 0.0 ? -1.0 : 1.0);\n"
+            + "  return g * s;\n"
+            + "}\n"
+            + "half4 main(float2 coord) {\n"
+            + "  float2 hs = size * 0.5;\n"
+            + "  float2 p = coord - hs;\n"
+            + "  float r = min(radius, min(hs.x, hs.y));\n"
+            + "  float d = max(-sdRoundRect(p, hs, r), 0.0);\n"
+            + "  float2 n = sdNormal(p, hs, r);\n"
+            + "  // Circle profile: flat in the middle, bending steeply toward the rim.\n"
+            + "  float x = clamp(1.0 - d / height, 0.0, 1.0);\n"
+            + "  float bend = 1.0 - sqrt(1.0 - x * x);\n"
+            + "  float2 off = -n * bend * amount;\n"
+            + "  float2 lo = float2(0.5);\n"
+            + "  float2 hi = size - float2(0.5);\n"
+            + "  half4 col = content.eval(clamp(coord + off, lo, hi));\n"
+            + "  if (dispersion > 0.0) {\n"
+            + "    col.r = content.eval(clamp(coord + off * (1.0 + dispersion), lo, hi)).r;\n"
+            + "    col.b = content.eval(clamp(coord + off * (1.0 - dispersion), lo, hi)).b;\n"
+            + "  }\n"
+            + "  col.rgb = mix(col.rgb, tint.rgb, tint.a);\n"
+            + "  // Inner glow: the glass edge catches a bit more light than its center.\n"
+            + "  col.rgb += half3(bend * rimLight * 0.25);\n"
+            + "  // Specular rim, brightest where the normal faces the light (top-left),\n"
+            + "  // with a weaker reflection on the opposite side.\n"
+            + "  float rim = 1.0 - smoothstep(0.0, rimWidth, d);\n"
+            + "  float facing = dot(n, normalize(float2(-1.0, -1.6)));\n"
+            + "  float spec = max(facing, 0.0) + 0.45 * max(-facing, 0.0);\n"
+            + "  col.rgb += half3(rim * rimLight * (0.25 + 0.75 * spec));\n"
+            + "  col.a = 1.0;\n"
             + "  return col;\n"
             + "}\n";
 
@@ -90,6 +128,8 @@ public class GlassLinearLayout extends LinearLayout {
     private final int[] selfLoc = new int[2];
     private boolean captureFailed = false;
     private boolean needCapture = true;
+    /** True when the lens shader is in use; it then applies the tint itself. */
+    private boolean lensActive = false;
 
     private final ViewTreeObserver.OnPreDrawListener preDrawListener = this::onPreDraw;
     private final ViewTreeObserver.OnScrollChangedListener scrollListener = this::captureNow;
@@ -200,8 +240,9 @@ public class GlassLinearLayout extends LinearLayout {
         int w = getWidth();
         int h = getHeight();
         if (w <= 0 || h <= 0) return;
-        int bw = Math.max(1, w / CAPTURE_SCALE);
-        int bh = Math.max(1, h / CAPTURE_SCALE);
+        int scale = liquid ? LIQUID_CAPTURE_SCALE : CAPTURE_SCALE;
+        int bw = Math.max(1, w / scale);
+        int bh = Math.max(1, h / scale);
         if (captureBitmap == null || captureBitmap.getWidth() != bw || captureBitmap.getHeight() != bh) {
             if (captureBitmap != null) captureBitmap.recycle();
             captureBitmap = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888);
@@ -230,6 +271,7 @@ public class GlassLinearLayout extends LinearLayout {
             int w = getWidth();
             int h = getHeight();
             int layer = canvas.saveLayerAlpha(0, 0, w, h, Math.round(255 * glassAlpha));
+            boolean tintInShader = false;
             float sx = w / (float) captureBitmap.getWidth();
             float sy = h / (float) captureBitmap.getHeight();
             if (canvas.isHardwareAccelerated()) {
@@ -240,13 +282,14 @@ public class GlassLinearLayout extends LinearLayout {
                 rc.drawBitmap(captureBitmap, 0f, 0f, bitmapPaint);
                 blurNode.endRecording();
                 canvas.drawRenderNode(blurNode);
+                tintInShader = lensActive;
             } else {
                 int save = canvas.save();
                 canvas.scale(sx, sy);
                 canvas.drawBitmap(captureBitmap, 0f, 0f, bitmapPaint);
                 canvas.restoreToCount(save);
             }
-            canvas.drawColor(tintColor);
+            if (!tintInShader) canvas.drawColor(tintColor);
             if (fade != Fade.NONE) {
                 // Keep the glass solid near the strong edge and fade it out toward the content.
                 float y0 = fade == Fade.TOP ? 0f : h;
@@ -258,8 +301,12 @@ public class GlassLinearLayout extends LinearLayout {
             }
             canvas.restoreToCount(layer);
         }
+        onDrawBehindChildren(canvas);
         super.dispatchDraw(canvas);
     }
+
+    /** Draws between the glass and the children, for example a selection indicator. */
+    protected void onDrawBehindChildren(Canvas canvas) {}
 
     private void ensureEffect(int w, int h) {
         if (blurNode == null) blurNode = new RenderNode("Glass");
@@ -273,18 +320,27 @@ public class GlassLinearLayout extends LinearLayout {
             blurNode.setRenderEffect(blur);
             return;
         }
+        // Vibrancy: the glass makes what is behind it a bit more saturated, like iOS / backdrop.
         ColorMatrix cm = new ColorMatrix();
-        cm.setSaturation(1.3f);
+        cm.setSaturation(1.5f);
         RenderEffect vivid = RenderEffect.createColorFilterEffect(new ColorMatrixColorFilter(cm), blur);
         RenderEffect effect = vivid;
+        lensActive = false;
         try {
             RuntimeShader lens = new RuntimeShader(LENS_AGSL);
+            float height = Math.min(UiKit.dpf(ctx, 24f), Math.min(w, h) / 2f);
             lens.setFloatUniform("size", w, h);
             lens.setFloatUniform("radius", pillShape ? h / 2f : 0f);
-            lens.setFloatUniform("bezel", UiKit.dpf(ctx, 24f));
-            lens.setFloatUniform("strength", UiKit.dpf(ctx, 24f));
-            lens.setFloatUniform("rimLight", palette.isNight ? 0.22f : 0.45f);
+            lens.setFloatUniform("height", height);
+            lens.setFloatUniform("amount", UiKit.dpf(ctx, 28f));
+            lens.setFloatUniform("dispersion", 0.18f);
+            lens.setFloatUniform("tint",
+                    Color.red(tintColor) / 255f, Color.green(tintColor) / 255f,
+                    Color.blue(tintColor) / 255f, Color.alpha(tintColor) / 255f);
+            lens.setFloatUniform("rimLight", palette.isNight ? 0.28f : 0.6f);
+            lens.setFloatUniform("rimWidth", UiKit.dpf(ctx, 1.25f));
             effect = RenderEffect.createChainEffect(RenderEffect.createRuntimeShaderEffect(lens, "content"), vivid);
+            lensActive = true;
         } catch (Throwable t) {
             // Shader not supported on this device: keep blur + saturation only.
         }

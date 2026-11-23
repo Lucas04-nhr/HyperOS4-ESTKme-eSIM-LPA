@@ -19,10 +19,16 @@ public final class PagerHost extends ViewGroup {
         void onPageSelected(int index);
     }
 
+    public interface OnPageScrollListener {
+        /** Called on every scroll step; {@code position} is fractional, e.g. 0.5 is halfway to page 1. */
+        void onPageScrolled(float position);
+    }
+
     private final int touchSlop;
     private final int minFlingVelocity;
     private OnPageChangeListener listener;
     private final List<OnPageChangeListener> observers = new ArrayList<>();
+    private OnPageScrollListener scrollListener;
     private int current = 0;
     private int pendingPage = -1;
 
@@ -47,6 +53,17 @@ public final class PagerHost extends ViewGroup {
     /** Extra listener for internal use (the scaffold), kept apart from the app's listener. */
     public void addOnPageChangeObserver(OnPageChangeListener l) {
         observers.add(l);
+    }
+
+    public void setOnPageScrollListener(OnPageScrollListener l) {
+        this.scrollListener = l;
+    }
+
+    @Override
+    protected void onScrollChanged(int l, int t, int oldl, int oldt) {
+        super.onScrollChanged(l, t, oldl, oldt);
+        int w = getWidth();
+        if (scrollListener != null && w > 0) scrollListener.onPageScrolled(l / (float) w);
     }
 
     private void notifyPage(int index) {
