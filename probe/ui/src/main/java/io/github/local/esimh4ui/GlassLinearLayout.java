@@ -5,7 +5,10 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.RecordingCanvas;
 import android.graphics.RenderEffect;
 import android.graphics.RenderNode;
@@ -17,17 +20,29 @@ import android.view.ViewTreeObserver;
 import android.widget.LinearLayout;
 
 /**
- * LinearLayout with an optional frosted-glass background (HyperOS 4 style bars).
+ * LinearLayout with an optional glass background, modelled on SukiSU-Nova's {@code BlurredBar}
+ * and floating bottom bar.
  *
- * The page underneath ({@code source}) is redrawn into a 1/4-scale bitmap whenever it changed,
- * then drawn through a {@link RenderEffect} blur behind a translucent tint. Nothing is redrawn
- * while the page is unchanged.
+ * <ul>
+ *   <li>Frosted: the page underneath is blurred (radius 25) under a translucent tint.</li>
+ *   <li>Progressive: the frosted layer fades out from the strong edge (screen edge) toward the
+ *       content, like the HyperOS 4 bars.</li>
+ *   <li>Liquid: a light 4dp blur with lens refraction near the edges and a light rim (floating
+ *       bar only).</li>
+ * </ul>
  *
- * Liquid glass mode uses a lighter blur, boosted saturation and an AGSL lens shader that bends
- * the content near the edges and adds a light rim. If the shader cannot be created, the layout
- * falls back to the frosted look.
+ * The page ({@code source}) is redrawn into a 1/4-scale bitmap whenever any view scrolls or the
+ * layout changes, so the bars follow the content without redrawing on idle frames.
  */
 public class GlassLinearLayout extends LinearLayout {
+    public enum Fade {
+        NONE,
+        /** Strongest at the top edge (top bar). */
+        TOP,
+        /** Strongest at the bottom edge (bottom bar). */
+        BOTTOM
+    }
+
     private static final int CAPTURE_SCALE = 4;
 
     /** Lens refraction near the edges of a (rounded) rectangle plus a specular rim. */
@@ -38,7 +53,6 @@ public class GlassLinearLayout extends LinearLayout {
             + "uniform float bezel;\n"
             + "uniform float strength;\n"
             + "uniform float rimLight;\n"
-            + "uniform float topRim;\n"
             + "half4 main(float2 p) {\n"
             + "  float2 c = size * 0.5;\n"
             + "  float2 q = abs(p - c) - (c - float2(radius));\n"
@@ -48,10 +62,9 @@ public class GlassLinearLayout extends LinearLayout {
             + "  float2 dir = (p - c) / (length(p - c) + 0.0001);\n"
             + "  float2 sp = clamp(p - dir * strength * t * t, float2(0.5), size - float2(0.5));\n"
             + "  half4 col = content.eval(sp);\n"
-            + "  float rim = 1.0 - smoothstep(0.0, 2.0, inside);\n"
-            + "  if (p.y < c.y) { rim = rim * topRim; }\n"
+            + "  float rim = 1.0 - smoothstep(0.0, 1.5, inside);\n"
             + "  float light = clamp(dot(dir, float2(-0.6, -0.8)) * 0.5 + 0.5, 0.0, 1.0);\n"
-            + "  col.rgb = col.rgb + half3(rim * rimLight * (0.4 + 0.6 * light));\n"
+            + "  col.rgb = col.rgb + half3(rim * rimLight * (0.35 + 0.65 * light));\n"
             + "  return col;\n"
             + "}\n";
 
@@ -59,25 +72,34 @@ public class GlassLinearLayout extends LinearLayout {
     private boolean glass;
     private int tintColor;
     private int fallbackColor;
+    private float blurRadiusDp = 25f;
+    private Fade fade = Fade.NONE;
+    private boolean liquid;
+    private boolean pillShape;
+    private float glassAlpha = 1f;
+
     private View source;
     private Bitmap captureBitmap;
     private Canvas captureCanvas;
     private RenderNode blurNode;
+    private int effectW = -1;
+    private int effectH = -1;
     private final Paint bitmapPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint maskPaint = new Paint();
     private final int[] srcLoc = new int[2];
     private final int[] selfLoc = new int[2];
     private boolean captureFailed = false;
-    private boolean liquid = false;
-    private boolean pillShape = false;
-    private boolean topRim = true;
-    private int effectW = -1;
-    private int effectH = -1;
-    private final ViewTreeObserver.OnPreDrawListener preDrawListener = this::onPreDrawCapture;
+    private boolean needCapture = true;
+
+    private final ViewTreeObserver.OnPreDrawListener preDrawListener = this::onPreDraw;
+    private final ViewTreeObserver.OnScrollChangedListener scrollListener = this::captureNow;
+    private final ViewTreeObserver.OnGlobalLayoutListener layoutListener = this::captureNow;
 
     public GlassLinearLayout(Context ctx, UiKit.Palette p) {
         super(ctx);
         this.palette = p;
         setWillNotDraw(false);
+        maskPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
     }
 
     /**
@@ -91,18 +113,36 @@ public class GlassLinearLayout extends LinearLayout {
         this.tintColor = tint;
         this.fallbackColor = fallback;
         if (enabled) setBackground(null);
+        effectW = -1;
         invalidate();
     }
 
-    /**
-     * Switches to liquid glass. {@code pill} rounds the lens to a capsule (floating bar);
-     * {@code rimOnTop} draws the light rim on the top edge too (off for the status-bar header).
-     */
-    public void setLiquid(boolean liquid, boolean pill, boolean rimOnTop) {
+    public void setBlurRadius(float dp) {
+        this.blurRadiusDp = dp;
+        effectW = -1;
+        invalidate();
+    }
+
+    public void setFade(Fade fade) {
+        this.fade = fade;
+        invalidate();
+    }
+
+    /** Liquid glass; {@code pill} rounds the lens to a capsule. */
+    public void setLiquid(boolean liquid, boolean pill) {
         this.liquid = liquid;
         this.pillShape = pill;
-        this.topRim = rimOnTop;
         effectW = -1;
+        invalidate();
+    }
+
+    /** 0 hides the glass (fully transparent bar), 1 shows it. Used to blur only after scrolling. */
+    public void setGlassAlpha(float alpha) {
+        float a = Math.max(0f, Math.min(1f, alpha));
+        if (a == glassAlpha) return;
+        boolean wasHidden = glassAlpha <= 0.01f;
+        glassAlpha = a;
+        if (wasHidden && a > 0.01f) needCapture = true;
         invalidate();
     }
 
@@ -113,6 +153,7 @@ public class GlassLinearLayout extends LinearLayout {
     /** Sets the view whose content is blurred behind this layout. */
     public void setBlurSource(View source) {
         this.source = source;
+        needCapture = true;
     }
 
     /** Called when software capture fails; the default switches to an opaque background. */
@@ -120,23 +161,34 @@ public class GlassLinearLayout extends LinearLayout {
         setBackground(new ColorDrawable(fallback));
     }
 
-    private boolean onPreDrawCapture() {
-        if (glass && source != null && !captureFailed && (source.isDirty() || captureBitmap == null)) {
-            capture();
-            invalidate();
-        }
+    private boolean onPreDraw() {
+        if (needCapture) captureNow();
         return true;
+    }
+
+    private void captureNow() {
+        if (!glass || source == null || captureFailed || glassAlpha <= 0.01f) return;
+        capture();
+        needCapture = captureBitmap == null;
+        invalidate();
     }
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        getViewTreeObserver().addOnPreDrawListener(preDrawListener);
+        ViewTreeObserver vto = getViewTreeObserver();
+        vto.addOnPreDrawListener(preDrawListener);
+        vto.addOnScrollChangedListener(scrollListener);
+        vto.addOnGlobalLayoutListener(layoutListener);
+        needCapture = true;
     }
 
     @Override
     protected void onDetachedFromWindow() {
-        getViewTreeObserver().removeOnPreDrawListener(preDrawListener);
+        ViewTreeObserver vto = getViewTreeObserver();
+        vto.removeOnPreDrawListener(preDrawListener);
+        vto.removeOnScrollChangedListener(scrollListener);
+        vto.removeOnGlobalLayoutListener(layoutListener);
         if (captureBitmap != null) {
             captureBitmap.recycle();
             captureBitmap = null;
@@ -174,9 +226,10 @@ public class GlassLinearLayout extends LinearLayout {
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
-        if (isGlass() && captureBitmap != null) {
+        if (isGlass() && captureBitmap != null && glassAlpha > 0.01f) {
             int w = getWidth();
             int h = getHeight();
+            int layer = canvas.saveLayerAlpha(0, 0, w, h, Math.round(255 * glassAlpha));
             float sx = w / (float) captureBitmap.getWidth();
             float sy = h / (float) captureBitmap.getHeight();
             if (canvas.isHardwareAccelerated()) {
@@ -193,8 +246,17 @@ public class GlassLinearLayout extends LinearLayout {
                 canvas.drawBitmap(captureBitmap, 0f, 0f, bitmapPaint);
                 canvas.restoreToCount(save);
             }
-            // Liquid glass is clearer: use a lighter tint.
-            canvas.drawColor(liquid ? UiKit.withAlpha(tintColor, (tintColor >>> 24) * 3 / 5) : tintColor);
+            canvas.drawColor(tintColor);
+            if (fade != Fade.NONE) {
+                // Keep the glass solid near the strong edge and fade it out toward the content.
+                float y0 = fade == Fade.TOP ? 0f : h;
+                float y1 = fade == Fade.TOP ? h : 0f;
+                maskPaint.setShader(new LinearGradient(0f, y0, 0f, y1,
+                        new int[]{0xFF000000, 0xFF000000, 0x00000000},
+                        new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));
+                canvas.drawRect(0, 0, w, h, maskPaint);
+            }
+            canvas.restoreToCount(layer);
         }
         super.dispatchDraw(canvas);
     }
@@ -205,27 +267,24 @@ public class GlassLinearLayout extends LinearLayout {
         effectW = w;
         effectH = h;
         Context ctx = getContext();
+        float r = UiKit.dpf(ctx, liquid ? 4f : blurRadiusDp);
+        RenderEffect blur = RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP);
         if (!liquid) {
-            float r = UiKit.dpf(ctx, 24f);
-            blurNode.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP));
+            blurNode.setRenderEffect(blur);
             return;
         }
-        float r = UiKit.dpf(ctx, 10f);
-        RenderEffect blur = RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP);
         ColorMatrix cm = new ColorMatrix();
-        cm.setSaturation(1.45f);
-        RenderEffect saturated = RenderEffect.createColorFilterEffect(new ColorMatrixColorFilter(cm), blur);
-        RenderEffect effect = saturated;
+        cm.setSaturation(1.3f);
+        RenderEffect vivid = RenderEffect.createColorFilterEffect(new ColorMatrixColorFilter(cm), blur);
+        RenderEffect effect = vivid;
         try {
             RuntimeShader lens = new RuntimeShader(LENS_AGSL);
             lens.setFloatUniform("size", w, h);
             lens.setFloatUniform("radius", pillShape ? h / 2f : 0f);
-            lens.setFloatUniform("bezel", UiKit.dpf(ctx, 14f));
-            lens.setFloatUniform("strength", UiKit.dpf(ctx, 10f));
-            lens.setFloatUniform("rimLight", palette.isNight ? 0.18f : 0.32f);
-            lens.setFloatUniform("topRim", topRim ? 1f : 0f);
-            effect = RenderEffect.createChainEffect(
-                    RenderEffect.createRuntimeShaderEffect(lens, "content"), saturated);
+            lens.setFloatUniform("bezel", UiKit.dpf(ctx, 24f));
+            lens.setFloatUniform("strength", UiKit.dpf(ctx, 24f));
+            lens.setFloatUniform("rimLight", palette.isNight ? 0.22f : 0.45f);
+            effect = RenderEffect.createChainEffect(RenderEffect.createRuntimeShaderEffect(lens, "content"), vivid);
         } catch (Throwable t) {
             // Shader not supported on this device: keep blur + saturation only.
         }

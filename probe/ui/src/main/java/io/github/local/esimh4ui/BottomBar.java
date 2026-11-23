@@ -21,8 +21,9 @@ import android.widget.TextView;
  *
  * <ul>
  *   <li>Material 3: 80dp navigation bar with a pill indicator behind the selected icon.</li>
- *   <li>Miuix: 64dp bar; optionally a floating capsule (SukiSU "floating bottom bar") and/or a
- *       frosted glass background (see {@link GlassLinearLayout}).</li>
+ *   <li>Miuix: 64dp navigation bar with frosted (optionally progressive) glass, or the SukiSU
+ *       floating capsule: 28dp side margins, 64dp tall, a 56dp selection capsule, and liquid
+ *       glass when enabled (see {@link GlassLinearLayout}).</li>
  * </ul>
  */
 public final class BottomBar extends GlassLinearLayout {
@@ -43,7 +44,6 @@ public final class BottomBar extends GlassLinearLayout {
         super(ctx, p);
         this.miuix = UiKit.isMiuix();
         this.floating = miuix && ThemeConfig.barFloating;
-        boolean glass = miuix && ThemeConfig.barGlass;
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER);
         setClickable(true); // swallow touches so they do not reach the page underneath
@@ -57,23 +57,30 @@ public final class BottomBar extends GlassLinearLayout {
             buildItem(ctx, i, titles[i], iconRes[i]);
         }
 
+        int container = palette.cardBg | 0xFF000000; // Miuix surfaceContainer
         if (floating) {
-            setPadding(UiKit.dp(ctx, 6), UiKit.dp(ctx, 6), UiKit.dp(ctx, 6), UiKit.dp(ctx, 6));
-            setElevation(UiKit.dpf(ctx, 8f));
+            setPadding(UiKit.dp(ctx, 4), UiKit.dp(ctx, 4), UiKit.dp(ctx, 4), UiKit.dp(ctx, 4));
+            setElevation(UiKit.dpf(ctx, 6f));
             setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
                     outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), view.getHeight() / 2f);
+                    outline.setAlpha(p.isNight ? 0.2f : 0.1f);
                 }
             });
             setClipToOutline(true);
-        }
-        int solid = barColor() | 0xFF000000;
-        if (glass) {
-            setGlass(true, UiKit.withAlpha(barColor(), p.isNight ? 0xA6 : 0xB8), solid);
-            setLiquid(ThemeConfig.liquidGlass, floating, true);
+            if (ThemeConfig.liquidGlass) {
+                setGlass(true, UiKit.withAlpha(container, 0x66), container);
+                setLiquid(true, true);
+            } else {
+                onGlassFailed(container);
+            }
+        } else if (miuix && ThemeConfig.barGlass) {
+            int alpha = p.hasBackground ? Math.round(ThemeConfig.cardAlpha * 2.55f) : 0xDE; // 0.87 like SukiSU
+            setGlass(true, UiKit.withAlpha(p.pageBg, alpha), p.pageBg | 0xFF000000);
+            if (ThemeConfig.progressiveBlur) setFade(Fade.BOTTOM);
         } else {
-            onGlassFailed(solid);
+            onGlassFailed(barColor() | 0xFF000000);
         }
     }
 
@@ -85,7 +92,7 @@ public final class BottomBar extends GlassLinearLayout {
     }
 
     private int barColor() {
-        if (miuix) return palette.surfaceHigh;
+        if (miuix) return floating ? palette.cardBg : palette.pageBg;
         return palette.tileBg;
     }
 
@@ -105,7 +112,7 @@ public final class BottomBar extends GlassLinearLayout {
         item.setOrientation(VERTICAL);
         item.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams lp = floating
-                ? new LinearLayout.LayoutParams(UiKit.dp(ctx, 96), ViewGroup.LayoutParams.MATCH_PARENT)
+                ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
                 : new LinearLayout.LayoutParams(0, contentHeightPx(), 1f);
         item.setLayoutParams(lp);
         item.setClickable(true);
@@ -132,7 +139,7 @@ public final class BottomBar extends GlassLinearLayout {
 
         TextView label = new TextView(ctx);
         label.setText(title);
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, floating ? 11f : 12f);
         label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         label.setMaxLines(1);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
@@ -159,8 +166,9 @@ public final class BottomBar extends GlassLinearLayout {
             boolean sel = i == index;
             if (miuix) {
                 int fg = sel ? (floating ? palette.primary : palette.onSurface) : palette.onSurfaceVariant;
+                // SukiSU floating bar: a neutral 56dp capsule behind the selected tab.
                 items[i].setBackground(floating && sel
-                        ? UiKit.roundedRect(ctx, UiKit.withAlpha(palette.primary, 0x1F), 999f, 0, 0)
+                        ? UiKit.roundedRect(ctx, palette.isNight ? 0x1AFFFFFF : 0x1A000000, 999f, 0, 0)
                         : null);
                 labels[i].setTextColor(fg);
                 icons[i].setImageTintList(ColorStateList.valueOf(fg));

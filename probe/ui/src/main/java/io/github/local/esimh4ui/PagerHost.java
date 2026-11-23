@@ -6,6 +6,8 @@ import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Minimal horizontal pager: children are laid out side by side at full size and the user can
@@ -20,6 +22,7 @@ public final class PagerHost extends ViewGroup {
     private final int touchSlop;
     private final int minFlingVelocity;
     private OnPageChangeListener listener;
+    private final List<OnPageChangeListener> observers = new ArrayList<>();
     private int current = 0;
     private int pendingPage = -1;
 
@@ -41,6 +44,16 @@ public final class PagerHost extends ViewGroup {
         this.listener = l;
     }
 
+    /** Extra listener for internal use (the scaffold), kept apart from the app's listener. */
+    public void addOnPageChangeObserver(OnPageChangeListener l) {
+        observers.add(l);
+    }
+
+    private void notifyPage(int index) {
+        if (listener != null) listener.onPageSelected(index);
+        for (OnPageChangeListener o : observers) o.onPageSelected(index);
+    }
+
     public int getCurrentPage() {
         return current;
     }
@@ -51,7 +64,7 @@ public final class PagerHost extends ViewGroup {
             pendingPage = index;
             if (index != current) {
                 current = index;
-                if (listener != null) listener.onPageSelected(index);
+                notifyPage(index);
             }
             return;
         }
@@ -180,7 +193,7 @@ public final class PagerHost extends ViewGroup {
             settle.addUpdateListener(a -> scrollTo((int) a.getAnimatedValue(), 0));
             settle.start();
         }
-        if (changed && listener != null) listener.onPageSelected(index);
+        if (changed) notifyPage(index);
     }
 
     private void trackVelocity(MotionEvent e) {

@@ -10,7 +10,6 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -32,10 +31,14 @@ import java.util.List;
  * <pre>
  * root
  *  ├─ stage (blurred by the bars): background image + swipeable pages
- *  ├─ header (overlay): top bar + progress line, frosted glass in Miuix
+ *  ├─ header (overlay): top bar + progress line
  *  ├─ bottom bar (overlay, optional)
  *  └─ snackbar
  * </pre>
+ *
+ * Miuix follows the SukiSU-Nova top bar: each page starts with a large title that scrolls with
+ * the content; the bar itself is transparent at rest and, once the page scrolls, shows a small
+ * centered title over a (progressive) blur. Material 3 keeps a solid small top app bar.
  */
 public final class Scaffold {
     public final FrameLayout root;
@@ -43,16 +46,19 @@ public final class Scaffold {
     public final FrameLayout stage;
     public final BackgroundLayer background;
     public final GlassLinearLayout header;
-    public final LinearLayout topBar;
     public final TextView titleView;
     public final TextView subtitleView;
     public final PagerHost pager;
 
     private final Activity activity;
+    private final UiKit.Palette palette;
+    private final boolean miuix;
+    private final FrameLayout barRow;
     private final LinearLayout actions;
     private final ProgressLine progress;
     private final TextView snackView;
     private final List<ScrollView> pages = new ArrayList<>();
+    private final List<TextView> largeTitles = new ArrayList<>();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Runnable hideSnack;
     private BottomBar bottomBar;
@@ -61,7 +67,8 @@ public final class Scaffold {
 
     public Scaffold(Activity activity, UiKit.Palette p, String title, String subtitle, boolean showBack) {
         this.activity = activity;
-        boolean miuix = UiKit.isMiuix();
+        this.palette = p;
+        this.miuix = UiKit.isMiuix();
 
         root = new FrameLayout(activity);
         root.setBackgroundColor(p.pageBg);
@@ -79,18 +86,23 @@ public final class Scaffold {
         pager = new PagerHost(activity);
         stage.addView(pager, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        pager.addOnPageChangeObserver(index -> updateCollapse());
 
         // Header overlay: pages scroll underneath it.
         header = new GlassLinearLayout(activity, p);
         header.setOrientation(LinearLayout.VERTICAL);
         header.setClickable(true);
-        int headerSolid = p.pageBg | 0xFF000000;
         if (miuix && ThemeConfig.barGlass) {
-            header.setGlass(true, UiKit.withAlpha(p.pageBg, p.isNight ? 0xB3 : 0xC7), headerSolid);
+            int alpha = p.hasBackground ? Math.round(ThemeConfig.cardAlpha * 2.55f) : 0xDE; // 0.87 like SukiSU
+            header.setGlass(true, UiKit.withAlpha(p.pageBg, alpha), p.pageBg | 0xFF000000);
             header.setBlurSource(stage);
-            header.setLiquid(ThemeConfig.liquidGlass, false, false);
+            if (ThemeConfig.progressiveBlur) header.setFade(GlassLinearLayout.Fade.TOP);
+            header.setGlassAlpha(0f); // transparent until the page scrolls
+        } else if (miuix) {
+            header.setBackgroundColor(p.pageBg | 0xFF000000);
+            header.setAlpha(1f);
         } else {
-            header.setBackgroundColor(headerSolid);
+            header.setBackgroundColor(p.pageBg | 0xFF000000);
         }
         root.addView(header, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP));
@@ -102,11 +114,18 @@ public final class Scaffold {
             }
         });
 
-        topBar = new LinearLayout(activity);
-        topBar.setOrientation(LinearLayout.HORIZONTAL);
-        topBar.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(topBar, new LinearLayout.LayoutParams(
+        // Bar row: [back] [title] [actions]. Miuix centers a small title; Material 3 left-aligns it.
+        barRow = new FrameLayout(activity);
+        barRow.setMinimumHeight(UiKit.dp(activity, miuix ? 56 : 64));
+        header.addView(barRow, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout leftSide = new LinearLayout(activity);
+        leftSide.setOrientation(LinearLayout.HORIZONTAL);
+        leftSide.setGravity(Gravity.CENTER_VERTICAL);
+        barRow.addView(leftSide, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.START | Gravity.CENTER_VERTICAL));
 
         if (showBack) {
             ImageView back = UiKit.createIconButton(
@@ -114,55 +133,55 @@ public final class Scaffold {
             LinearLayout.LayoutParams blp = (LinearLayout.LayoutParams) back.getLayoutParams();
             blp.rightMargin = UiKit.dp(activity, 8);
             blp.leftMargin = -UiKit.dp(activity, 6);
-            topBar.addView(back);
+            leftSide.addView(back);
         }
-
-        LinearLayout titleWrap = new LinearLayout(activity);
-        titleWrap.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams twLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        twLp.rightMargin = UiKit.dp(activity, 10);
-        topBar.addView(titleWrap, twLp);
 
         titleView = new TextView(activity);
         titleView.setText(title);
         titleView.setTextColor(p.onSurface);
-        titleWrap.addView(titleView);
-        if (miuix) {
-            titleView.setSingleLine(true);
-            titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f);
-            titleView.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-                if (r - l != or - ol) fitTitle();
-            });
-        } else {
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, showBack ? 21f : 19f);
-            titleView.setTypeface(Typeface.create("sans-serif-medium", showBack ? Typeface.NORMAL : Typeface.BOLD));
-            titleView.setSingleLine(true);
-            titleView.setEllipsize(TextUtils.TruncateAt.END);
-        }
+        titleView.setSingleLine(true);
+        titleView.setEllipsize(TextUtils.TruncateAt.END);
+        titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
 
         subtitleView = new TextView(activity);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        vlp.topMargin = UiKit.dp(activity, 3);
-        subtitleView.setLayoutParams(vlp);
         if (miuix) {
-            subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-            subtitleView.setTextColor(p.onSurfaceVariant);
+            // Small collapsed title, centered; fades in once the large title scrolls away.
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
+            titleView.setGravity(Gravity.CENTER);
+            titleView.setAlpha(0f);
+            FrameLayout.LayoutParams tlp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+            tlp.leftMargin = UiKit.dp(activity, 96);
+            tlp.rightMargin = UiKit.dp(activity, 96);
+            barRow.addView(titleView, tlp);
+            subtitleView.setVisibility(View.GONE);
         } else {
+            LinearLayout titleWrap = new LinearLayout(activity);
+            titleWrap.setOrientation(LinearLayout.VERTICAL);
+            titleWrap.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams twLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            twLp.rightMargin = UiKit.dp(activity, 10);
+            leftSide.addView(titleWrap, twLp);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, showBack ? 20f : 19f);
+            titleWrap.addView(titleView);
+            LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            vlp.topMargin = UiKit.dp(activity, 3);
             subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-            subtitleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            subtitleView.setTypeface(Typeface.MONOSPACE);
             subtitleView.setTextColor(p.onSecondaryContainer);
             subtitleView.setPadding(UiKit.dp(activity, 8), UiKit.dp(activity, 2), UiKit.dp(activity, 8), UiKit.dp(activity, 2));
             subtitleView.setBackground(UiKit.roundedRect(activity, p.secondaryContainer, 999f, 0, 0));
+            titleWrap.addView(subtitleView, vlp);
+            setSubtitle(subtitle);
         }
-        titleWrap.addView(subtitleView);
-        setSubtitle(subtitle);
 
         actions = new LinearLayout(activity);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER_VERTICAL);
-        topBar.addView(actions);
+        barRow.addView(actions, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.END | Gravity.CENTER_VERTICAL));
 
         progress = new ProgressLine(activity, p);
         progress.setVisibility(View.INVISIBLE);
@@ -191,31 +210,14 @@ public final class Scaffold {
         });
     }
 
-    private void fitTitle() {
-        float avail = titleView.getWidth() - titleView.getPaddingLeft() - titleView.getPaddingRight();
-        if (avail <= 0) return;
-        TextPaint tp = new TextPaint(titleView.getPaint());
-        String text = titleView.getText().toString();
-        float sizeSp = 28f;
-        while (sizeSp > 16f) {
-            tp.setTextSize(TypedValue.applyDimension(
-                    TypedValue.COMPLEX_UNIT_SP, sizeSp, activity.getResources().getDisplayMetrics()));
-            if (tp.measureText(text) <= avail) break;
-            sizeSp -= 1f;
-        }
-        final float fit = sizeSp;
-        titleView.post(() -> titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, fit));
-    }
-
+    /** Sets the title shown in the bar (the collapsed title in Miuix). */
     public void setTitle(String title) {
         titleView.setText(title);
-        if (UiKit.isMiuix()) {
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f);
-            titleView.post(this::fitTitle);
-        }
     }
 
+    /** Material 3 only: small monospace pill under the title (version). Ignored by Miuix. */
     public void setSubtitle(String subtitle) {
+        if (miuix) return;
         subtitleView.setText(subtitle);
         subtitleView.setVisibility(TextUtils.isEmpty(subtitle) ? View.GONE : View.VISIBLE);
     }
@@ -228,23 +230,62 @@ public final class Scaffold {
     }
 
     public void setActionsVisible(boolean visible) {
-        actions.setVisibility(visible ? View.VISIBLE : View.GONE);
+        actions.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
     }
 
-    /** Adds a scrolling page. A stable {@code scrollId} lets Android restore the scroll position. */
-    public ScrollView addPage(View content, int scrollId) {
+    /**
+     * Adds a scrolling page. A stable {@code scrollId} lets Android restore the scroll position.
+     * In Miuix, {@code largeTitle} is shown at the top of the page and collapses into the bar.
+     */
+    public ScrollView addPage(View content, int scrollId, String largeTitle) {
+        LinearLayout column = new LinearLayout(activity);
+        column.setOrientation(LinearLayout.VERTICAL);
+        TextView big = null;
+        if (miuix && largeTitle != null) {
+            big = new TextView(activity);
+            big.setText(largeTitle);
+            big.setTextColor(palette.onSurface);
+            big.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f);
+            big.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            big.setSingleLine(true);
+            big.setEllipsize(TextUtils.TruncateAt.END);
+            big.setPadding(UiKit.dp(activity, 12), UiKit.dp(activity, 4), UiKit.dp(activity, 12), UiKit.dp(activity, 14));
+            column.addView(big, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        column.addView(content, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
         ScrollView scroll = new ScrollView(activity);
         scroll.setId(scrollId);
         scroll.setFillViewport(false);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setClipToPadding(false);
-        scroll.addView(content, new FrameLayout.LayoutParams(
+        scroll.addView(column, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
+            if (pages.indexOf(scroll) == pager.getCurrentPage()) updateCollapse();
+        });
         pager.addView(scroll, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         pages.add(scroll);
+        largeTitles.add(big);
         applyInsets();
         return scroll;
+    }
+
+    /** Miuix: fade in the small title and the bar blur as the current page scrolls. */
+    private void updateCollapse() {
+        if (!miuix || pages.isEmpty()) return;
+        int index = Math.max(0, Math.min(pages.size() - 1, pager.getCurrentPage()));
+        int y = pages.get(index).getScrollY();
+        TextView big = largeTitles.get(index);
+        float titleSpan = big != null && big.getHeight() > 0 ? big.getHeight() : UiKit.dp(activity, 48);
+        float collapse = Math.max(0f, Math.min(1f, y / titleSpan));
+        titleView.setAlpha(big == null ? 1f : Math.max(0f, (collapse - 0.5f) * 2f));
+        if (big != null) big.setAlpha(1f - collapse);
+        // Like SukiSU's BlurredBar: the blur shows once the page is scrolled.
+        header.setGlassAlpha(Math.max(0f, Math.min(1f, y / (float) UiKit.dp(activity, 16))));
     }
 
     public void showPage(int index, boolean animate) {
@@ -258,10 +299,8 @@ public final class Scaffold {
     public void setBottomBar(BottomBar bar) {
         this.bottomBar = bar;
         bar.setBlurSource(stage);
-        FrameLayout.LayoutParams lp = bar.isFloating()
-                ? new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, bar.contentHeightPx(),
-                        Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL)
-                : new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, bar.contentHeightPx(), Gravity.BOTTOM);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, bar.contentHeightPx(), Gravity.BOTTOM);
         root.addView(bar, root.indexOfChild(snackView), lp);
         applyInsets();
     }
@@ -274,12 +313,11 @@ public final class Scaffold {
 
     private void applyInsets() {
         Context ctx = activity;
-        int side = UiKit.dp(ctx, 18);
-        int vert = UiKit.dp(ctx, 12);
-        topBar.setPadding(side + bars.left, vert + bars.top, side + bars.right, vert);
+        int side = UiKit.dp(ctx, miuix ? 12 : 18);
+        barRow.setPadding(side + bars.left, bars.top, side + bars.right, 0);
 
-        int pageSide = UiKit.dp(ctx, 16);
-        int pageTop = headerHeight + UiKit.dp(ctx, 4);
+        int pageSide = UiKit.dp(ctx, miuix ? 12 : 16);
+        int pageTop = headerHeight + UiKit.dp(ctx, miuix ? 0 : 4);
         int pageBottom = UiKit.dp(ctx, 28) + bars.bottom + bottomBarSpace();
         for (ScrollView page : pages) {
             if (page.getPaddingTop() != pageTop || page.getPaddingBottom() != pageBottom
@@ -291,10 +329,11 @@ public final class Scaffold {
         if (bottomBar != null) {
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) bottomBar.getLayoutParams();
             if (bottomBar.isFloating()) {
+                // SukiSU: 28dp side margins; 8dp above the navigation bar (28dp without one).
                 lp.height = bottomBar.contentHeightPx();
-                lp.bottomMargin = bars.bottom + UiKit.dp(ctx, 12);
-                bottomBar.setPadding(bottomBar.getPaddingLeft(), bottomBar.getPaddingTop(),
-                        bottomBar.getPaddingRight(), bottomBar.getPaddingTop());
+                lp.leftMargin = UiKit.dp(ctx, 28) + bars.left;
+                lp.rightMargin = UiKit.dp(ctx, 28) + bars.right;
+                lp.bottomMargin = bars.bottom > 0 ? bars.bottom + UiKit.dp(ctx, 8) : UiKit.dp(ctx, 28);
             } else {
                 lp.height = bottomBar.contentHeightPx() + bars.bottom;
                 bottomBar.setPadding(bars.left, 0, bars.right, bars.bottom);
@@ -305,6 +344,7 @@ public final class Scaffold {
         FrameLayout.LayoutParams slp = (FrameLayout.LayoutParams) snackView.getLayoutParams();
         slp.bottomMargin = UiKit.dp(ctx, 20) + bars.bottom + bottomBarSpace();
         snackView.setLayoutParams(slp);
+        updateCollapse();
     }
 
     public void setBusy(boolean busy) {
