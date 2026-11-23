@@ -37,6 +37,9 @@
     <string name="lang_title">语言</string>
     <string name="lang_system">跟随系统</string>
     <string name="theme_liquid_glass">液态玻璃</string>
-    <string name="theme_liquid_glass_summary">在栏的边缘折射页面内容</string>
-    <string name="theme_liquid_glass_needs_glass">请先开启毛玻璃效果</string>
+    <string name="theme_liquid_glass_summary">悬浮底栏使用液态玻璃效果</string>
+    <string name="theme_progressive_blur">渐进式模糊</string>
+    <string name="theme_progressive_blur_summary">模糊从屏幕边缘向内容逐渐减弱</string>
+    <string name="theme_needs_glass">请先开启毛玻璃效果</string>
+    <string name="theme_liquid_glass_needs_floating">请先开启悬浮底栏</string>
 </resources>

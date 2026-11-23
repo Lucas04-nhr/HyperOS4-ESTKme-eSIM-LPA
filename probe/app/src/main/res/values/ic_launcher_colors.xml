@@ -1,16 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Launcher icon colors, bound to the system Material You (dynamic color) palette. -->
+<!-- Light launcher icon colors from the system dynamic palette. -->
 <resources>
-    <color name="ic_launcher_bg_start">@android:color/system_accent1_700</color>
-    <color name="ic_launcher_bg_mid">@android:color/system_accent1_600</color>
-    <color name="ic_launcher_bg_end">@android:color/system_accent1_500</color>
-    <color name="ic_launcher_card">@android:color/system_accent1_10</color>
-    <color name="ic_launcher_pill">@android:color/system_accent1_600</color>
-    <color name="ic_launcher_pill_mark">@android:color/system_accent1_10</color>
-    <color name="ic_launcher_chip_start">@android:color/system_accent3_200</color>
-    <color name="ic_launcher_chip_end">@android:color/system_accent3_400</color>
-    <color name="ic_launcher_chip_trace">@android:color/system_accent3_800</color>
-    <color name="ic_launcher_chip_core">@android:color/system_accent3_100</color>
-    <color name="ic_launcher_wave_inner">@android:color/system_accent1_100</color>
-    <color name="ic_launcher_wave_outer">@android:color/system_accent1_50</color>
+    <color name="ic_launcher_background">@android:color/system_accent1_100</color>
+    <color name="ic_launcher_card">@android:color/system_accent1_600</color>
+    <color name="ic_launcher_chip">@android:color/system_accent3_200</color>
+    <color name="ic_launcher_chip_trace">@android:color/system_accent3_600</color>
+    <color name="ic_launcher_chip_core">@android:color/system_accent3_50</color>
+    <color name="ic_launcher_pill">@android:color/system_accent1_100</color>
+    <color name="ic_launcher_pill_mark">@android:color/system_accent1_700</color>
+    <color name="ic_launcher_wave_inner">@android:color/system_accent1_600</color>
+    <color name="ic_launcher_wave_outer">@android:color/system_accent1_400</color>
 </resources>

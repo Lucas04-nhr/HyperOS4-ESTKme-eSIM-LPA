@@ -37,6 +37,9 @@
     <string name="lang_title">Language</string>
     <string name="lang_system">Follow system</string>
     <string name="theme_liquid_glass">Liquid glass</string>
-    <string name="theme_liquid_glass_summary">Refract the page at the bar edges</string>
-    <string name="theme_liquid_glass_needs_glass">Turn on frosted glass first</string>
+    <string name="theme_liquid_glass_summary">Liquid glass effect for the floating bottom bar</string>
+    <string name="theme_progressive_blur">Progressive blur</string>
+    <string name="theme_progressive_blur_summary">Blur fades from the screen edge toward the content</string>
+    <string name="theme_needs_glass">Turn on frosted glass first</string>
+    <string name="theme_liquid_glass_needs_floating">Turn on the floating bottom bar first</string>
 </resources>

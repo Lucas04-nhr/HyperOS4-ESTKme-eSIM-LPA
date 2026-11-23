@@ -21,7 +21,7 @@ public final class ThemeActivity extends ThemedActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         scaffold = new Scaffold(this, palette, getString(R.string.theme_title), null, true);
-        scaffold.addPage(buildContent(), R.id.ui_page_1);
+        scaffold.addPage(buildContent(), R.id.ui_page_1, getString(R.string.theme_title));
         setContentView(scaffold.root);
         UiKit.applyEdgeToEdge(this, palette);
     }
@@ -89,7 +89,8 @@ public final class ThemeActivity extends ThemedActivity {
         });
         col.addView(rowDynamic.card);
 
-        // Bottom bar (Miuix only)
+        // Top and bottom bars (Miuix only), as in SukiSU-Nova:
+        // frosted glass + progressive blur for both bars, liquid glass for the floating bar.
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_section_bottom_bar)));
         String miuixOnly = getString(R.string.theme_miuix_only);
 
@@ -100,30 +101,40 @@ public final class ThemeActivity extends ThemedActivity {
                 miuix ? getString(R.string.theme_bar_glass_summary) : miuixOnly);
         col.addView(rowGlass.card);
 
-        UiKit.SwitchRow rowLiquid = new UiKit.SwitchRow(
-                this, palette, R.drawable.ic_liquid_glass_24,
-                getString(R.string.theme_liquid_glass), "", 6f, 6f, 2);
-        boolean liquidAvailable = miuix && ThemeConfig.barGlass;
-        rowLiquid.setRowState(ThemeConfig.liquidGlass && ThemeConfig.barGlass, liquidAvailable, getString(!miuix
-                ? R.string.theme_miuix_only
-                : ThemeConfig.barGlass ? R.string.theme_liquid_glass_summary : R.string.theme_liquid_glass_needs_glass));
-        rowLiquid.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setLiquidGlass(this, checked));
-        col.addView(rowLiquid.card);
+        UiKit.SwitchRow rowProgressive = new UiKit.SwitchRow(
+                this, palette, R.drawable.ic_blur_24,
+                getString(R.string.theme_progressive_blur), "", 6f, 6f, 2);
+        setDependentRow(rowProgressive, ThemeConfig.progressiveBlur, miuix, ThemeConfig.barGlass,
+                R.string.theme_progressive_blur_summary, R.string.theme_needs_glass);
+        rowProgressive.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setProgressiveBlur(this, checked));
+        col.addView(rowProgressive.card);
 
         rowGlass.toggle.setOnCheckedChangeListener((sw, checked) -> {
             ThemeConfig.setBarGlass(this, checked);
-            rowLiquid.setRowState(ThemeConfig.liquidGlass && checked, checked, getString(checked
-                    ? R.string.theme_liquid_glass_summary
-                    : R.string.theme_liquid_glass_needs_glass));
+            setDependentRow(rowProgressive, ThemeConfig.progressiveBlur, true, checked,
+                    R.string.theme_progressive_blur_summary, R.string.theme_needs_glass);
         });
 
         UiKit.SwitchRow rowFloating = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_floating_bar_24,
-                getString(R.string.theme_bar_floating), "", 6f, 24f, 0);
+                getString(R.string.theme_bar_floating), "", 6f, 6f, 2);
         rowFloating.setRowState(ThemeConfig.barFloating, miuix,
                 miuix ? getString(R.string.theme_bar_floating_summary) : miuixOnly);
-        rowFloating.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setBarFloating(this, checked));
         col.addView(rowFloating.card);
+
+        UiKit.SwitchRow rowLiquid = new UiKit.SwitchRow(
+                this, palette, R.drawable.ic_liquid_glass_24,
+                getString(R.string.theme_liquid_glass), "", 6f, 24f, 0);
+        setDependentRow(rowLiquid, ThemeConfig.liquidGlass, miuix, ThemeConfig.barFloating,
+                R.string.theme_liquid_glass_summary, R.string.theme_liquid_glass_needs_floating);
+        rowLiquid.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setLiquidGlass(this, checked));
+        col.addView(rowLiquid.card);
+
+        rowFloating.toggle.setOnCheckedChangeListener((sw, checked) -> {
+            ThemeConfig.setBarFloating(this, checked);
+            setDependentRow(rowLiquid, ThemeConfig.liquidGlass, true, checked,
+                    R.string.theme_liquid_glass_summary, R.string.theme_liquid_glass_needs_floating);
+        });
 
         // Background
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_section_background)));
@@ -211,6 +222,14 @@ public final class ThemeActivity extends ThemedActivity {
             col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_bg_hint)));
         }
         return col;
+    }
+
+    /** Row that only works in Miuix and when its parent option is on; shows why otherwise. */
+    private void setDependentRow(UiKit.SwitchRow row, boolean value, boolean miuix, boolean parentOn,
+                                 int summaryRes, int needsParentRes) {
+        row.setRowState(value && parentOn, miuix && parentOn, getString(!miuix
+                ? R.string.theme_miuix_only
+                : parentOn ? summaryRes : needsParentRes));
     }
 
     /** Lets the switch animation finish before the page is rebuilt with the new colors. */

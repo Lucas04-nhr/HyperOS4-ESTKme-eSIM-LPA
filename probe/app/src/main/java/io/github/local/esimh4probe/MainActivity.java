@@ -30,6 +30,8 @@ import io.github.local.esimh4ui.StatusBanner;
 import io.github.local.esimh4ui.ThemedActivity;
 import io.github.local.esimh4ui.UiKit;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -99,7 +101,7 @@ public final class MainActivity extends ThemedActivity {
         super.onCreate(savedInstanceState);
         currentTab = savedInstanceState != null ? savedInstanceState.getInt(STATE_TAB, TAB_HOME) : TAB_HOME;
 
-        scaffold = new Scaffold(this, palette, getString(R.string.app_name), versionSubtitle(), false);
+        scaffold = new Scaffold(this, palette, getString(R.string.app_name), null, false);
         scaffold.addAction(UiKit.createIconButton(
                 this, palette, R.drawable.ic_refresh_24, getString(R.string.action_refresh), () -> {
                     refreshDashboard();
@@ -108,8 +110,8 @@ public final class MainActivity extends ThemedActivity {
         scaffold.addAction(UiKit.createIconButton(
                 this, palette, R.drawable.ic_terminal_24, getString(R.string.action_diagnostics),
                 this::showDiagnosticsDialog));
-        scaffold.addPage(buildHomePage(), io.github.local.esimh4ui.R.id.ui_page_1);
-        scaffold.addPage(buildSettingsPage(), io.github.local.esimh4ui.R.id.ui_page_2);
+        scaffold.addPage(buildHomePage(), io.github.local.esimh4ui.R.id.ui_page_1, getString(R.string.app_name));
+        scaffold.addPage(buildSettingsPage(), io.github.local.esimh4ui.R.id.ui_page_2, getString(R.string.tab_settings));
 
         bottomBar = new BottomBar(
                 this,
@@ -148,23 +150,12 @@ public final class MainActivity extends ThemedActivity {
         super.onDestroy();
     }
 
-    private String versionSubtitle() {
-        return getString(R.string.top_subtitle, ProbeInspector.MODULE_VERSION);
-    }
-
     /** Called when the pager settles on a page (swipe or bottom bar tap). */
     private void onPageSelected(int tab) {
         currentTab = tab;
         bottomBar.select(tab);
-        if (tab == TAB_HOME) {
-            scaffold.setTitle(getString(R.string.app_name));
-            scaffold.setSubtitle(versionSubtitle());
-            scaffold.setActionsVisible(true);
-        } else {
-            scaffold.setTitle(getString(R.string.tab_settings));
-            scaffold.setSubtitle(null);
-            scaffold.setActionsVisible(false);
-        }
+        scaffold.setTitle(getString(tab == TAB_HOME ? R.string.app_name : R.string.tab_settings));
+        scaffold.setActionsVisible(tab == TAB_HOME);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -246,14 +237,7 @@ public final class MainActivity extends ThemedActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = UiKit.dp(this, 4);
         statusBanner.setLayoutParams(lp);
-        statusBanner.setState(StatusBanner.State.LOADING, R.drawable.ic_sim_card_24);
-        statusBanner.setTexts(getString(R.string.status_loading), getString(R.string.status_loading_summary),
-                getString(R.string.status_version, ProbeInspector.MODULE_VERSION));
-        statusBanner.setOnClickListener(v -> {
-            if (lastReport == null || !lastReport.optBoolean("moduleActive", false)) {
-                scaffold.showPage(TAB_SETTINGS, true);
-            }
-        });
+        statusBanner.showLoading(getString(R.string.status_loading));
         return statusBanner;
     }
 
@@ -935,22 +919,26 @@ public final class MainActivity extends ThemedActivity {
             boolean lpaUriBridge = r.optBoolean("lpaUriBridgeEnabled", true);
             boolean rewriteText = r.optBoolean("rewriteTextEnabled", true);
 
-            // 1. Status banner + master switch
-            String footer = getString(R.string.status_version_lpa, ProbeInspector.MODULE_VERSION, lpaVer);
+            // 1. Status banner + master switch (SukiSU style: green card when working,
+            //    plain card with a red hint and an action otherwise)
+            boolean se1 = "se1".equals(EuiccCardReader.isdrSePref());
             if (!moduleActive) {
-                statusBanner.setState(StatusBanner.State.ERROR, R.drawable.ic_power_24);
-                statusBanner.setTexts(getString(R.string.status_off), getString(R.string.status_off_summary), footer);
+                statusBanner.showError(getString(R.string.status_off_hint), getString(R.string.status_off),
+                        getString(R.string.btn_turn_on), () -> scaffold.showPage(TAB_SETTINGS, true));
             } else if (!lpaPrivMounted) {
-                statusBanner.setState(StatusBanner.State.ERROR, R.drawable.ic_error_24);
-                statusBanner.setTexts(getString(R.string.status_attention), getString(R.string.status_wait_mount), footer);
+                statusBanner.showError(getString(R.string.status_wait_mount), getString(R.string.status_attention),
+                        getString(R.string.btn_diagnostics), this::showDiagnosticsDialog);
             } else if (!phoneHook) {
-                statusBanner.setState(StatusBanner.State.ERROR, R.drawable.ic_error_24);
-                statusBanner.setTexts(getString(R.string.status_attention), getString(R.string.status_wait_lsposed), footer);
+                statusBanner.showError(getString(R.string.status_wait_lsposed), getString(R.string.status_attention),
+                        getString(R.string.btn_diagnostics), this::showDiagnosticsDialog);
             } else {
-                statusBanner.setState(StatusBanner.State.OK, R.drawable.ic_check_circle_24);
-                statusBanner.setTexts(getString(R.string.status_running), getString(cardType == 1
-                        ? R.string.status_running_card
-                        : R.string.status_running_no_card), footer);
+                List<StatusBanner.Tag> tags = new ArrayList<>();
+                tags.add(new StatusBanner.Tag(getString(cardType == 1 ? R.string.tag_esim : R.string.tag_no_esim),
+                        cardType == 1));
+                if (se1) tags.add(new StatusBanner.Tag(getString(R.string.tag_se1), false));
+                if (lpaUpdatedSys) tags.add(new StatusBanner.Tag(getString(R.string.tag_umount), false));
+                statusBanner.showOk(getString(R.string.status_running),
+                        getString(R.string.status_version_lpa, ProbeInspector.MODULE_VERSION, lpaVer), tags);
             }
 
             switchMasterMode.setChecked(moduleActive, false);
@@ -1025,7 +1013,6 @@ public final class MainActivity extends ThemedActivity {
             }
             rowUmountGuard.setRowState(lpaUpdatedSys, moduleActive && lpaPrivMounted, subUmount);
 
-            boolean se1 = "se1".equals(EuiccCardReader.isdrSePref());
             rowEstkSe1.setRowState(se1, moduleActive,
                     getString(se1 ? R.string.se1_sub_on : R.string.se1_sub_off));
 
