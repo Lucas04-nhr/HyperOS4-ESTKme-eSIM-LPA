@@ -47,6 +47,39 @@ final class M3Ui {
 
     private M3Ui() {}
 
+    /** Selectable design language, mirroring the Material 3 / Miuix choice offered by SukiSU managers. */
+    enum Style {
+        MATERIAL3,
+        MIUIX
+    }
+
+    private static final String PREFS_NAME = "ui_prefs";
+    private static final String KEY_STYLE = "ui_style";
+    private static Style style = Style.MATERIAL3;
+
+    static void loadStyle(Context ctx) {
+        String saved = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_STYLE, Style.MATERIAL3.name());
+        style = Style.MIUIX.name().equals(saved) ? Style.MIUIX : Style.MATERIAL3;
+    }
+
+    static void saveStyle(Context ctx, Style value) {
+        style = value;
+        ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_STYLE, value.name())
+                .apply();
+    }
+
+    static boolean isMiuix() {
+        return style == Style.MIUIX;
+    }
+
+    /** Picks the corner radius (dp) for the active style. */
+    static float radius(float material3Dp, float miuixDp) {
+        return isMiuix() ? miuixDp : material3Dp;
+    }
+
     static int dp(Context ctx, float value) {
         return Math.round(value * ctx.getResources().getDisplayMetrics().density);
     }
@@ -109,12 +142,61 @@ final class M3Ui {
         final int ripple;
         final int inverseSurface;
         final int inverseOnSurface;
+        final int sectionTitle;
 
         private Palette(Context ctx) {
             int nightFlags = ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
             this.isNight = (nightFlags == Configuration.UI_MODE_NIGHT_YES);
 
-            if (!isNight) {
+            if (isMiuix() && !isNight) {
+                // Miuix (HyperOS) light color scheme: fixed HyperOS blue, no Monet.
+                pageBg = 0xFFF7F7F7;
+                cardBg = 0xFFFFFFFF;
+                tileBg = 0xFFF7F7F7;
+                surfaceHigh = 0xFFFFFFFF;
+                surfaceHighest = 0xFFE6E6E6;
+                primary = 0xFF3482FF;
+                onPrimary = 0xFFFFFFFF;
+                primaryContainer = 0xFFE6F0FF;
+                onPrimaryContainer = 0xFF1F66D6;
+                secondaryContainer = 0xFFF0F0F0;
+                onSecondaryContainer = 0xFF000000;
+                error = 0xFFE94634;
+                errorContainer = 0xFFFDEDEB;
+                onErrorContainer = 0xFFC33A2B;
+                onSurface = 0xFF000000;
+                onSurfaceVariant = 0xFF999999;
+                outline = 0xFFB5B5B5;
+                outlineVariant = 0xFFE0E0E0;
+                inverseSurface = 0xF0303030;
+                inverseOnSurface = 0xFFFFFFFF;
+                ripple = 0x14000000;
+                sectionTitle = 0xFF8C93B0;
+            } else if (isMiuix()) {
+                // Miuix (HyperOS) dark color scheme.
+                pageBg = 0xFF000000;
+                cardBg = 0xFF242424;
+                tileBg = 0xFF2D2D2D;
+                surfaceHigh = 0xFF242424;
+                surfaceHighest = 0xFF474747;
+                primary = 0xFF277AF7;
+                onPrimary = 0xFFFFFFFF;
+                primaryContainer = 0xFF15233B;
+                onPrimaryContainer = 0xFF8AB6FF;
+                secondaryContainer = 0xFF333333;
+                onSecondaryContainer = 0xFFE6E6E6;
+                error = 0xFFF2584A;
+                errorContainer = 0xFF3A1A17;
+                onErrorContainer = 0xFFFF8A80;
+                onSurface = 0xFFF2F2F2;
+                onSurfaceVariant = 0xFF8C8C8C;
+                outline = 0xFF6B6B6B;
+                outlineVariant = 0xFF333333;
+                inverseSurface = 0xF0E6E6E6;
+                inverseOnSurface = 0xFF1A1A1A;
+                ripple = 0x1AFFFFFF;
+                sectionTitle = 0xFF787E96;
+            } else if (!isNight) {
                 pageBg = sysColor(ctx, "system_surface_container_low_light", 0xFFF3F4F9);
                 cardBg = sysColor(ctx, "system_surface_container_lowest_light", 0xFFFFFFFF);
                 tileBg = sysColor(ctx, "system_surface_container_light", 0xFFECEEF4);
@@ -136,6 +218,7 @@ final class M3Ui {
                 inverseSurface = 0xFF2E3035;
                 inverseOnSurface = 0xFFF0F0F7;
                 ripple = withAlpha(primary, 0x1F);
+                sectionTitle = primary;
             } else {
                 pageBg = sysColor(ctx, "system_surface_container_lowest_dark", 0xFF0C0E13);
                 cardBg = sysColor(ctx, "system_surface_container_dark", 0xFF1B1F26);
@@ -158,6 +241,7 @@ final class M3Ui {
                 inverseSurface = 0xFFE2E2E9;
                 inverseOnSurface = 0xFF191C20;
                 ripple = withAlpha(primary, 0x29);
+                sectionTitle = primary;
             }
         }
 
@@ -249,8 +333,14 @@ final class M3Ui {
         btn.setPadding(pad, pad, pad, pad);
         btn.setScaleType(ImageView.ScaleType.FIT_CENTER);
         btn.setImageResource(iconRes);
-        btn.setImageTintList(ColorStateList.valueOf(p.onSurfaceVariant));
-        btn.setBackground(rippleOval(p.tileBg, p.ripple));
+        if (isMiuix()) {
+            // Miuix top bar actions are bare glyphs without a container.
+            btn.setImageTintList(ColorStateList.valueOf(p.onSurface));
+            btn.setBackground(rippleOval(Color.TRANSPARENT, p.ripple));
+        } else {
+            btn.setImageTintList(ColorStateList.valueOf(p.onSurfaceVariant));
+            btn.setBackground(rippleOval(p.tileBg, p.ripple));
+        }
         btn.setContentDescription(contentDesc);
         if (Build.VERSION.SDK_INT >= 26) {
             btn.setTooltipText(contentDesc);
@@ -267,13 +357,15 @@ final class M3Ui {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = dp(ctx, 18);
         lp.bottomMargin = dp(ctx, 8);
-        lp.leftMargin = dp(ctx, 6);
+        lp.leftMargin = dp(ctx, isMiuix() ? 12 : 6);
         lp.rightMargin = dp(ctx, 6);
         tv.setLayoutParams(lp);
         tv.setText(title);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        tv.setTextColor(p.primary);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, isMiuix() ? 14f : 13f);
+        tv.setTypeface(isMiuix()
+                ? Typeface.DEFAULT
+                : Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        tv.setTextColor(p.sectionTitle);
         return tv;
     }
 
@@ -306,6 +398,10 @@ final class M3Ui {
         if (style == ButtonStyle.FILLED) {
             bgColor = p.primary;
             fgColor = p.onPrimary;
+        } else if (isMiuix()) {
+            // Miuix has no outlined button: tonal and outlined both use the secondary surface.
+            bgColor = p.secondaryContainer;
+            fgColor = p.onSurface;
         } else if (style == ButtonStyle.TONAL) {
             bgColor = p.secondaryContainer;
             fgColor = p.onSecondaryContainer;
@@ -316,7 +412,7 @@ final class M3Ui {
             strokeColor = p.outlineVariant;
         }
 
-        float radiusDp = heightDp / 2f;
+        float radiusDp = isMiuix() ? 16f : heightDp / 2f;
         int ripple = style == ButtonStyle.FILLED ? withAlpha(p.onPrimary, 0x26) : p.ripple;
         box.setBackground(rippleSegmented(ctx, bgColor, ripple, radiusDp, radiusDp, strokePx, strokeColor));
 
@@ -333,7 +429,7 @@ final class M3Ui {
 
         TextView tv = new TextView(ctx);
         tv.setText(text);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, isMiuix() ? 14.5f : 13.5f);
         tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         tv.setTextColor(fgColor);
         tv.setMaxLines(1);
@@ -378,6 +474,13 @@ final class M3Ui {
                 float bottomRadiusDp,
                 int bottomGapDp) {
             this.palette = p;
+            boolean miuix = isMiuix();
+            if (miuix) {
+                // Miuix groups rows into one continuous 16dp card: outer corners only, no gaps.
+                topRadiusDp = topRadiusDp >= 20f ? 16f : 0f;
+                bottomRadiusDp = bottomRadiusDp >= 20f ? 16f : 0f;
+                bottomGapDp = 0;
+            }
             card = new LinearLayout(ctx);
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(Gravity.CENTER_VERTICAL);
@@ -386,20 +489,20 @@ final class M3Ui {
             clp.bottomMargin = dp(ctx, bottomGapDp);
             card.setLayoutParams(clp);
             int padH = dp(ctx, 16);
-            int padV = dp(ctx, 15);
+            int padV = dp(ctx, miuix ? 16 : 15);
             card.setPadding(padH, padV, padH, padV);
             card.setBackground(rippleSegmented(ctx, p.cardBg, p.ripple, topRadiusDp, bottomRadiusDp, 0, 0));
             card.setClickable(true);
             card.setFocusable(true);
 
             iconWrap = new FrameLayout(ctx);
-            int boxSize = dp(ctx, 40);
+            int boxSize = dp(ctx, miuix ? 28 : 40);
             LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(boxSize, boxSize);
             ilp.rightMargin = dp(ctx, 14);
             iconWrap.setLayoutParams(ilp);
 
             iconView = new ImageView(ctx);
-            int iconSize = dp(ctx, 21);
+            int iconSize = dp(ctx, miuix ? 24 : 21);
             FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER);
             iconView.setLayoutParams(flp);
             iconView.setImageResource(iconRes);
@@ -415,7 +518,7 @@ final class M3Ui {
 
             titleView = new TextView(ctx);
             titleView.setText(title);
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, miuix ? 16.5f : 15.5f);
             titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             titleView.setTextColor(p.onSurface);
             textCol.addView(titleView);
@@ -426,7 +529,7 @@ final class M3Ui {
             slp.topMargin = dp(ctx, 3);
             subtitleView.setLayoutParams(slp);
             subtitleView.setText(initialSub);
-            subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+            subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, miuix ? 13.5f : 12.5f);
             subtitleView.setLineSpacing(dpf(ctx, 2f), 1.0f);
             subtitleView.setTextColor(p.onSurfaceVariant);
             textCol.addView(subtitleView);
@@ -439,6 +542,12 @@ final class M3Ui {
         }
 
         void refreshIconTint(boolean checked) {
+            if (isMiuix()) {
+                // Miuix list icons are plain glyphs; state is carried by the switch only.
+                iconWrap.setBackground(null);
+                iconView.setImageTintList(ColorStateList.valueOf(palette.onSurface));
+                return;
+            }
             int wrapBg = checked ? palette.secondaryContainer : palette.tileBg;
             int tint = checked ? palette.onSecondaryContainer : palette.onSurfaceVariant;
             iconWrap.setBackground(oval(wrapBg));
@@ -493,8 +602,16 @@ final class M3Ui {
             glyphPaint.setStrokeJoin(Paint.Join.ROUND);
             glyphPaint.setStrokeWidth(dpf(ctx, 1.9f));
 
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(ctx, 52), dp(ctx, 32));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(ctx, widthDp()), dp(ctx, heightDp()));
             setLayoutParams(lp);
+        }
+
+        private static int widthDp() {
+            return isMiuix() ? 49 : 52;
+        }
+
+        private static int heightDp() {
+            return isMiuix() ? 28 : 32;
         }
 
         void setOnCheckedChangeListener(OnCheckedChangeListener l) {
@@ -589,8 +706,8 @@ final class M3Ui {
 
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-            int w = dp(getContext(), 52);
-            int h = dp(getContext(), 32);
+            int w = dp(getContext(), widthDp());
+            int h = dp(getContext(), heightDp());
             setMeasuredDimension(resolveSize(w, widthMeasureSpec), resolveSize(h, heightMeasureSpec));
         }
 
@@ -604,6 +721,14 @@ final class M3Ui {
             int alphaLayer = isEnabled() ? 255 : 97; // 0.38f official M3 disabled opacity
             if (alphaLayer < 255) {
                 canvas.saveLayerAlpha(0, 0, w, h, alphaLayer);
+            }
+
+            if (isMiuix()) {
+                drawMiuix(canvas, w, h);
+                if (alphaLayer < 255) {
+                    canvas.restore();
+                }
+                return;
             }
 
             // 1. Track pill
@@ -653,6 +778,24 @@ final class M3Ui {
             }
         }
 
+        /** Miuix switch: solid track (secondary -> primary), plain white thumb with 4dp inset. */
+        private void drawMiuix(Canvas canvas, float w, float h) {
+            trackPaint.setColor(blend(palette.surfaceHighest, palette.primary, progress));
+            trackRect.set(0f, 0f, w, h);
+            float trackRadius = h / 2f;
+            canvas.drawRoundRect(trackRect, trackRadius, trackRadius, trackPaint);
+
+            float inset = dpf(getContext(), 4f);
+            float baseRadius = (h / 2f) - inset;
+            float thumbRadius = baseRadius + dpf(getContext(), 1.5f) * pressProgress;
+            float startCx = inset + baseRadius;
+            float endCx = w - inset - baseRadius;
+            float cx = startCx + (endCx - startCx) * progress;
+            int offThumb = palette.isNight ? 0xFFD9D9D9 : 0xFFFFFFFF;
+            thumbPaint.setColor(blend(offThumb, 0xFFFFFFFF, progress));
+            canvas.drawCircle(cx, h / 2f, thumbRadius, thumbPaint);
+        }
+
         @Override
         public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
             super.onInitializeAccessibilityNodeInfo(info);
@@ -675,6 +818,10 @@ final class M3Ui {
             Runnable onNeutral,
             String positiveText) {
         if (activity.isFinishing() || activity.isDestroyed()) return;
+        if (isMiuix()) {
+            showMiuixDialog(activity, p, title, message, monospaceBody, neutralText, onNeutral, positiveText);
+            return;
+        }
 
         Dialog dialog = new Dialog(activity);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -755,6 +902,107 @@ final class M3Ui {
             int screenW = activity.getResources().getDisplayMetrics().widthPixels;
             int maxW = Math.min(screenW - dp(activity, 36), dp(activity, 420));
             w.setLayout(maxW, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+        dialog.show();
+    }
+
+    /**
+     * Miuix-style dialog (SuperDialog look): bottom-anchored on phones, 32dp corners,
+     * centered title and equal-width secondary / primary buttons.
+     */
+    private static void showMiuixDialog(
+            Activity activity,
+            Palette p,
+            String title,
+            String message,
+            boolean monospaceBody,
+            String neutralText,
+            Runnable onNeutral,
+            String positiveText) {
+        Dialog dialog = new Dialog(activity);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(activity);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(activity, 24);
+        root.setPadding(pad, dp(activity, 26), pad, pad);
+        root.setBackground(roundedRect(activity, p.surfaceHigh, 32f, 0, 0));
+
+        TextView tvTitle = new TextView(activity);
+        tvTitle.setText(title);
+        tvTitle.setGravity(Gravity.CENTER_HORIZONTAL);
+        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f);
+        tvTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        tvTitle.setTextColor(p.onSurface);
+        root.addView(tvTitle, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        final int maxScrollHeight = Math.round(activity.getResources().getDisplayMetrics().heightPixels * 0.56f);
+        ScrollView scroll = new ScrollView(activity) {
+            @Override
+            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                int cappedSpec = MeasureSpec.makeMeasureSpec(maxScrollHeight, MeasureSpec.AT_MOST);
+                super.onMeasure(widthMeasureSpec, cappedSpec);
+            }
+        };
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        slp.topMargin = dp(activity, 14);
+        slp.bottomMargin = dp(activity, 24);
+        scroll.setLayoutParams(slp);
+
+        TextView tvMsg = new TextView(activity);
+        tvMsg.setText(message);
+        tvMsg.setTextIsSelectable(true);
+        if (monospaceBody) {
+            int codePad = dp(activity, 12);
+            tvMsg.setPadding(codePad, codePad, codePad, codePad);
+            tvMsg.setBackground(roundedRect(activity, p.tileBg, 16f, 0, 0));
+            tvMsg.setTypeface(Typeface.MONOSPACE);
+            tvMsg.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+            tvMsg.setTextColor(p.onSurface);
+        } else {
+            tvMsg.setGravity(Gravity.CENTER_HORIZONTAL);
+            tvMsg.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+            tvMsg.setLineSpacing(dpf(activity, 3f), 1.0f);
+            tvMsg.setTextColor(p.onSurfaceVariant);
+        }
+        scroll.addView(tvMsg);
+        root.addView(scroll);
+
+        LinearLayout actions = new LinearLayout(activity);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+
+        if (neutralText != null && onNeutral != null) {
+            LinearLayout btnNeutral = createActionButton(
+                    activity, p, ButtonStyle.TONAL, 0, neutralText, 48, () -> {
+                        onNeutral.run();
+                        dialog.dismiss();
+                    });
+            LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            nlp.rightMargin = dp(activity, 12);
+            btnNeutral.setLayoutParams(nlp);
+            actions.addView(btnNeutral);
+        }
+
+        LinearLayout btnPos = createActionButton(
+                activity, p, ButtonStyle.FILLED, 0, positiveText != null ? positiveText : "确定", 48, dialog::dismiss);
+        btnPos.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        actions.addView(btnPos);
+        root.addView(actions);
+
+        dialog.setContentView(root);
+        Window w = dialog.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            int screenW = activity.getResources().getDisplayMetrics().widthPixels;
+            int maxW = Math.min(screenW - dp(activity, 24), dp(activity, 420));
+            w.setLayout(maxW, ViewGroup.LayoutParams.WRAP_CONTENT);
+            w.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            android.view.WindowManager.LayoutParams attrs = w.getAttributes();
+            attrs.y = dp(activity, 12);
+            w.setAttributes(attrs);
         }
         dialog.show();
     }

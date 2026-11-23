@@ -95,10 +95,12 @@ public final class MainActivity extends Activity {
     private M3Ui.SwitchRow rowUmountGuard;
     private M3Ui.SwitchRow rowTesterApp;
     private M3Ui.SwitchRow rowEstkSe1;
+    private M3Ui.SwitchRow rowMiuixStyle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        M3Ui.loadStyle(this);
         palette = M3Ui.Palette.resolve(this);
 
         setContentView(buildContentView());
@@ -149,9 +151,31 @@ public final class MainActivity extends Activity {
 
         TextView tvAppTitle = new TextView(this);
         tvAppTitle.setText(R.string.app_name);
-        tvAppTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f);
-        tvAppTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         tvAppTitle.setTextColor(palette.onSurface);
+        if (M3Ui.isMiuix()) {
+            // Miuix large title: single line, shrinks to fit next to the action icons.
+            tvAppTitle.setSingleLine(true);
+            tvAppTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            tvAppTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f);
+            tvAppTitle.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                if (r - l == or - ol) return;
+                float avail = (r - l) - tvAppTitle.getPaddingLeft() - tvAppTitle.getPaddingRight();
+                float sizeSp = 28f;
+                android.text.TextPaint tp = new android.text.TextPaint(tvAppTitle.getPaint());
+                String text = tvAppTitle.getText().toString();
+                while (sizeSp > 16f) {
+                    tp.setTextSize(TypedValue.applyDimension(
+                            TypedValue.COMPLEX_UNIT_SP, sizeSp, getResources().getDisplayMetrics()));
+                    if (tp.measureText(text) <= avail) break;
+                    sizeSp -= 1f;
+                }
+                final float fit = sizeSp;
+                tvAppTitle.post(() -> tvAppTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, fit));
+            });
+        } else {
+            tvAppTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f);
+            tvAppTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        }
         titleWrap.addView(tvAppTitle);
 
         TextView tvVerPill = new TextView(this);
@@ -160,11 +184,17 @@ public final class MainActivity extends Activity {
         vlp.topMargin = M3Ui.dp(this, 3);
         tvVerPill.setLayoutParams(vlp);
         tvVerPill.setText(ProbeInspector.MODULE_VERSION + " · SIM2 实体卡桥接");
-        tvVerPill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-        tvVerPill.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        tvVerPill.setTextColor(palette.onSecondaryContainer);
-        tvVerPill.setPadding(M3Ui.dp(this, 8), M3Ui.dp(this, 2), M3Ui.dp(this, 8), M3Ui.dp(this, 2));
-        tvVerPill.setBackground(M3Ui.roundedRect(this, palette.secondaryContainer, 999f, 0, 0));
+        if (M3Ui.isMiuix()) {
+            // Miuix shows the subtitle as plain secondary text, not a pill.
+            tvVerPill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+            tvVerPill.setTextColor(palette.onSurfaceVariant);
+        } else {
+            tvVerPill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            tvVerPill.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            tvVerPill.setTextColor(palette.onSecondaryContainer);
+            tvVerPill.setPadding(M3Ui.dp(this, 8), M3Ui.dp(this, 2), M3Ui.dp(this, 8), M3Ui.dp(this, 2));
+            tvVerPill.setBackground(M3Ui.roundedRect(this, palette.secondaryContainer, 999f, 0, 0));
+        }
         titleWrap.addView(tvVerPill);
         topBar.addView(titleWrap);
 
@@ -268,7 +298,7 @@ public final class MainActivity extends Activity {
         cardAlertBanner.setLayoutParams(alertLp);
         int alertPad = M3Ui.dp(this, 16);
         cardAlertBanner.setPadding(alertPad, M3Ui.dp(this, 14), alertPad, M3Ui.dp(this, 14));
-        cardAlertBanner.setBackground(M3Ui.roundedRect(this, palette.errorContainer, 20f, 0, 0));
+        cardAlertBanner.setBackground(M3Ui.roundedRect(this, palette.errorContainer, M3Ui.radius(20f, 16f), 0, 0));
         cardAlertBanner.setVisibility(View.GONE);
 
         ImageView ivAlert = new ImageView(this);
@@ -299,7 +329,7 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         int cardPad = M3Ui.dp(this, 18);
         simCard.setPadding(cardPad, cardPad, cardPad, cardPad);
-        simCard.setBackground(M3Ui.roundedRect(this, palette.cardBg, 24f, 0, 0));
+        simCard.setBackground(M3Ui.roundedRect(this, palette.cardBg, M3Ui.radius(24f, 16f), 0, 0));
 
         // SIM2 Header Row
         LinearLayout simHead = new LinearLayout(this);
@@ -311,7 +341,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams sibLp = new LinearLayout.LayoutParams(simBoxPx, simBoxPx);
         sibLp.rightMargin = M3Ui.dp(this, 14);
         simIconBox.setLayoutParams(sibLp);
-        simIconBox.setBackground(M3Ui.roundedRect(this, palette.secondaryContainer, 14f, 0, 0));
+        simIconBox.setBackground(M3Ui.roundedRect(this, palette.secondaryContainer, M3Ui.radius(14f, 12f), 0, 0));
 
         ImageView ivSim = new ImageView(this);
         int simIcPx = M3Ui.dp(this, 22);
@@ -525,7 +555,25 @@ public final class MainActivity extends Activity {
                 6f, 24f, 0);
         contentCol.addView(rowTesterApp.card);
 
-        // 6. Footer Utility Buttons
+        // 6. Appearance (UI design language)
+        contentCol.addView(M3Ui.createSectionHeader(this, palette, "界面外观"));
+
+        rowMiuixStyle = new M3Ui.SwitchRow(
+                this,
+                palette,
+                R.drawable.ic_palette_24,
+                "使用 Miuix 界面风格",
+                "",
+                24f, 24f, 0);
+        rowMiuixStyle.setRowState(
+                M3Ui.isMiuix(),
+                true,
+                M3Ui.isMiuix()
+                        ? "当前为 Miuix（HyperOS）风格 · 关闭后恢复 Material 3 动态取色"
+                        : "当前为 Material 3 动态取色 · 开启后切换为 Miuix（HyperOS）风格");
+        contentCol.addView(rowMiuixStyle.card);
+
+        // 7. Footer Utility Buttons
         LinearLayout footerRow = new LinearLayout(this);
         footerRow.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams frLp = new LinearLayout.LayoutParams(
@@ -576,7 +624,7 @@ public final class MainActivity extends Activity {
         snackLp.bottomMargin = M3Ui.dp(this, 24);
         snackView.setLayoutParams(snackLp);
         snackView.setPadding(M3Ui.dp(this, 16), M3Ui.dp(this, 13), M3Ui.dp(this, 16), M3Ui.dp(this, 13));
-        snackView.setBackground(M3Ui.roundedRect(this, palette.inverseSurface, 14f, 0, 0));
+        snackView.setBackground(M3Ui.roundedRect(this, palette.inverseSurface, M3Ui.radius(14f, 16f), 0, 0));
         snackView.setTextColor(palette.inverseOnSurface);
         snackView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
         snackView.setElevation(M3Ui.dpf(this, 6f));
@@ -623,7 +671,7 @@ public final class MainActivity extends Activity {
         int padH = M3Ui.dp(this, 12);
         int padV = M3Ui.dp(this, 10);
         tile.setPadding(padH, padV, padH, padV);
-        tile.setBackground(M3Ui.roundedRect(this, palette.tileBg, 14f, 0, 0));
+        tile.setBackground(M3Ui.roundedRect(this, palette.tileBg, M3Ui.radius(14f, 12f), 0, 0));
 
         TextView tvLabel = new TextView(this);
         tvLabel.setText(label);
@@ -766,6 +814,16 @@ public final class MainActivity extends Activity {
         bindRowClick(rowUmountGuard, "需 LPA 系统特权挂载生效后方可切换双层驻留保护");
         bindRowClick(rowTesterApp, "请先开启上方主桥接服务开关");
         bindRowClick(rowEstkSe1, "请先开启上方主桥接服务开关");
+        bindRowClick(rowMiuixStyle, null);
+        rowMiuixStyle.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
+            M3Ui.saveStyle(this, isChecked ? M3Ui.Style.MIUIX : M3Ui.Style.MATERIAL3);
+            // Let the switch animation finish, then rebuild the views with the new style.
+            uiHandler.postDelayed(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    recreate();
+                }
+            }, 220L);
+        });
 
         switchMasterMode.setOnCheckedChangeListener((btn, isChecked) -> {
             if (bindingUi) return;
@@ -1260,7 +1318,7 @@ public final class MainActivity extends Activity {
             circleBg = M3Ui.withAlpha(fg, 0x1A);
         }
         cardMasterHero.setBackground(M3Ui.rippleSegmented(
-                this, bg, M3Ui.withAlpha(fg, 0x1F), 28f, 28f, 0, 0));
+                this, bg, M3Ui.withAlpha(fg, 0x1F), M3Ui.radius(28f, 16f), M3Ui.radius(28f, 16f), 0, 0));
         tvHeroTitle.setTextColor(fg);
         tvHeroSubtitle.setTextColor(M3Ui.withAlpha(fg, 0xDB));
         ivHeroIcon.setImageTintList(ColorStateList.valueOf(fg));
