@@ -466,6 +466,10 @@ ui_print "- 原始设置已备份，不修改卡内任何现有 eSIM 配置。 /
 put('post-fs-data.sh', r'''#!/system/bin/sh
 MODDIR=${0%/*}
 . "$MODDIR/common.sh"
+ISDR_SE=auto
+[ -f "$STATE/isdr_se" ] && . "$STATE/isdr_se"
+case "$ISDR_SE" in se0|se1) ;; *) ISDR_SE=auto ;; esac
+setprop sys.xiaomi_esim_h4.isdr_se "$ISDR_SE"
 read_mode
 if [ "$MODE" = on ]; then
   rm -f "$MODDIR/skip_mount"
@@ -573,6 +577,17 @@ case "$1" in
       echo UMOUNT_GUARD=on > "$STATE/umount_guard"
     fi
     sync_lpa_umount_guard
+    echo "RESULT=OK"
+    ;;
+  isdr_se)
+    case "$2" in
+      se0|se1) sel=$2 ;;
+      *) sel=auto ;;
+    esac
+    echo "ISDR_SE=$sel" > "$STATE/isdr_se"
+    setprop sys.xiaomi_esim_h4.isdr_se "$sel"
+    am force-stop com.miui.euicc >/dev/null 2>&1
+    logmsg "ISD-R selection set to $sel (reboot to refresh EID in Settings)."
     echo "RESULT=OK"
     ;;
   tester)

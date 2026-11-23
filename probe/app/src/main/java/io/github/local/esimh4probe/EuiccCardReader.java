@@ -29,6 +29,11 @@ final class EuiccCardReader {
     static final String PROBE_METHOD = "xiaomi_esim_h4_probe";
     static final String ISDR_AID = "A0000005591010FFFFFFFF8900000100";
 
+    static final String AID_ESTK_SE0 = "A06573746B6D65FFFF4953442D522030";
+    static final String AID_ESTK_SE1 = "A06573746B6D65FFFF4953442D522031";
+    /** ISD-R selection set by action.sh: "auto" (default), "se0" or "se1" (eSTK.me). */
+    static final String PROP_ISDR_SE = "sys.xiaomi_esim_h4.isdr_se";
+
     /**
      * ISD-R AIDs tried in order when the standard GSMA AID is requested. Some removable eUICCs
      * expose ISD-R only under a vendor AID (eSTK.me is configurable; 5ber, Xesim and eSIM.me use
@@ -36,14 +41,15 @@ final class EuiccCardReader {
      */
     static final String[] ISDR_AID_CANDIDATES = {
             ISDR_AID,
-            "A06573746B6D65FFFF4953442D522030", // eSTK.me SE0
-            "A06573746B6D65FFFF4953442D522031", // eSTK.me SE1
+            AID_ESTK_SE0, // eSTK.me SE0
+            AID_ESTK_SE1, // eSTK.me SE1
             "A06573746B6D65FFFFFFFF4953442D52", // eSTK.me AUX (deprecated)
             "A0000005591010FFFFFFFF8900050500", // 5ber.eSIM
             "A0000005591010FFFFFFFF8900000177", // Xesim
             "A0000005591010000000008900000300", // eSIM.me
     };
     private static volatile String resolvedIsdrAid;
+
     static final int RIL_STATUS_NO_ERROR = 1;
     static final int RIL_STATUS_MISSING_RESOURCE = 2;
     static final int RIL_STATUS_NO_SUCH_ELEMENT = 3;
@@ -105,9 +111,27 @@ final class EuiccCardReader {
         return aid != null && ISDR_AID.equalsIgnoreCase(aid);
     }
 
-    /** Candidate ISD-R AIDs, with the last AID that worked in this process tried first. */
+    /** Current ISD-R selection: "auto", "se0" or "se1". */
+    static String isdrSePref() {
+        if (SYS_PROP_GET == null) return "auto";
+        try {
+            String v = (String) SYS_PROP_GET.invoke(null, PROP_ISDR_SE, "auto");
+            if ("se0".equals(v) || "se1".equals(v)) return v;
+        } catch (Throwable ignored) {
+        }
+        return "auto";
+    }
+
+    /**
+     * Candidate ISD-R AIDs in the order to try. With an explicit eSTK.me SE selection that AID
+     * comes first (the standard AID may map to a different SE). Otherwise the last AID that
+     * worked in this process comes first.
+     */
     static String[] isdrAidOrder() {
-        String resolved = resolvedIsdrAid;
+        String pref = isdrSePref();
+        String resolved = "se1".equals(pref) ? AID_ESTK_SE1
+                : "se0".equals(pref) ? AID_ESTK_SE0
+                : resolvedIsdrAid;
         if (resolved == null || isStandardIsdrAid(resolved)) {
             return ISDR_AID_CANDIDATES.clone();
         }
