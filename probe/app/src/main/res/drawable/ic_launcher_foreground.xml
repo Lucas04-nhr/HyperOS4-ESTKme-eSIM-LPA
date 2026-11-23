@@ -13,7 +13,7 @@
 
     <!-- Physical Nano-SIM Card body (chamfered top-right corner) -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="@color/ic_launcher_card"
         android:pathData="M34,26 L58,26 L72,40 L72,76 C72,79.3 69.3,82 66,82 L34,82 C30.7,82 28,79.3 28,76 L28,32 C28,28.7 30.7,26 34,26 Z"/>
 
     <!-- Gold removable eUICC smartcard chip pad -->
@@ -25,38 +25,39 @@
                 android:endX="65"
                 android:endY="74"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#FFFFC837"/>
-                <item android:offset="1.0" android:color="#FFF59E0B"/>
+                <item android:offset="0.0" android:color="@color/ic_launcher_chip_start"/>
+                <item android:offset="1.0" android:color="@color/ic_launcher_chip_end"/>
             </gradient>
         </aapt:attr>
     </path>
 
     <!-- ISO-7816 eUICC contact traces -->
     <path
-        android:fillColor="#6678350F"
+        android:fillColor="@color/ic_launcher_chip_trace"
+        android:fillAlpha="0.4"
         android:pathData="M44,49h1.8v25h-1.8z M54.2,49h1.8v25h-1.8z M35,56.5h9v1.8h-9z M56,56.5h9v1.8h-9z M35,64.5h9v1.8h-9z M56,64.5h9v1.8h-9z M45.8,54.5h8.4v14h-8.4z"/>
     <path
-        android:fillColor="#FFFFB703"
+        android:fillColor="@color/ic_launcher_chip_core"
         android:pathData="M47.4,56.2h5.2v10.6h-5.2z"/>
 
     <!-- Slot 2 / Bridge badge Pill at top-left of SIM -->
     <path
-        android:fillColor="#0B57D0"
+        android:fillColor="@color/ic_launcher_pill"
         android:pathData="M37,33 L49,33 C51.2,33 53,34.8 53,37 C53,39.2 51.2,41 49,41 L37,41 C34.8,41 33,39.2 33,37 C33,34.8 34.8,33 37,33 Z"/>
     <!-- "e" / Bridge link dot inside pill -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="@color/ic_launcher_pill_mark"
         android:pathData="M38.5,37m-2.1,0a2.1,2.1 0,1 1,4.2 0a2.1,2.1 0,1 1,-4.2 0 M47.5,37m-2.1,0a2.1,2.1 0,1 1,4.2 0a2.1,2.1 0,1 1,-4.2 0 M39.5,36.1h7v1.8h-7z"/>
 
     <!-- Wireless eSIM radio wave arcs radiating from top-right of card -->
     <path
-        android:strokeColor="#72EFDD"
+        android:strokeColor="@color/ic_launcher_wave_inner"
         android:strokeWidth="3.0"
         android:strokeLineCap="round"
         android:fillColor="#00000000"
         android:pathData="M67,29 A10,10 0 0,1 77,39"/>
     <path
-        android:strokeColor="#A8F9FF"
+        android:strokeColor="@color/ic_launcher_wave_outer"
         android:strokeWidth="3.0"
         android:strokeLineCap="round"
         android:fillColor="#00000000"

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon colors for dark mode, bound to the system Material You palette. -->
+<resources>
+    <color name="ic_launcher_bg_start">@android:color/system_accent3_900</color>
+    <color name="ic_launcher_bg_mid">@android:color/system_accent3_800</color>
+    <color name="ic_launcher_bg_end">@android:color/system_accent3_700</color>
+    <color name="ic_launcher_card">@android:color/system_accent3_100</color>
+    <color name="ic_launcher_chip">@android:color/system_accent3_700</color>
+    <color name="ic_launcher_check">@android:color/system_accent3_100</color>
+    <color name="ic_launcher_pill">@android:color/system_accent3_800</color>
+    <color name="ic_launcher_pill_mark">@android:color/system_accent3_200</color>
+</resources>
