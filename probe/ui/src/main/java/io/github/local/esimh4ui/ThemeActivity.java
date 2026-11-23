@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
  * (glass / floating) and the custom app background with blur, dim and card opacity.
  */
 public final class ThemeActivity extends ThemedActivity {
+    public static final String EXTRA_SHOW_LANGUAGE = "show_language";
     private static final int REQ_PICK_IMAGE = 4101;
 
     private Scaffold scaffold;
@@ -39,11 +40,19 @@ public final class ThemeActivity extends ThemedActivity {
         // Appearance
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_section_appearance)));
 
+        if (getIntent().getBooleanExtra(EXTRA_SHOW_LANGUAGE, true)) {
+            UiKit.NavRow rowLang = new UiKit.NavRow(
+                    this, palette, R.drawable.ic_language_24, getString(R.string.lang_title), null,
+                    24f, 6f, 2, () -> LanguageSetting.showPicker(this, palette));
+            rowLang.setValue(LanguageSetting.currentLabel(this));
+            col.addView(rowLang.card);
+        }
+
         String[] styles = {getString(R.string.theme_style_material3), getString(R.string.theme_style_miuix)};
         UiKit.NavRow rowStyle = new UiKit.NavRow(
                 this, palette, R.drawable.ic_style_24,
                 getString(R.string.theme_style), getString(R.string.theme_style_summary),
-                24f, 6f, 2, null);
+                getIntent().getBooleanExtra(EXTRA_SHOW_LANGUAGE, true) ? 6f : 24f, 6f, 2, null);
         rowStyle.setValue(styles[miuix ? 1 : 0]);
         rowStyle.card.setOnClickListener(v -> UiKit.showChoiceDialog(
                 this, palette, getString(R.string.theme_style), styles, miuix ? 1 : 0, index -> {
@@ -89,8 +98,24 @@ public final class ThemeActivity extends ThemedActivity {
                 getString(R.string.theme_bar_glass), "", 24f, 6f, 2);
         rowGlass.setRowState(ThemeConfig.barGlass, miuix,
                 miuix ? getString(R.string.theme_bar_glass_summary) : miuixOnly);
-        rowGlass.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setBarGlass(this, checked));
         col.addView(rowGlass.card);
+
+        UiKit.SwitchRow rowLiquid = new UiKit.SwitchRow(
+                this, palette, R.drawable.ic_liquid_glass_24,
+                getString(R.string.theme_liquid_glass), "", 6f, 6f, 2);
+        boolean liquidAvailable = miuix && ThemeConfig.barGlass;
+        rowLiquid.setRowState(ThemeConfig.liquidGlass && ThemeConfig.barGlass, liquidAvailable, getString(!miuix
+                ? R.string.theme_miuix_only
+                : ThemeConfig.barGlass ? R.string.theme_liquid_glass_summary : R.string.theme_liquid_glass_needs_glass));
+        rowLiquid.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setLiquidGlass(this, checked));
+        col.addView(rowLiquid.card);
+
+        rowGlass.toggle.setOnCheckedChangeListener((sw, checked) -> {
+            ThemeConfig.setBarGlass(this, checked);
+            rowLiquid.setRowState(ThemeConfig.liquidGlass && checked, checked, getString(checked
+                    ? R.string.theme_liquid_glass_summary
+                    : R.string.theme_liquid_glass_needs_glass));
+        });
 
         UiKit.SwitchRow rowFloating = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_floating_bar_24,

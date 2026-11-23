@@ -128,6 +128,10 @@ public final class UiKit {
         public final int inverseSurface;
         public final int inverseOnSurface;
         public final int sectionTitle;
+        /** Green "working" colors for status cards (SukiSU-style red / green states). */
+        public final int success;
+        public final int successContainer;
+        public final int onSuccessContainer;
         /** True when a custom background image is shown behind the pages. */
         public final boolean hasBackground;
 
@@ -161,6 +165,9 @@ public final class UiKit {
                 inverseOnSurface = 0xFFFFFFFF;
                 ripple = 0x14000000;
                 sectionTitle = 0xFF8C93B0;
+                success = 0xFF2FB35A;
+                successContainer = 0xFFE3F6E9;
+                onSuccessContainer = 0xFF16793A;
             } else if (isMiuix()) {
                 pageBg = 0xFF000000;
                 cardBase = 0xFF242424;
@@ -184,6 +191,9 @@ public final class UiKit {
                 inverseOnSurface = 0xFF1A1A1A;
                 ripple = 0x1AFFFFFF;
                 sectionTitle = 0xFF787E96;
+                success = 0xFF2A9D52;
+                successContainer = 0xFF173A24;
+                onSuccessContainer = 0xFF8FE0AC;
             } else if (!isNight) {
                 pageBg = sysColor(ctx, "system_surface_container_low_light", 0xFFF3F4F9);
                 cardBase = sysColor(ctx, "system_surface_container_lowest_light", 0xFFFFFFFF);
@@ -207,6 +217,9 @@ public final class UiKit {
                 inverseOnSurface = 0xFFF0F0F7;
                 ripple = withAlpha(primary, 0x1F);
                 sectionTitle = primary;
+                success = 0xFF2E7D45;
+                successContainer = 0xFFC4EED0;
+                onSuccessContainer = 0xFF00210E;
             } else {
                 pageBg = sysColor(ctx, "system_surface_container_lowest_dark", 0xFF0C0E13);
                 cardBase = sysColor(ctx, "system_surface_container_dark", 0xFF1B1F26);
@@ -230,6 +243,9 @@ public final class UiKit {
                 inverseOnSurface = 0xFF191C20;
                 ripple = withAlpha(primary, 0x29);
                 sectionTitle = primary;
+                success = 0xFF8FD6A2;
+                successContainer = 0xFF1B4D2E;
+                onSuccessContainer = 0xFFB4F1C6;
             }
 
             if (hasBackground) {
@@ -372,6 +388,12 @@ public final class UiKit {
 
     /** Adds a "label ........ value" line to an information card and returns the value view. */
     public static TextView addInfoLine(Context ctx, Palette p, LinearLayout card, String label, String value) {
+        return addInfoLine(ctx, p, card, label, value, false);
+    }
+
+    /** As above; {@code monospace} renders the value in a monospace font (versions, IDs). */
+    public static TextView addInfoLine(
+            Context ctx, Palette p, LinearLayout card, String label, String value, boolean monospace) {
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -395,7 +417,9 @@ public final class UiKit {
         tvValue.setText(value);
         tvValue.setGravity(Gravity.END);
         tvValue.setTextSize(TypedValue.COMPLEX_UNIT_SP, isMiuix() ? 14f : 13f);
-        tvValue.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        tvValue.setTypeface(monospace
+                ? Typeface.MONOSPACE
+                : Typeface.create("sans-serif-medium", Typeface.NORMAL));
         tvValue.setTextColor(p.onSurface);
         tvValue.setTextIsSelectable(true);
         row.addView(tvValue, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));

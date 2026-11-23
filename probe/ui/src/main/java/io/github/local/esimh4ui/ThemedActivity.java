@@ -43,6 +43,12 @@ public abstract class ThemedActivity extends Activity {
     }
 
     protected void openThemeSettings() {
-        startActivity(new Intent(this, ThemeActivity.class));
+        openThemeSettings(true);
+    }
+
+    /** Opens the theme page; {@code showLanguage} is false when the caller has its own language row. */
+    protected void openThemeSettings(boolean showLanguage) {
+        startActivity(new Intent(this, ThemeActivity.class)
+                .putExtra(ThemeActivity.EXTRA_SHOW_LANGUAGE, showLanguage));
     }
 }
