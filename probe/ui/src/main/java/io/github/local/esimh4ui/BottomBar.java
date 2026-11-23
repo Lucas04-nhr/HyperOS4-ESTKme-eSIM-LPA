@@ -2,22 +2,15 @@ package io.github.local.esimh4ui;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Outline;
-import android.graphics.Paint;
-import android.graphics.RecordingCanvas;
-import android.graphics.RenderEffect;
-import android.graphics.RenderNode;
-import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
-import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -29,22 +22,15 @@ import android.widget.TextView;
  * <ul>
  *   <li>Material 3: 80dp navigation bar with a pill indicator behind the selected icon.</li>
  *   <li>Miuix: 64dp bar; optionally a floating capsule (SukiSU "floating bottom bar") and/or a
- *       frosted glass background that blurs the page scrolling underneath.</li>
+ *       frosted glass background (see {@link GlassLinearLayout}).</li>
  * </ul>
- *
- * Glass works by redrawing the page ({@code source}) into a 1/4-scale bitmap whenever the page
- * changed, then drawing that bitmap through a {@link RenderEffect} blur behind a translucent tint.
  */
-public final class BottomBar extends LinearLayout {
+public final class BottomBar extends GlassLinearLayout {
     public interface OnSelectListener {
         void onSelect(int index);
     }
 
-    private static final int CAPTURE_SCALE = 4;
-
-    private final UiKit.Palette palette;
     private final boolean miuix;
-    private final boolean glass;
     private final boolean floating;
     private final LinearLayout[] items;
     private final ImageView[] icons;
@@ -53,35 +39,13 @@ public final class BottomBar extends LinearLayout {
     private OnSelectListener listener;
     private int selected = -1;
 
-    private View source;
-    private Bitmap captureBitmap;
-    private Canvas captureCanvas;
-    private RenderNode blurNode;
-    private final Paint bitmapPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
-    private final int[] srcLoc = new int[2];
-    private final int[] selfLoc = new int[2];
-    private boolean captureFailed = false;
-
-    private final ViewTreeObserver.OnPreDrawListener preDrawListener = this::onPreDrawCapture;
-
-    /** Re-captures the page only when it changed since the last frame. */
-    private boolean onPreDrawCapture() {
-        if (glass && source != null && !captureFailed && (source.isDirty() || captureBitmap == null)) {
-            capture();
-            invalidate();
-        }
-        return true;
-    }
-
     public BottomBar(Context ctx, UiKit.Palette p, String[] titles, int[] iconRes) {
-        super(ctx);
-        this.palette = p;
+        super(ctx, p);
         this.miuix = UiKit.isMiuix();
-        this.glass = miuix && ThemeConfig.barGlass;
         this.floating = miuix && ThemeConfig.barFloating;
+        boolean glass = miuix && ThemeConfig.barGlass;
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER);
-        setWillNotDraw(false);
         setClickable(true); // swallow touches so they do not reach the page underneath
 
         int n = titles.length;
@@ -104,12 +68,20 @@ public final class BottomBar extends LinearLayout {
             });
             setClipToOutline(true);
         }
-        if (!glass) {
-            int solid = barColor() | 0xFF000000;
-            setBackground(floating
-                    ? UiKit.roundedRect(ctx, solid, 999f, 0, 0)
-                    : new android.graphics.drawable.ColorDrawable(solid));
+        int solid = barColor() | 0xFF000000;
+        if (glass) {
+            setGlass(true, UiKit.withAlpha(barColor(), p.isNight ? 0xA6 : 0xB8), solid);
+            setLiquid(ThemeConfig.liquidGlass, floating, true);
+        } else {
+            onGlassFailed(solid);
         }
+    }
+
+    @Override
+    protected void onGlassFailed(int fallback) {
+        setBackground(floating
+                ? UiKit.roundedRect(getContext(), fallback, 999f, 0, 0)
+                : new ColorDrawable(fallback));
     }
 
     private int barColor() {
@@ -179,14 +151,14 @@ public final class BottomBar extends LinearLayout {
         this.listener = l;
     }
 
+    /** Highlights {@code index} without notifying the listener. */
     public void select(int index) {
         selected = index;
         Context ctx = getContext();
         for (int i = 0; i < items.length; i++) {
             boolean sel = i == index;
-            int fg;
             if (miuix) {
-                fg = sel ? (floating ? palette.primary : palette.onSurface) : palette.onSurfaceVariant;
+                int fg = sel ? (floating ? palette.primary : palette.onSurface) : palette.onSurfaceVariant;
                 items[i].setBackground(floating && sel
                         ? UiKit.roundedRect(ctx, UiKit.withAlpha(palette.primary, 0x1F), 999f, 0, 0)
                         : null);
@@ -202,85 +174,5 @@ public final class BottomBar extends LinearLayout {
             }
             labels[i].setTypeface(Typeface.create("sans-serif-medium", sel ? Typeface.BOLD : Typeface.NORMAL));
         }
-    }
-
-    /** Sets the view whose content is blurred behind the bar in glass mode. */
-    public void setBlurSource(View source) {
-        this.source = source;
-    }
-
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        getViewTreeObserver().addOnPreDrawListener(preDrawListener);
-    }
-
-    @Override
-    protected void onDetachedFromWindow() {
-        getViewTreeObserver().removeOnPreDrawListener(preDrawListener);
-        if (captureBitmap != null) {
-            captureBitmap.recycle();
-            captureBitmap = null;
-        }
-        super.onDetachedFromWindow();
-    }
-
-    private void capture() {
-        int w = getWidth();
-        int h = getHeight();
-        if (w <= 0 || h <= 0) return;
-        int bw = Math.max(1, w / CAPTURE_SCALE);
-        int bh = Math.max(1, h / CAPTURE_SCALE);
-        if (captureBitmap == null || captureBitmap.getWidth() != bw || captureBitmap.getHeight() != bh) {
-            if (captureBitmap != null) captureBitmap.recycle();
-            captureBitmap = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888);
-            captureCanvas = new Canvas(captureBitmap);
-        }
-        captureBitmap.eraseColor(palette.pageBg | 0xFF000000);
-        source.getLocationInWindow(srcLoc);
-        getLocationInWindow(selfLoc);
-        int save = captureCanvas.save();
-        try {
-            captureCanvas.scale(bw / (float) w, bh / (float) h);
-            captureCanvas.translate(srcLoc[0] - selfLoc[0], srcLoc[1] - selfLoc[1]);
-            source.draw(captureCanvas);
-        } catch (Throwable t) {
-            // Some content cannot be drawn in software; fall back to the solid style.
-            captureFailed = true;
-            setBackground(new android.graphics.drawable.ColorDrawable(barColor() | 0xFF000000));
-        } finally {
-            captureCanvas.restoreToCount(save);
-        }
-    }
-
-    @Override
-    protected void dispatchDraw(Canvas canvas) {
-        if (glass && !captureFailed && captureBitmap != null) {
-            int w = getWidth();
-            int h = getHeight();
-            float sx = w / (float) captureBitmap.getWidth();
-            float sy = h / (float) captureBitmap.getHeight();
-            if (canvas.isHardwareAccelerated()) {
-                if (blurNode == null) {
-                    blurNode = new RenderNode("BottomBarGlass");
-                    float r = UiKit.dpf(getContext(), 24f);
-                    blurNode.setRenderEffect(RenderEffect.createBlurEffect(r, r, Shader.TileMode.CLAMP));
-                }
-                blurNode.setPosition(0, 0, w, h);
-                RecordingCanvas rc = blurNode.beginRecording(w, h);
-                rc.scale(sx, sy);
-                rc.drawBitmap(captureBitmap, 0f, 0f, bitmapPaint);
-                blurNode.endRecording();
-                canvas.drawRenderNode(blurNode);
-            } else {
-                int save = canvas.save();
-                canvas.scale(sx, sy);
-                canvas.drawBitmap(captureBitmap, 0f, 0f, bitmapPaint);
-                canvas.restoreToCount(save);
-            }
-            // Frosted tint on top of the blurred page.
-            canvas.drawColor(UiKit.withAlpha(barColor(), palette.isNight ? 0xA6 : 0xB8));
-        }
-        super.dispatchDraw(canvas);
     }
 }

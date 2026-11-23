@@ -28,6 +28,7 @@ public final class ThemeConfig {
     private static final String KEY_CARD_ALPHA = "card_alpha";
     private static final String KEY_BAR_GLASS = "bar_glass";
     private static final String KEY_BAR_FLOATING = "bar_floating";
+    private static final String KEY_LIQUID_GLASS = "liquid_glass";
     private static final String BG_FILE = "app_background.jpg";
 
     public static UiKit.Style style = UiKit.Style.MATERIAL3;
@@ -42,6 +43,8 @@ public final class ThemeConfig {
     public static int cardAlpha = 85;
     public static boolean barGlass = true;
     public static boolean barFloating = false;
+    /** Liquid glass: refraction at the edges and a light rim instead of a plain frosted blur. */
+    public static boolean liquidGlass = false;
 
     /** Bumped on every change so other activities can tell they must rebuild. */
     private static int version = 0;
@@ -66,6 +69,7 @@ public final class ThemeConfig {
         cardAlpha = sp.getInt(KEY_CARD_ALPHA, 85);
         barGlass = sp.getBoolean(KEY_BAR_GLASS, true);
         barFloating = sp.getBoolean(KEY_BAR_FLOATING, false);
+        liquidGlass = sp.getBoolean(KEY_LIQUID_GLASS, false);
         loaded = true;
     }
 
@@ -129,6 +133,12 @@ public final class ThemeConfig {
     public static void setBarFloating(Context ctx, boolean value) {
         barFloating = value;
         prefs(ctx).edit().putBoolean(KEY_BAR_FLOATING, value).apply();
+        version++;
+    }
+
+    public static void setLiquidGlass(Context ctx, boolean value) {
+        liquidGlass = value;
+        prefs(ctx).edit().putBoolean(KEY_LIQUID_GLASS, value).apply();
         version++;
     }
 

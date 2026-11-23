@@ -4,7 +4,6 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -28,21 +27,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Standard page frame shared by all screens: top bar (Miuix large title or Material 3 title),
- * thin progress line, page host, optional custom background, optional bottom bar and a snackbar.
+ * Standard page frame shared by all screens.
+ *
+ * <pre>
+ * root
+ *  ├─ stage (blurred by the bars): background image + swipeable pages
+ *  ├─ header (overlay): top bar + progress line, frosted glass in Miuix
+ *  ├─ bottom bar (overlay, optional)
+ *  └─ snackbar
+ * </pre>
  */
 public final class Scaffold {
     public final FrameLayout root;
-    /** Background + pages; this is what the glass bottom bar blurs. */
+    /** Background + pages; this is what the glass bars blur. */
     public final FrameLayout stage;
     public final BackgroundLayer background;
+    public final GlassLinearLayout header;
     public final LinearLayout topBar;
     public final TextView titleView;
     public final TextView subtitleView;
-    public final FrameLayout pageHost;
+    public final PagerHost pager;
 
     private final Activity activity;
-    private final UiKit.Palette palette;
     private final LinearLayout actions;
     private final ProgressLine progress;
     private final TextView snackView;
@@ -51,10 +57,10 @@ public final class Scaffold {
     private Runnable hideSnack;
     private BottomBar bottomBar;
     private Insets bars = Insets.NONE;
+    private int headerHeight = 0;
 
     public Scaffold(Activity activity, UiKit.Palette p, String title, String subtitle, boolean showBack) {
         this.activity = activity;
-        this.palette = p;
         boolean miuix = UiKit.isMiuix();
 
         root = new FrameLayout(activity);
@@ -70,17 +76,36 @@ public final class Scaffold {
             stage.addView(background);
         }
 
-        LinearLayout column = new LinearLayout(activity);
-        column.setOrientation(LinearLayout.VERTICAL);
-        stage.addView(column, new FrameLayout.LayoutParams(
+        pager = new PagerHost(activity);
+        stage.addView(pager, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // Top bar
+        // Header overlay: pages scroll underneath it.
+        header = new GlassLinearLayout(activity, p);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setClickable(true);
+        int headerSolid = p.pageBg | 0xFF000000;
+        if (miuix && ThemeConfig.barGlass) {
+            header.setGlass(true, UiKit.withAlpha(p.pageBg, p.isNight ? 0xB3 : 0xC7), headerSolid);
+            header.setBlurSource(stage);
+            header.setLiquid(ThemeConfig.liquidGlass, false, false);
+        } else {
+            header.setBackgroundColor(headerSolid);
+        }
+        root.addView(header, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP));
+        header.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            int h = b - t;
+            if (h != headerHeight) {
+                headerHeight = h;
+                header.post(this::applyInsets);
+            }
+        });
+
         topBar = new LinearLayout(activity);
         topBar.setOrientation(LinearLayout.HORIZONTAL);
         topBar.setGravity(Gravity.CENTER_VERTICAL);
-        topBar.setBackgroundColor(p.hasBackground ? Color.TRANSPARENT : p.pageBg);
-        column.addView(topBar, new LinearLayout.LayoutParams(
+        header.addView(topBar, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         if (showBack) {
@@ -141,11 +166,8 @@ public final class Scaffold {
 
         progress = new ProgressLine(activity, p);
         progress.setVisibility(View.INVISIBLE);
-        column.addView(progress, new LinearLayout.LayoutParams(
+        header.addView(progress, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, UiKit.dp(activity, 3)));
-
-        pageHost = new FrameLayout(activity);
-        column.addView(pageHost, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         // Snackbar
         snackView = new TextView(activity);
@@ -218,18 +240,19 @@ public final class Scaffold {
         scroll.setClipToPadding(false);
         scroll.addView(content, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        pageHost.addView(scroll, new FrameLayout.LayoutParams(
+        pager.addView(scroll, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        if (!pages.isEmpty()) scroll.setVisibility(View.GONE);
         pages.add(scroll);
         applyInsets();
         return scroll;
     }
 
-    public void showPage(int index) {
-        for (int i = 0; i < pages.size(); i++) {
-            pages.get(i).setVisibility(i == index ? View.VISIBLE : View.GONE);
-        }
+    public void showPage(int index, boolean animate) {
+        pager.setPage(index, animate);
+    }
+
+    public void setOnPageChangeListener(PagerHost.OnPageChangeListener l) {
+        pager.setOnPageChangeListener(l);
     }
 
     public void setBottomBar(BottomBar bar) {
@@ -256,9 +279,13 @@ public final class Scaffold {
         topBar.setPadding(side + bars.left, vert + bars.top, side + bars.right, vert);
 
         int pageSide = UiKit.dp(ctx, 16);
+        int pageTop = headerHeight + UiKit.dp(ctx, 4);
         int pageBottom = UiKit.dp(ctx, 28) + bars.bottom + bottomBarSpace();
         for (ScrollView page : pages) {
-            page.setPadding(pageSide + bars.left, UiKit.dp(ctx, 4), pageSide + bars.right, pageBottom);
+            if (page.getPaddingTop() != pageTop || page.getPaddingBottom() != pageBottom
+                    || page.getPaddingLeft() != pageSide + bars.left) {
+                page.setPadding(pageSide + bars.left, pageTop, pageSide + bars.right, pageBottom);
+            }
         }
 
         if (bottomBar != null) {
