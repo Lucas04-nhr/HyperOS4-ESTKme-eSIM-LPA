@@ -29,6 +29,8 @@ import io.github.local.esimh4ui.StatusBanner;
 import io.github.local.esimh4ui.ThemedActivity;
 import io.github.local.esimh4ui.UiKit;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Date;
 import java.util.Locale;
 
@@ -46,8 +48,6 @@ public final class TesterActivity extends ThemedActivity {
     private static final String PERM_SE_PRIVILEGED = "android.permission.SECURE_ELEMENT_PRIVILEGED_OPERATION";
     private static final String ACTION_DOWNLOAD_CB = "io.github.local.esimh4tester.ACTION_DOWNLOAD_CB";
     private static final String DEFAULT_MOCK_CODE = "LPA:1$test.esim.local$MOCK-TEST-001";
-    private static final String OK = "● ";
-    private static final String BAD = "○ ";
     private static final int REQ_RESOLVE = 1001;
     private static final int REQ_ACTIVATE = 1002;
     private static final java.lang.reflect.Method GET_DEFAULT_CARD_ID;
@@ -63,7 +63,13 @@ public final class TesterActivity extends ThemedActivity {
 
     private Scaffold scaffold;
     private StatusBanner banner;
-    private TextView statusView;
+    private TextView stMount;
+    private TextView stFeature;
+    private TextView stEnabled;
+    private TextView stCardId;
+    private TextView stCard;
+    private TextView stLpaScheme;
+    private TextView stActivation;
     private EditText codeInput;
     private TextView logView;
     private final StringBuilder logBuffer = new StringBuilder();
@@ -125,14 +131,13 @@ public final class TesterActivity extends ThemedActivity {
         super.onCreate(savedInstanceState);
         registerReceiver(downloadReceiver, new IntentFilter(ACTION_DOWNLOAD_CB), Context.RECEIVER_EXPORTED);
 
-        scaffold = new Scaffold(this, palette, getString(R.string.app_name),
-                getString(R.string.tester_subtitle, MODULE_VERSION), false);
+        scaffold = new Scaffold(this, palette, getString(R.string.app_name), null, false);
         scaffold.addAction(UiKit.createIconButton(
                 this, palette, R.drawable.ic_refresh_24, getString(R.string.tester_refresh), this::refreshStatus));
         scaffold.addAction(UiKit.createIconButton(
                 this, palette, io.github.local.esimh4ui.R.drawable.ic_palette_24,
                 getString(io.github.local.esimh4ui.R.string.theme_title), this::openThemeSettings));
-        scaffold.addPage(buildContent(), io.github.local.esimh4ui.R.id.ui_page_1);
+        scaffold.addPage(buildContent(), io.github.local.esimh4ui.R.id.ui_page_1, getString(R.string.app_name));
         setContentView(scaffold.root);
         UiKit.applyEdgeToEdge(this, palette);
 
@@ -155,21 +160,19 @@ public final class TesterActivity extends ThemedActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         blp.topMargin = UiKit.dp(this, 4);
         banner.setLayoutParams(blp);
-        banner.setState(StatusBanner.State.LOADING, R.drawable.ic_science_24);
-        banner.setTexts(getString(R.string.tester_state_checking), "", MODULE_VERSION);
+        banner.showLoading(getString(R.string.tester_state_checking));
         col.addView(banner);
 
-        // Card 1: live eUICC status
+        // Card 1: live eUICC status, laid out like the main app's device card
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.tester_status_title)));
         LinearLayout statusCard = UiKit.createCard(this, palette);
-        statusView = new TextView(this);
-        int tilePad = UiKit.dp(this, 14);
-        statusView.setPadding(tilePad, UiKit.dp(this, 12), tilePad, UiKit.dp(this, 12));
-        statusView.setBackground(UiKit.roundedRect(this, palette.tileBg, UiKit.radius(16f, 12f), 0, 0));
-        statusView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        statusView.setLineSpacing(UiKit.dpf(this, 4f), 1.0f);
-        statusView.setTextColor(palette.onSurface);
-        statusCard.addView(statusView);
+        stMount = UiKit.addInfoLine(this, palette, statusCard, getString(R.string.st_mount), "…");
+        stFeature = UiKit.addInfoLine(this, palette, statusCard, getString(R.string.st_feature), "…");
+        stEnabled = UiKit.addInfoLine(this, palette, statusCard, getString(R.string.st_enabled), "…");
+        stCardId = UiKit.addInfoLine(this, palette, statusCard, getString(R.string.st_card_id), "…", true);
+        stCard = UiKit.addInfoLine(this, palette, statusCard, getString(R.string.st_card), "…");
+        stLpaScheme = UiKit.addInfoLine(this, palette, statusCard, getString(R.string.st_lpa_scheme), "…");
+        stActivation = UiKit.addInfoLine(this, palette, statusCard, getString(R.string.st_activation), "…");
         col.addView(statusCard);
 
         // Card 2: mock carrier actions
@@ -200,16 +203,11 @@ public final class TesterActivity extends ThemedActivity {
                 : UiKit.roundedRect(this, palette.tileBg, 14f, Math.max(1, UiKit.dp(this, 1)), palette.outlineVariant));
         testCard.addView(codeInput);
 
-        LinearLayout btnReset = UiKit.createActionButton(
-                this, palette, UiKit.ButtonStyle.TONAL, 0, getString(R.string.tester_reset_code), 36, () -> {
+        addFullWidth(testCard, UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.TONAL, 0, getString(R.string.tester_reset_code), 44, () -> {
                     codeInput.setText(DEFAULT_MOCK_CODE);
                     appendLog(getString(R.string.log_reset_code, DEFAULT_MOCK_CODE));
-                });
-        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rlp.topMargin = UiKit.dp(this, 8);
-        rlp.gravity = Gravity.END;
-        testCard.addView(btnReset, rlp);
+                }), 10);
 
         addFullWidth(testCard, UiKit.createActionButton(
                 this, palette, UiKit.ButtonStyle.FILLED, R.drawable.ic_science_24,
@@ -329,23 +327,20 @@ public final class TesterActivity extends ThemedActivity {
         }
         if (cardType == 1) {
             if (sim2State == TelephonyManager.SIM_STATE_READY || sim2State == 10) {
-                return OK + getString(R.string.card_esim_active);
+                return getString(R.string.card_esim_active);
             }
-            if (esimSwitch == 0) {
-                return BAD + getString(R.string.card_esim_switch_off);
-            }
-            return OK + getString(R.string.card_esim_empty);
+            return getString(esimSwitch == 0 ? R.string.card_esim_switch_off : R.string.card_esim_empty);
         }
         if (cardType == 0) {
-            if (sim2State == TelephonyManager.SIM_STATE_ABSENT) {
-                return BAD + getString(R.string.card_absent);
-            }
-            return BAD + getString(R.string.card_regular);
+            return getString(sim2State == TelephonyManager.SIM_STATE_ABSENT ? R.string.card_absent : R.string.card_regular);
         }
-        if (!lpaPrivMounted) {
-            return BAD + getString(R.string.card_wait_mount);
-        }
-        return "◌ " + getString(R.string.card_detecting);
+        return getString(lpaPrivMounted ? R.string.card_detecting : R.string.card_wait_mount);
+    }
+
+    /** Sets a status value; green when fine, red when not. */
+    private void setStatus(TextView tv, String text, boolean ok) {
+        tv.setText(text);
+        tv.setTextColor(ok ? (UiKit.isMiuix() ? palette.success : palette.onSurface) : palette.error);
     }
 
     private void refreshStatus() {
@@ -367,44 +362,34 @@ public final class TesterActivity extends ThemedActivity {
             boolean startActOk = pm.resolveActivity(new Intent(EuiccManager.ACTION_START_EUICC_ACTIVATION), 0) != null;
             String cardStatus = describeCardStatus(lpaPrivMounted, tm);
             int cardType = Settings.Secure.getInt(getContentResolver(), KEY_CARD_TYPE, -1);
-            String footer = defaultCardId >= 0 ? MODULE_VERSION + " · cardId " + defaultCardId : MODULE_VERSION;
+            String version = defaultCardId >= 0 ? MODULE_VERSION + " · cardId " + defaultCardId : MODULE_VERSION;
             if (!lpaPrivMounted) {
-                banner.setState(StatusBanner.State.ERROR, R.drawable.ic_science_24);
-                banner.setTexts(getString(R.string.tester_state_not_ready), getString(R.string.tester_reason_mount), footer);
+                banner.showError(getString(R.string.tester_reason_mount), getString(R.string.tester_state_not_ready),
+                        getString(R.string.tester_refresh), this::refreshStatus);
             } else if (!enabled) {
-                banner.setState(StatusBanner.State.ERROR, R.drawable.ic_science_24);
-                banner.setTexts(getString(R.string.tester_state_not_ready), getString(R.string.tester_reason_euicc), footer);
+                banner.showError(getString(R.string.tester_reason_euicc), getString(R.string.tester_state_not_ready),
+                        getString(R.string.tester_refresh), this::refreshStatus);
             } else if (cardType != 1) {
-                banner.setState(StatusBanner.State.ERROR, R.drawable.ic_science_24);
-                banner.setTexts(getString(R.string.tester_state_not_ready), getString(R.string.tester_reason_card), footer);
+                banner.showError(getString(R.string.tester_reason_card), getString(R.string.tester_state_not_ready),
+                        getString(R.string.tester_refresh), this::refreshStatus);
             } else {
-                banner.setState(StatusBanner.State.OK, R.drawable.ic_science_24);
-                banner.setTexts(getString(R.string.tester_state_ready), getString(R.string.tester_ready_summary), footer);
+                List<StatusBanner.Tag> tags = new ArrayList<>();
+                tags.add(new StatusBanner.Tag(getString(R.string.tag_sim2_esim), true));
+                tags.add(new StatusBanner.Tag("LPA", false));
+                tags.add(new StatusBanner.Tag("eUICC", false));
+                banner.showOk(getString(R.string.tester_state_ready), version, tags);
             }
 
-            String text = line(R.string.st_mount, lpaPrivMounted
-                            ? OK + getString(R.string.st_mount_ok)
-                            : BAD + getString(R.string.st_mount_bad))
-                    + line(R.string.st_feature, (hasFeature ? OK : BAD) + hasFeature)
-                    + line(R.string.st_enabled, (enabled ? OK : BAD) + enabled)
-                    + line(R.string.st_card_id, defaultCardId >= 0
-                            ? OK + "cardId = " + defaultCardId
-                            : BAD + defaultCardId)
-                    + line(R.string.st_card, cardStatus)
-                    + line(R.string.st_lpa_scheme, lpaSchemeOk
-                            ? OK + getString(R.string.st_lpa_scheme_on)
-                            : BAD + getString(R.string.st_lpa_scheme_off))
-                    + getString(R.string.st_activation) + (startActOk
-                            ? OK + getString(R.string.st_activation_ok)
-                            : BAD + getString(R.string.st_activation_bad));
-            statusView.setText(text);
+            setStatus(stMount, getString(lpaPrivMounted ? R.string.st_mount_ok : R.string.st_mount_bad), lpaPrivMounted);
+            setStatus(stFeature, getString(hasFeature ? R.string.st_feature_yes : R.string.st_feature_no), hasFeature);
+            setStatus(stEnabled, getString(enabled ? R.string.st_enabled_yes : R.string.st_enabled_no), enabled);
+            setStatus(stCardId, defaultCardId >= 0 ? String.valueOf(defaultCardId) : "—", defaultCardId >= 0);
+            setStatus(stCard, cardStatus, cardType == 1);
+            setStatus(stLpaScheme, getString(lpaSchemeOk ? R.string.st_lpa_scheme_on : R.string.st_lpa_scheme_off), lpaSchemeOk);
+            setStatus(stActivation, getString(startActOk ? R.string.st_activation_ok : R.string.st_activation_bad), startActOk);
         } catch (Throwable t) {
-            statusView.setText(getString(R.string.st_error, String.valueOf(t.getMessage())));
+            setStatus(stMount, getString(R.string.st_error, String.valueOf(t.getMessage())), false);
         }
-    }
-
-    private String line(int labelRes, String value) {
-        return getString(labelRes) + value + "\n";
     }
 
     private void startMockDownload() {

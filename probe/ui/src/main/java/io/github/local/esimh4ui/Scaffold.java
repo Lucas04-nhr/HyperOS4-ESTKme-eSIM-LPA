@@ -98,9 +98,6 @@ public final class Scaffold {
             header.setBlurSource(stage);
             if (ThemeConfig.progressiveBlur) header.setFade(GlassLinearLayout.Fade.TOP);
             header.setGlassAlpha(0f); // transparent until the page scrolls
-        } else if (miuix) {
-            header.setBackgroundColor(p.pageBg | 0xFF000000);
-            header.setAlpha(1f);
         } else {
             header.setBackgroundColor(p.pageBg | 0xFF000000);
         }
