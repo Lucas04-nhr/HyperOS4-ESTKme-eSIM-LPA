@@ -25,6 +25,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import io.github.local.esimh4ui.Scaffold;
+import io.github.local.esimh4ui.StatusBanner;
 import io.github.local.esimh4ui.ThemedActivity;
 import io.github.local.esimh4ui.UiKit;
 import java.text.SimpleDateFormat;
@@ -61,6 +62,7 @@ public final class TesterActivity extends ThemedActivity {
     }
 
     private Scaffold scaffold;
+    private StatusBanner banner;
     private TextView statusView;
     private EditText codeInput;
     private TextView logView;
@@ -147,6 +149,16 @@ public final class TesterActivity extends ThemedActivity {
         col.setOrientation(LinearLayout.VERTICAL);
         boolean miuix = UiKit.isMiuix();
 
+        // Red / green readiness banner
+        banner = new StatusBanner(this, palette);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        blp.topMargin = UiKit.dp(this, 4);
+        banner.setLayoutParams(blp);
+        banner.setState(StatusBanner.State.LOADING, R.drawable.ic_science_24);
+        banner.setTexts(getString(R.string.tester_state_checking), "", MODULE_VERSION);
+        col.addView(banner);
+
         // Card 1: live eUICC status
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.tester_status_title)));
         LinearLayout statusCard = UiKit.createCard(this, palette);
@@ -211,22 +223,32 @@ public final class TesterActivity extends ThemedActivity {
         col.addView(testCard);
 
         // Card 3: callback console
+        // Header row: section title on the left, Clear button on the right, with room
+        // above and below so the button does not touch the log card.
         LinearLayout logHdr = new LinearLayout(this);
         logHdr.setOrientation(LinearLayout.HORIZONTAL);
         logHdr.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowLp.topMargin = UiKit.dp(this, 14);
+        rowLp.bottomMargin = UiKit.dp(this, 10);
+        logHdr.setLayoutParams(rowLp);
         TextView hdr = UiKit.createSectionHeader(this, palette, getString(R.string.tester_console_title));
         LinearLayout.LayoutParams hlp = (LinearLayout.LayoutParams) hdr.getLayoutParams();
         hlp.width = 0;
         hlp.weight = 1f;
+        hlp.topMargin = 0;
+        hlp.bottomMargin = 0;
         logHdr.addView(hdr);
         LinearLayout btnClear = UiKit.createActionButton(
-                this, palette, UiKit.ButtonStyle.TONAL, 0, getString(R.string.tester_clear_log), 32, () -> {
+                this, palette, UiKit.ButtonStyle.TONAL, 0, getString(R.string.tester_clear_log), 34, () -> {
                     logBuffer.setLength(0);
                     logView.setText(getString(R.string.log_cleared) + "\n");
                 });
+        btnClear.setPadding(UiKit.dp(this, 18), btnClear.getPaddingTop(), UiKit.dp(this, 18), btnClear.getPaddingBottom());
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clp.topMargin = UiKit.dp(this, 10);
+        clp.rightMargin = UiKit.dp(this, 4);
         logHdr.addView(btnClear, clp);
         col.addView(logHdr);
 
@@ -344,6 +366,21 @@ public final class TesterActivity extends ThemedActivity {
             boolean lpaSchemeOk = pm.resolveActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(DEFAULT_MOCK_CODE)), 0) != null;
             boolean startActOk = pm.resolveActivity(new Intent(EuiccManager.ACTION_START_EUICC_ACTIVATION), 0) != null;
             String cardStatus = describeCardStatus(lpaPrivMounted, tm);
+            int cardType = Settings.Secure.getInt(getContentResolver(), KEY_CARD_TYPE, -1);
+            String footer = defaultCardId >= 0 ? MODULE_VERSION + " · cardId " + defaultCardId : MODULE_VERSION;
+            if (!lpaPrivMounted) {
+                banner.setState(StatusBanner.State.ERROR, R.drawable.ic_science_24);
+                banner.setTexts(getString(R.string.tester_state_not_ready), getString(R.string.tester_reason_mount), footer);
+            } else if (!enabled) {
+                banner.setState(StatusBanner.State.ERROR, R.drawable.ic_science_24);
+                banner.setTexts(getString(R.string.tester_state_not_ready), getString(R.string.tester_reason_euicc), footer);
+            } else if (cardType != 1) {
+                banner.setState(StatusBanner.State.ERROR, R.drawable.ic_science_24);
+                banner.setTexts(getString(R.string.tester_state_not_ready), getString(R.string.tester_reason_card), footer);
+            } else {
+                banner.setState(StatusBanner.State.OK, R.drawable.ic_science_24);
+                banner.setTexts(getString(R.string.tester_state_ready), getString(R.string.tester_ready_summary), footer);
+            }
 
             String text = line(R.string.st_mount, lpaPrivMounted
                             ? OK + getString(R.string.st_mount_ok)

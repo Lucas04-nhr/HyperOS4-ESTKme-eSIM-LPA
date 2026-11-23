@@ -3,6 +3,13 @@
     <string name="app_name">eSIM 模擬寫卡測試</string>
     <string name="tester_subtitle">%1$s · 模擬碼攔截驗證</string>
     <string name="tester_refresh">重新整理狀態</string>
+    <string name="tester_state_checking">正在檢測…</string>
+    <string name="tester_state_ready">可以測試</string>
+    <string name="tester_state_not_ready">無法測試</string>
+    <string name="tester_ready_summary">LPA 已掛載，eUICC 已啟用，卡槽 2 有實體 eSIM</string>
+    <string name="tester_reason_mount">小米 LPA 未掛載</string>
+    <string name="tester_reason_euicc">eUICC 服務未啟用</string>
+    <string name="tester_reason_card">卡槽 2 中沒有實體 eSIM</string>
     <string name="tester_status_title">eUICC 狀態</string>
     <string name="tester_mock_title">模擬寫卡</string>
     <string name="tester_safety_note">包含 test.esim.local 的啟用碼會在確認後被攔截，不會寫入卡片。</string>

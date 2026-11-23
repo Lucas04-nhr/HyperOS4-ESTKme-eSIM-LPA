@@ -24,7 +24,9 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import io.github.local.esimh4ui.BottomBar;
+import io.github.local.esimh4ui.LanguageSetting;
 import io.github.local.esimh4ui.Scaffold;
+import io.github.local.esimh4ui.StatusBanner;
 import io.github.local.esimh4ui.ThemedActivity;
 import io.github.local.esimh4ui.UiKit;
 import java.nio.charset.StandardCharsets;
@@ -61,13 +63,7 @@ public final class MainActivity extends ThemedActivity {
     private int currentTab = TAB_HOME;
 
     // Home: status banner
-    private FrameLayout cardStatus;
-    private FrameLayout statusIconWrap;
-    private ImageView ivStatusIcon;
-    private ImageView ivStatusDecor;
-    private TextView tvStatusTitle;
-    private TextView tvStatusSubtitle;
-    private TextView tvStatusVersion;
+    private StatusBanner statusBanner;
 
     // Home: alert banner
     private LinearLayout cardAlertBanner;
@@ -76,7 +72,6 @@ public final class MainActivity extends ThemedActivity {
     // Home: SIM2 hardware & framework card
     private TextView tvSim2Meta;
     private TextView tvSim2Badge;
-    private TextView tvSim2Detail;
     private TextView tvBadgeMount;
     private TextView tvBadgePhoneHook;
     private TextView tvBadgeLpaHook;
@@ -121,13 +116,15 @@ public final class MainActivity extends ThemedActivity {
                 palette,
                 new String[]{getString(R.string.tab_home), getString(R.string.tab_settings)},
                 new int[]{R.drawable.ic_home_24, R.drawable.ic_settings_24});
-        bottomBar.setOnSelectListener(this::switchTab);
+        bottomBar.setOnSelectListener(tab -> scaffold.showPage(tab, true));
         scaffold.setBottomBar(bottomBar);
+        scaffold.setOnPageChangeListener(this::onPageSelected);
 
         setContentView(scaffold.root);
         UiKit.applyEdgeToEdge(this, palette);
         setupSwitches();
-        switchTab(currentTab);
+        scaffold.showPage(currentTab, false);
+        onPageSelected(currentTab);
         refreshDashboard();
     }
 
@@ -155,9 +152,9 @@ public final class MainActivity extends ThemedActivity {
         return getString(R.string.top_subtitle, ProbeInspector.MODULE_VERSION);
     }
 
-    private void switchTab(int tab) {
+    /** Called when the pager settles on a page (swipe or bottom bar tap). */
+    private void onPageSelected(int tab) {
         currentTab = tab;
-        scaffold.showPage(tab);
         bottomBar.select(tab);
         if (tab == TAB_HOME) {
             scaffold.setTitle(getString(R.string.app_name));
@@ -242,120 +239,22 @@ public final class MainActivity extends ThemedActivity {
         return col;
     }
 
-    /** SukiSU-style status banner: large state icon, state title, summary and version line. */
+    /** SukiSU-style status banner: green when running, red when off or needing attention. */
     private View buildStatusBanner() {
-        cardStatus = new FrameLayout(this);
+        statusBanner = new StatusBanner(this, palette);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = UiKit.dp(this, 4);
-        cardStatus.setLayoutParams(lp);
-        cardStatus.setMinimumHeight(UiKit.dp(this, 120));
-        cardStatus.setClipToOutline(true);
-
-        // Large faded glyph in the corner, as on the SukiSU status card.
-        ivStatusDecor = new ImageView(this);
-        int decor = UiKit.dp(this, 132);
-        FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(decor, decor, Gravity.END | Gravity.BOTTOM);
-        dlp.rightMargin = -UiKit.dp(this, 28);
-        dlp.bottomMargin = -UiKit.dp(this, 34);
-        ivStatusDecor.setLayoutParams(dlp);
-        ivStatusDecor.setAlpha(0.13f);
-        cardStatus.addView(ivStatusDecor);
-
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.HORIZONTAL);
-        content.setGravity(Gravity.CENTER_VERTICAL);
-        int pad = UiKit.dp(this, 20);
-        content.setPadding(pad, UiKit.dp(this, 22), pad, UiKit.dp(this, 22));
-        cardStatus.addView(content, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
-
-        statusIconWrap = new FrameLayout(this);
-        int wrap = UiKit.dp(this, 56);
-        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(wrap, wrap);
-        wlp.rightMargin = UiKit.dp(this, 18);
-        content.addView(statusIconWrap, wlp);
-        ivStatusIcon = new ImageView(this);
-        int icon = UiKit.dp(this, UiKit.isMiuix() ? 40 : 30);
-        statusIconWrap.addView(ivStatusIcon, new FrameLayout.LayoutParams(icon, icon, Gravity.CENTER));
-
-        LinearLayout texts = new LinearLayout(this);
-        texts.setOrientation(LinearLayout.VERTICAL);
-        content.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        tvStatusTitle = new TextView(this);
-        tvStatusTitle.setText(R.string.status_loading);
-        tvStatusTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, UiKit.isMiuix() ? 22f : 21f);
-        tvStatusTitle.setTypeface(Typeface.create("sans-serif-medium", UiKit.isMiuix() ? Typeface.NORMAL : Typeface.BOLD));
-        texts.addView(tvStatusTitle);
-
-        tvStatusSubtitle = new TextView(this);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        slp.topMargin = UiKit.dp(this, 4);
-        tvStatusSubtitle.setText(R.string.status_loading_summary);
-        tvStatusSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        tvStatusSubtitle.setLineSpacing(UiKit.dpf(this, 2f), 1.0f);
-        texts.addView(tvStatusSubtitle, slp);
-
-        tvStatusVersion = new TextView(this);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        vlp.topMargin = UiKit.dp(this, 6);
-        tvStatusVersion.setText(getString(R.string.status_version, ProbeInspector.MODULE_VERSION));
-        tvStatusVersion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
-        texts.addView(tvStatusVersion, vlp);
-
-        cardStatus.setOnClickListener(v -> {
+        statusBanner.setLayoutParams(lp);
+        statusBanner.setState(StatusBanner.State.LOADING, R.drawable.ic_sim_card_24);
+        statusBanner.setTexts(getString(R.string.status_loading), getString(R.string.status_loading_summary),
+                getString(R.string.status_version, ProbeInspector.MODULE_VERSION));
+        statusBanner.setOnClickListener(v -> {
             if (lastReport == null || !lastReport.optBoolean("moduleActive", false)) {
-                switchTab(TAB_SETTINGS);
+                scaffold.showPage(TAB_SETTINGS, true);
             }
         });
-        styleStatusBanner(StatusState.LOADING);
-        return cardStatus;
-    }
-
-    private enum StatusState {
-        LOADING,
-        OFF,
-        ATTENTION,
-        RUNNING
-    }
-
-    private void styleStatusBanner(StatusState state) {
-        int bg;
-        int fg;
-        int iconRes;
-        boolean miuix = UiKit.isMiuix();
-        switch (state) {
-            case RUNNING:
-                bg = miuix ? palette.primary : palette.primaryContainer;
-                fg = miuix ? palette.onPrimary : palette.onPrimaryContainer;
-                iconRes = R.drawable.ic_check_circle_24;
-                break;
-            case ATTENTION:
-                bg = palette.errorContainer;
-                fg = palette.onErrorContainer;
-                iconRes = R.drawable.ic_error_24;
-                break;
-            case OFF:
-            case LOADING:
-            default:
-                bg = miuix ? palette.cardBg : palette.surfaceHigh;
-                fg = palette.onSurface;
-                iconRes = state == StatusState.OFF ? R.drawable.ic_power_24 : R.drawable.ic_sim_card_24;
-                break;
-        }
-        cardStatus.setBackground(UiKit.roundedRect(this, bg, UiKit.radius(28f, 16f), 0, 0));
-        tvStatusTitle.setTextColor(fg);
-        tvStatusSubtitle.setTextColor(UiKit.withAlpha(fg, 0xDB));
-        tvStatusVersion.setTextColor(UiKit.withAlpha(fg, 0xA8));
-        ivStatusIcon.setImageResource(iconRes);
-        ivStatusIcon.setImageTintList(ColorStateList.valueOf(fg));
-        ivStatusDecor.setImageResource(iconRes);
-        ivStatusDecor.setImageTintList(ColorStateList.valueOf(fg));
-        // Material 3 puts the icon on a tonal circle; Miuix shows the bare glyph.
-        statusIconWrap.setBackground(miuix ? null : UiKit.oval(UiKit.withAlpha(fg, 0x1A)));
+        return statusBanner;
     }
 
     private View buildSimCard() {
@@ -398,7 +297,7 @@ public final class MainActivity extends ThemedActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         metaLp.topMargin = UiKit.dp(this, 2);
         tvSim2Meta.setLayoutParams(metaLp);
-        tvSim2Meta.setText(R.string.sim2_meta_loading);
+        tvSim2Meta.setText(getString(R.string.sim2_carrier, "…"));
         tvSim2Meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         tvSim2Meta.setTextColor(palette.onSurfaceVariant);
         simTitleCol.addView(tvSim2Meta);
@@ -411,17 +310,6 @@ public final class MainActivity extends ThemedActivity {
         tvSim2Badge.setPadding(UiKit.dp(this, 11), UiKit.dp(this, 5), UiKit.dp(this, 11), UiKit.dp(this, 5));
         simHead.addView(tvSim2Badge);
         simCard.addView(simHead);
-
-        tvSim2Detail = new TextView(this);
-        LinearLayout.LayoutParams detLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        detLp.topMargin = UiKit.dp(this, 12);
-        tvSim2Detail.setLayoutParams(detLp);
-        tvSim2Detail.setText(R.string.sim2_detail_loading);
-        tvSim2Detail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        tvSim2Detail.setLineSpacing(UiKit.dpf(this, 2.5f), 1.0f);
-        tvSim2Detail.setTextColor(palette.onSurfaceVariant);
-        simCard.addView(tvSim2Detail);
 
         // 2x2 health grid
         LinearLayout gridRow1 = new LinearLayout(this);
@@ -498,11 +386,11 @@ public final class MainActivity extends ThemedActivity {
         UiKit.addInfoLine(this, palette, card, getString(R.string.info_device),
                 Build.MANUFACTURER + " " + Build.MODEL);
         UiKit.addInfoLine(this, palette, card, getString(R.string.info_android),
-                getString(R.string.info_android_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT));
-        UiKit.addInfoLine(this, palette, card, getString(R.string.info_build), Build.DISPLAY);
-        UiKit.addInfoLine(this, palette, card, getString(R.string.info_module), ProbeInspector.MODULE_VERSION);
-        tvInfoLpa = UiKit.addInfoLine(this, palette, card, getString(R.string.info_lpa), "…");
-        tvInfoCardId = UiKit.addInfoLine(this, palette, card, getString(R.string.info_card_id), "…");
+                getString(R.string.info_android_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT), true);
+        UiKit.addInfoLine(this, palette, card, getString(R.string.info_build), Build.DISPLAY, true);
+        UiKit.addInfoLine(this, palette, card, getString(R.string.info_module), ProbeInspector.MODULE_VERSION, true);
+        tvInfoLpa = UiKit.addInfoLine(this, palette, card, getString(R.string.info_lpa), "…", true);
+        tvInfoCardId = UiKit.addInfoLine(this, palette, card, getString(R.string.info_card_id), "…", true);
         return card;
     }
 
@@ -583,10 +471,16 @@ public final class MainActivity extends ThemedActivity {
         col.addView(rowTesterApp.card);
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_personalize)));
+        UiKit.NavRow rowLanguage = new UiKit.NavRow(
+                this, palette, io.github.local.esimh4ui.R.drawable.ic_language_24,
+                getString(io.github.local.esimh4ui.R.string.lang_title), null,
+                24f, 6f, 2, () -> LanguageSetting.showPicker(this, palette));
+        rowLanguage.setValue(LanguageSetting.currentLabel(this));
+        col.addView(rowLanguage.card);
         UiKit.NavRow rowTheme = new UiKit.NavRow(
                 this, palette, io.github.local.esimh4ui.R.drawable.ic_palette_24,
                 getString(io.github.local.esimh4ui.R.string.theme_title), getString(R.string.row_theme_summary),
-                24f, 24f, 0, this::openThemeSettings);
+                6f, 24f, 0, () -> openThemeSettings(false));
         rowTheme.setValue(getString(UiKit.isMiuix()
                 ? io.github.local.esimh4ui.R.string.theme_style_miuix
                 : io.github.local.esimh4ui.R.string.theme_style_material3));
@@ -1036,31 +930,28 @@ public final class MainActivity extends ThemedActivity {
             boolean hasActiveSub = r.optBoolean("sim2HasActiveSub", false);
             String carrierName = r.optString("sim2CarrierName", "");
             String lpaVer = r.has("lpaVersion") ? r.optString("lpaVersion") : getString(R.string.lpa_not_installed);
-            boolean realEid = r.optBoolean("realEidPresent", false);
 
             boolean carrierBridge = r.optBoolean("carrierBridgeEnabled", true);
             boolean lpaUriBridge = r.optBoolean("lpaUriBridgeEnabled", true);
             boolean rewriteText = r.optBoolean("rewriteTextEnabled", true);
 
             // 1. Status banner + master switch
+            String footer = getString(R.string.status_version_lpa, ProbeInspector.MODULE_VERSION, lpaVer);
             if (!moduleActive) {
-                styleStatusBanner(StatusState.OFF);
-                tvStatusTitle.setText(R.string.status_off);
-                tvStatusSubtitle.setText(R.string.status_off_summary);
+                statusBanner.setState(StatusBanner.State.ERROR, R.drawable.ic_power_24);
+                statusBanner.setTexts(getString(R.string.status_off), getString(R.string.status_off_summary), footer);
             } else if (!lpaPrivMounted) {
-                styleStatusBanner(StatusState.ATTENTION);
-                tvStatusTitle.setText(R.string.status_attention);
-                tvStatusSubtitle.setText(R.string.status_wait_mount);
+                statusBanner.setState(StatusBanner.State.ERROR, R.drawable.ic_error_24);
+                statusBanner.setTexts(getString(R.string.status_attention), getString(R.string.status_wait_mount), footer);
             } else if (!phoneHook) {
-                styleStatusBanner(StatusState.ATTENTION);
-                tvStatusTitle.setText(R.string.status_attention);
-                tvStatusSubtitle.setText(R.string.status_wait_lsposed);
+                statusBanner.setState(StatusBanner.State.ERROR, R.drawable.ic_error_24);
+                statusBanner.setTexts(getString(R.string.status_attention), getString(R.string.status_wait_lsposed), footer);
             } else {
-                styleStatusBanner(StatusState.RUNNING);
-                tvStatusTitle.setText(R.string.status_running);
-                tvStatusSubtitle.setText(cardType == 1 ? R.string.status_running_card : R.string.status_running_no_card);
+                statusBanner.setState(StatusBanner.State.OK, R.drawable.ic_check_circle_24);
+                statusBanner.setTexts(getString(R.string.status_running), getString(cardType == 1
+                        ? R.string.status_running_card
+                        : R.string.status_running_no_card), footer);
             }
-            tvStatusVersion.setText(getString(R.string.status_version_lpa, ProbeInspector.MODULE_VERSION, lpaVer));
 
             switchMasterMode.setChecked(moduleActive, false);
             rowMaster.setRowState(moduleActive, true, getString(moduleActive
@@ -1079,16 +970,9 @@ public final class MainActivity extends ThemedActivity {
             }
 
             // 3. SIM2 card
-            String eidTag = getString(realEid
-                    ? R.string.eid_verified
-                    : (cardType == 1 ? R.string.isdr_verified : R.string.card_pending));
-            String meta = getString(R.string.sim2_meta_lpa, lpaVer);
-            if (defaultCardId >= 0) {
-                meta += " · " + getString(R.string.sim2_meta_card_id, defaultCardId);
-            }
-            tvSim2Meta.setText(meta + " · " + eidTag);
-
-            bindSim2Status(cardType, esimSwitch, sim2State, hasActiveSub, carrierName, lpaPrivMounted, moduleActive);
+            tvSim2Meta.setText(getString(R.string.sim2_carrier,
+                    carrierName == null || carrierName.isEmpty() ? "—" : carrierName));
+            bindSim2Badge(cardType, esimSwitch, sim2State, hasActiveSub, lpaPrivMounted, moduleActive);
 
             setHealthTile(tvBadgeMount, lpaPrivMounted,
                     getString(lpaPrivMounted ? R.string.health_active : R.string.health_not_mounted), !moduleActive);
@@ -1165,24 +1049,20 @@ public final class MainActivity extends ThemedActivity {
         tv.setTextColor(getColor(colorRes));
     }
 
-    private void bindSim2Status(
+    private void bindSim2Badge(
             int cardType,
             int esimSwitch,
             int sim2State,
             boolean hasActiveSub,
-            String carrierName,
             boolean lpaPrivMounted,
             boolean moduleActive) {
         int pillBgRes;
         int pillFgRes;
         int badge;
-        String detail;
-
         if (!moduleActive) {
             badge = R.string.badge_disabled;
             pillBgRes = R.color.status_off_bg;
             pillFgRes = R.color.status_off_fg;
-            detail = getString(R.string.sim2_detail_module_off);
         } else if (cardType == 1) {
             boolean profileReady = hasActiveSub
                     || sim2State == TelephonyManager.SIM_STATE_READY
@@ -1191,48 +1071,32 @@ public final class MainActivity extends ThemedActivity {
                 badge = R.string.badge_profile_on;
                 pillBgRes = R.color.status_ok_bg;
                 pillFgRes = R.color.status_ok_fg;
-                detail = (carrierName != null && !carrierName.isEmpty())
-                        ? getString(R.string.sim2_detail_ready_carrier, carrierName)
-                        : getString(R.string.sim2_detail_ready);
             } else if (esimSwitch == 0) {
                 badge = R.string.badge_stopped;
                 pillBgRes = R.color.status_warn_bg;
                 pillFgRes = R.color.status_warn_fg;
-                detail = getString(R.string.sim2_detail_switch_off);
             } else {
                 badge = R.string.badge_empty;
                 pillBgRes = R.color.status_ok_bg;
                 pillFgRes = R.color.status_ok_fg;
-                detail = getString(R.string.sim2_detail_empty, getString(R.string.btn_manage_esim));
             }
         } else if (cardType == 0) {
-            if (sim2State == TelephonyManager.SIM_STATE_ABSENT) {
-                badge = R.string.badge_no_card;
-                pillBgRes = R.color.status_off_bg;
-                pillFgRes = R.color.status_off_fg;
-                detail = getString(R.string.sim2_detail_absent);
-            } else {
-                badge = R.string.badge_normal_sim;
-                pillBgRes = R.color.status_warn_bg;
-                pillFgRes = R.color.status_warn_fg;
-                detail = getString(R.string.sim2_detail_normal_sim);
-            }
+            boolean absent = sim2State == TelephonyManager.SIM_STATE_ABSENT;
+            badge = absent ? R.string.badge_no_card : R.string.badge_normal_sim;
+            pillBgRes = absent ? R.color.status_off_bg : R.color.status_warn_bg;
+            pillFgRes = absent ? R.color.status_off_fg : R.color.status_warn_fg;
         } else if (!lpaPrivMounted) {
             badge = R.string.badge_wait_mount;
             pillBgRes = R.color.status_err_bg;
             pillFgRes = R.color.status_err_fg;
-            detail = getString(R.string.sim2_detail_wait_mount);
         } else {
             badge = R.string.badge_detecting;
             pillBgRes = R.color.status_off_bg;
             pillFgRes = R.color.status_off_fg;
-            detail = getString(R.string.sim2_detail_detecting);
         }
-
         tvSim2Badge.setText(badge);
         tvSim2Badge.setTextColor(getColor(pillFgRes));
         tvSim2Badge.setBackground(UiKit.roundedRect(this, getColor(pillBgRes), 999f, 0, 0));
-        tvSim2Detail.setText(detail);
     }
 
     public static String inspect(Context ctx) {

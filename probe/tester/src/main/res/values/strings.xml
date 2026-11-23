@@ -3,6 +3,13 @@
     <string name="app_name">eSIM Test</string>
     <string name="tester_subtitle">%1$s · Mock code interception</string>
     <string name="tester_refresh">Refresh status</string>
+    <string name="tester_state_checking">Checking…</string>
+    <string name="tester_state_ready">Ready to test</string>
+    <string name="tester_state_not_ready">Not ready</string>
+    <string name="tester_ready_summary">LPA mounted, eUICC on, physical eSIM in slot 2</string>
+    <string name="tester_reason_mount">The Xiaomi LPA is not mounted</string>
+    <string name="tester_reason_euicc">The eUICC service is not enabled</string>
+    <string name="tester_reason_card">No physical eSIM in slot 2</string>
     <string name="tester_status_title">eUICC status</string>
     <string name="tester_mock_title">Mock install</string>
     <string name="tester_safety_note">Codes that contain test.esim.local are stopped after you confirm, so nothing is written to the card.</string>
