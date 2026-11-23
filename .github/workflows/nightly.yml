@@ -1,0 +1,194 @@
+name: Nightly Build
+
+# Builds the signed compat and tester APKs and the flashable module, then
+# publishes them as the rolling "nightly" pre-release.
+#
+# - The scheduled run builds main once a day, and skips when main has no new
+#   commits since the last nightly.
+# - Running the workflow by hand always builds the branch it runs on.
+# Each nightly replaces the previous one: the release and the nightly tag are
+# deleted and created again at the new commit.
+#
+# Secrets:
+# - SIGNING_KEYSTORE_BASE64: the keystore (.jks), base64-encoded
+# - SIGNING_STORE_PASSWORD, SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD
+# - SERVERCHAN_SENDKEY (optional): a ServerChan3 send key (sctp...)
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # 每天 3:00（哥本哈根时间）构建一次
+      timezone: "Europe/Copenhagen"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  NIGHTLY_TAG: nightly
+  GRADLE_VERSION: "8.14.3"
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          # The notes list the commits since the previous nightly tag
+          fetch-depth: 0
+
+      - name: Check for new commits
+        id: check
+        run: |
+          previous="$(git rev-parse -q --verify "refs/tags/$NIGHTLY_TAG^{commit}" || true)"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$previous" = "$GITHUB_SHA" ]; then
+            echo "The last nightly already builds ${GITHUB_SHA:0:7}; skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        if: steps.check.outputs.skip == 'false'
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Restore signing key
+        if: steps.check.outputs.skip == 'false'
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          # A nightly signed with a random debug key could not update an installed build
+          for name in SIGNING_KEYSTORE_BASE64 SIGNING_STORE_PASSWORD SIGNING_KEY_ALIAS SIGNING_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Signing key missing::Set the $name secret."
+              exit 1
+            fi
+          done
+          keystore="$RUNNER_TEMP/signing.jks"
+          base64 -d <<< "$SIGNING_KEYSTORE_BASE64" > "$keystore"
+          echo "SIGNING_STORE_FILE=$keystore" >> "$GITHUB_ENV"
+
+      - name: Build APKs
+        id: build
+        if: steps.check.outputs.skip == 'false'
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          gradle -p probe --no-daemon clean assembleDebug
+
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)apksigner"
+          for apk in probe/app/build/outputs/apk/debug/app-debug.apk probe/tester/build/outputs/apk/debug/tester-debug.apk; do
+            certs="$("$apksigner" verify --print-certs "$apk")"
+            if grep -q "CN=Android Debug" <<< "$certs"; then
+              echo "::error title=Wrong signing key::$apk is signed with the debug key."
+              exit 1
+            fi
+            grep -m 1 "certificate SHA-256 digest" <<< "$certs"
+          done
+
+          version="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' probe/app/build.gradle.kts | head -n 1)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "name=v${version}-nightly.$(TZ=Europe/Copenhagen date +%Y%m%d).${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Package module
+        id: package
+        if: steps.check.outputs.skip == 'false'
+        env:
+          NAME: ${{ steps.build.outputs.name }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          out="$RUNNER_TEMP/out"
+          dist="$RUNNER_TEMP/dist"
+          python3 build_module.py --output-dir "$out"
+          mkdir -p "$dist"
+          cp "$out/XiaomiEsimLPA-HyperOS4-v${VERSION}.zip" "$dist/XiaomiEsimLPA-HyperOS4-${NAME}.zip"
+          cp probe/app/build/outputs/apk/debug/app-debug.apk "$dist/Xiaomi-eSIM-Compat-${NAME}.apk"
+          cp probe/tester/build/outputs/apk/debug/tester-debug.apk "$dist/Xiaomi-eSIM-Tester-${NAME}.apk"
+          (cd "$dist" && sha256sum -- * > SHA256SUMS.txt)
+          echo "dist=$dist" >> "$GITHUB_OUTPUT"
+
+      - name: Publish nightly
+        id: publish
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.build.outputs.name }}
+          DIST: ${{ steps.package.outputs.dist }}
+          PREVIOUS: ${{ steps.check.outputs.previous }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            if [ -n "$PREVIOUS" ] && [ "$PREVIOUS" != "$GITHUB_SHA" ] && git merge-base --is-ancestor "$PREVIOUS" HEAD; then
+              echo "Changes since the previous nightly (${PREVIOUS:0:7}):"
+              echo
+              git log --no-merges --format='- %s (%h)' -n 50 "$PREVIOUS..HEAD"
+              echo
+            fi
+            echo "Nightly built from ${GITHUB_REPOSITORY}@${GITHUB_REF_NAME} (${GITHUB_SHA:0:7}) by GitHub Actions. This is an untested development build."
+          } > "$notes"
+
+          if gh release view "$NIGHTLY_TAG" > /dev/null 2>&1; then
+            gh release delete "$NIGHTLY_TAG" --cleanup-tag --yes
+          elif git rev-parse -q --verify "refs/tags/$NIGHTLY_TAG" > /dev/null; then
+            git push origin ":refs/tags/$NIGHTLY_TAG"
+          fi
+          gh release create "$NIGHTLY_TAG" "$DIST"/* \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "Nightly $NAME" --notes-file "$notes"
+
+      - name: Send ServerChan push
+        # Push when a nightly was published or the run failed, not when it was skipped
+        if: ${{ !cancelled() && (failure() || steps.publish.outcome == 'success') }}
+        env:
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+          JOB_STATUS: ${{ job.status }}
+          NAME: ${{ steps.build.outputs.name }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          PACKAGE_OUTCOME: ${{ steps.package.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          repo="${GITHUB_REPOSITORY#*/}"
+          if [ "$JOB_STATUS" = "success" ]; then
+            export TITLE="eSIM LPA nightly built"
+            export SHORT="$repo: Published $NAME"
+          else
+            export TITLE="eSIM LPA nightly failed"
+            if [ "$BUILD_OUTCOME" = "failure" ]; then
+              export SHORT="$repo: Could not build the APKs"
+            elif [ "$PACKAGE_OUTCOME" = "failure" ]; then
+              export SHORT="$repo: Could not package the module"
+            elif [ "$PUBLISH_OUTCOME" = "failure" ]; then
+              export SHORT="$repo: Could not publish the nightly"
+            else
+              export SHORT="$repo: The nightly workflow failed"
+            fi
+          fi
+          export DESP="- Build: \`${NAME:-unknown}\`
+          - Commit: \`${GITHUB_SHA:0:7}\` on \`$GITHUB_REF_NAME\`
+          - Trigger: \`$GITHUB_EVENT_NAME\`
+          - APKs: \`${BUILD_OUTCOME:-skipped}\`
+          - Module: \`${PACKAGE_OUTCOME:-skipped}\`
+          - Publish: \`${PUBLISH_OUTCOME:-skipped}\`"
+          if [ "$JOB_STATUS" = "success" ]; then
+            DESP+=$'\n\n'"[View the nightly](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${NIGHTLY_TAG})"
+          fi
+          .github/scripts/serverchan.sh
