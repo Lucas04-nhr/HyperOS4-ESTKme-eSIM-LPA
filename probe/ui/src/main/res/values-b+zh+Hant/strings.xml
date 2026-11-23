@@ -16,10 +16,10 @@
     <string name="theme_dynamic_color">動態取色</string>
     <string name="theme_dynamic_color_summary_material3">使用桌布顏色</string>
     <string name="theme_dynamic_color_summary_miuix">使用桌布顏色代替 HyperOS 藍</string>
-    <string name="theme_section_bottom_bar">底欄</string>
+    <string name="theme_section_bottom_bar">頂欄與底欄</string>
     <string name="theme_miuix_only">僅 Miuix 風格可用</string>
     <string name="theme_bar_glass">毛玻璃效果</string>
-    <string name="theme_bar_glass_summary">模糊底欄後方的頁面</string>
+    <string name="theme_bar_glass_summary">模糊頂欄和底欄後方的頁面</string>
     <string name="theme_bar_floating">懸浮底欄</string>
     <string name="theme_bar_floating_summary">底欄顯示為懸浮膠囊</string>
     <string name="theme_section_background">應用程式背景</string>
@@ -34,4 +34,9 @@
     <string name="theme_card_alpha">卡片不透明度</string>
     <string name="theme_bg_hint">設定背景圖片後可調整以上選項</string>
     <string name="theme_bg_pick_failed">無法讀取該圖片</string>
+    <string name="lang_title">語言</string>
+    <string name="lang_system">跟隨系統</string>
+    <string name="theme_liquid_glass">液態玻璃</string>
+    <string name="theme_liquid_glass_summary">在欄的邊緣折射頁面內容</string>
+    <string name="theme_liquid_glass_needs_glass">請先開啟毛玻璃效果</string>
 </resources>

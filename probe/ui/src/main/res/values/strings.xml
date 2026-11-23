@@ -16,10 +16,10 @@
     <string name="theme_dynamic_color">Dynamic color</string>
     <string name="theme_dynamic_color_summary_material3">Use colors from the wallpaper</string>
     <string name="theme_dynamic_color_summary_miuix">Use wallpaper colors instead of HyperOS blue</string>
-    <string name="theme_section_bottom_bar">Bottom bar</string>
+    <string name="theme_section_bottom_bar">Top and bottom bars</string>
     <string name="theme_miuix_only">Miuix style only</string>
     <string name="theme_bar_glass">Frosted glass</string>
-    <string name="theme_bar_glass_summary">Blur the page behind the bar</string>
+    <string name="theme_bar_glass_summary">Blur the page behind the top and bottom bars</string>
     <string name="theme_bar_floating">Floating bottom bar</string>
     <string name="theme_bar_floating_summary">Show the bar as a floating capsule</string>
     <string name="theme_section_background">Background</string>
@@ -34,4 +34,9 @@
     <string name="theme_card_alpha">Card opacity</string>
     <string name="theme_bg_hint">Set a background image to use these options</string>
     <string name="theme_bg_pick_failed">Could not load the image</string>
+    <string name="lang_title">Language</string>
+    <string name="lang_system">Follow system</string>
+    <string name="theme_liquid_glass">Liquid glass</string>
+    <string name="theme_liquid_glass_summary">Refract the page at the bar edges</string>
+    <string name="theme_liquid_glass_needs_glass">Turn on frosted glass first</string>
 </resources>
