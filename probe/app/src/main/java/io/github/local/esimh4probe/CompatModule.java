@@ -1047,25 +1047,42 @@ public final class CompatModule extends XposedModule {
 
         hook(openChMethod).intercept(chain -> {
             if (!active() || IN_DIRECT_RIL.get() || (int) chain.getArg(0) != 1) return chain.proceed();
-            Object result = null;
-            try {
-                result = chain.proceed();
-            } catch (Throwable rilOpenErr) {
-                Log.w(TAG, "RIL open channel threw " + rilOpenErr.getClass().getSimpleName() + "; falling back to OMAPI");
-            }
-            if (result != null) {
-                int status = OmapiBridge.getResponseStatus(result);
-                if (status == EuiccCardReader.RIL_STATUS_NO_ERROR) {
-                    int chId = OmapiBridge.getResponseChannel(result);
-                    if (chId >= 0) {
-                        OmapiBridge.onRilOpen(chId);
-                        return result;
-                    }
-                } else if (status == EuiccCardReader.RIL_STATUS_NO_SUCH_ELEMENT) {
-                    return result;
+            String reqAid = (String) chain.getArg(1);
+            boolean isdr = EuiccCardReader.isStandardIsdrAid(reqAid);
+            String[] aids = isdr ? EuiccCardReader.isdrAidOrder() : new String[]{reqAid};
+            Object result = null;        // first non-NO_SUCH_ELEMENT failure, passed to OMAPI fallback
+            Object noSuchResult = null;  // last NO_SUCH_ELEMENT response
+            boolean otherFailure = false;
+            for (String aid : aids) {
+                Object r = null;
+                try {
+                    Object[] a = chain.getArgs().toArray();
+                    a[1] = aid;
+                    r = chain.proceed(a);
+                } catch (Throwable rilOpenErr) {
+                    Log.w(TAG, "RIL open channel threw " + rilOpenErr.getClass().getSimpleName() + "; trying next AID / OMAPI");
                 }
+                if (r != null) {
+                    int status = OmapiBridge.getResponseStatus(r);
+                    if (status == EuiccCardReader.RIL_STATUS_NO_ERROR) {
+                        int chId = OmapiBridge.getResponseChannel(r);
+                        if (chId >= 0) {
+                            OmapiBridge.onRilOpen(chId);
+                            if (isdr) EuiccCardReader.rememberIsdrAid(aid);
+                            return r;
+                        }
+                    } else if (status == EuiccCardReader.RIL_STATUS_NO_SUCH_ELEMENT) {
+                        noSuchResult = r;
+                        continue;
+                    }
+                }
+                otherFailure = true;
+                if (result == null) result = r;
             }
-            return OmapiBridge.openSafe((String) chain.getArg(1), (int) chain.getArg(2), result);
+            if (!otherFailure && noSuchResult != null) {
+                return noSuchResult;
+            }
+            return OmapiBridge.openSafe(reqAid, (int) chain.getArg(2), result);
         });
 
         final boolean closeReturnsBoolean = (closeChMethod.getReturnType() == boolean.class);
@@ -1375,7 +1392,31 @@ public final class CompatModule extends XposedModule {
             return sim2;
         }
 
+        /**
+         * Opens an OMAPI channel on SIM2. A request for the standard ISD-R AID also tries vendor
+         * ISD-R AIDs (eSTK.me, 5ber, ...); NoSuchElementException is thrown only if none exists.
+         */
         static synchronized Object open(String aid, int p2) throws Exception {
+            if (!EuiccCardReader.isStandardIsdrAid(aid)) {
+                return openExact(aid, p2);
+            }
+            Exception otherErr = null;
+            for (String candidate : EuiccCardReader.isdrAidOrder()) {
+                try {
+                    Object resp = openExact(candidate, p2);
+                    EuiccCardReader.rememberIsdrAid(candidate);
+                    return resp;
+                } catch (Exception e) {
+                    if (!(EuiccCardReader.unwrap(e) instanceof NoSuchElementException) && otherErr == null) {
+                        otherErr = e;
+                    }
+                }
+            }
+            if (otherErr != null) throw otherErr;
+            throw new NoSuchElementException("ISD-R AID not found on SIM2 via OMAPI (standard and vendor AIDs)");
+        }
+
+        private static Object openExact(String aid, int p2) throws Exception {
             Reader sim2 = getSim2Reader();
             Session session = sim2.openSession();
             Channel channel = null;
