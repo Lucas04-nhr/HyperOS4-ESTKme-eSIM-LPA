@@ -121,8 +121,8 @@ public final class DashboardModel {
             bannerOk = false;
             bannerText = ctx.getString(!lpaPrivMounted ? R.string.status_wait_mount : R.string.status_wait_lsposed);
             bannerTitle = ctx.getString(R.string.status_attention);
-            bannerAction = BannerAction.DIAGNOSTICS;
-            bannerActionText = ctx.getString(R.string.btn_diagnostics);
+            bannerAction = BannerAction.NONE;
+            bannerActionText = null;
             bannerTags = Collections.emptyList();
         } else {
             bannerOk = true;

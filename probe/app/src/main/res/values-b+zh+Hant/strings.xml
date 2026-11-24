@@ -240,4 +240,12 @@
     <string name="log_view_failed">無法開啟 LPA:// 連結（可能已在設定中關閉連結接管）：%1$s</string>
     <string name="log_start_activation">呼叫 ACTION_START_EUICC_ACTIVATION…</string>
     <string name="log_activation_failed">標準啟用呼叫失敗：%1$s</string>
+    <string name="diag_taps_remaining">再點擊 %1$d 次即可開啟診斷報告</string>
+    <string name="diag_opened">正在開啟診斷報告</string>
+    <string name="log_taps_remaining">再點擊 %1$d 次即可顯示回呼日誌</string>
+    <string name="log_shown">已開啟回呼日誌顯示</string>
+    <string name="export_taps_remaining">再點擊 %1$d 次即可匯出模組日誌</string>
+    <string name="export_started">正在匯出模組日誌…</string>
+    <string name="export_saved">日誌已儲存至 %1$s</string>
+    <string name="export_failed">匯出日誌失敗：%1$s</string>
 </resources>

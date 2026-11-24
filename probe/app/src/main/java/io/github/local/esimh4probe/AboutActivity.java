@@ -13,6 +13,28 @@ import io.github.local.esimh4ui.UiKit;
  */
 public final class AboutActivity extends ThemedActivity {
     private Scaffold scaffold;
+    private final HiddenEntryGesture exportGesture = new HiddenEntryGesture();
+    private boolean exporting;
+
+    void onHeaderTap() {
+        if (exporting) return;
+        if (!exportGesture.tap(this, R.string.export_taps_remaining, R.string.export_started)) return;
+        exporting = true;
+        android.content.Context context = getApplicationContext();
+        new Thread(() -> {
+            String message;
+            try {
+                message = context.getString(R.string.export_saved, ModuleLogExporter.export(context));
+            } catch (Exception e) {
+                message = context.getString(R.string.export_failed, e.getMessage());
+            }
+            String result = message;
+            runOnUiThread(() -> {
+                exporting = false;
+                android.widget.Toast.makeText(context, result, android.widget.Toast.LENGTH_LONG).show();
+            });
+        }, "EsimH4-LogExport").start();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

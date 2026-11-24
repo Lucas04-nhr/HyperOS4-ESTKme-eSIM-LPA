@@ -316,6 +316,7 @@ fun MiuixStatusCard(
     tags: List<StatusBanner.Tag> = emptyList(),
     actionText: String? = null,
     onAction: (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     val dynamic = ThemeConfig.dynamicColor
     val okBg = Color(if (dynamic) palette.primaryContainer else if (palette.isNight) 0xFF1A3825.toInt() else 0xFFDFFAE4.toInt())
@@ -325,9 +326,11 @@ fun MiuixStatusCard(
     MiuixCard(
         insideMargin = PaddingValues(0.dp),
         color = bg,
-        // No action on tap: only the tilt and a haptic tick, like the SukiSU status card.
         pressFeedbackType = PressFeedbackType.Tilt,
-        onClick = { haptic.performHapticFeedback(HapticFeedbackType.ContextClick) },
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+            onClick?.invoke()
+        },
     ) {
         Box(Modifier.fillMaxWidth().heightIn(min = 188.dp)) {
             if (mode == StatusMode.OK) {

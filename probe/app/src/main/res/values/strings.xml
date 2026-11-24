@@ -240,4 +240,12 @@
     <string name="log_view_failed">Could not open the LPA:// link (link handling may be off in Settings): %1$s</string>
     <string name="log_start_activation">Calling ACTION_START_EUICC_ACTIVATION…</string>
     <string name="log_activation_failed">Standard activation failed: %1$s</string>
+    <string name="diag_taps_remaining">%1$d more taps to open diagnostics</string>
+    <string name="diag_opened">Opening diagnostics</string>
+    <string name="log_taps_remaining">%1$d more taps to show callback logs</string>
+    <string name="log_shown">Callback logs enabled</string>
+    <string name="export_taps_remaining">%1$d more taps to export module logs</string>
+    <string name="export_started">Exporting module logs…</string>
+    <string name="export_saved">Logs saved to %1$s</string>
+    <string name="export_failed">Could not export logs: %1$s</string>
 </resources>

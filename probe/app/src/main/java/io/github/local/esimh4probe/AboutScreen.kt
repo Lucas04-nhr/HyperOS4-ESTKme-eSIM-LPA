@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -165,6 +166,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                         versionText = info?.let { "v" + it.versionText() } ?: "",
                         isDark = isDark,
                         progress = { progress },
+                        onClick = { activity.onHeaderTap() },
                     )
                 }
                 val data = info ?: return@LazyColumn
@@ -234,7 +236,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
 
 /** App icon, name (with a gradient, like the Miuix example) and version; fades out on scroll. */
 @Composable
-private fun Header(versionText: String, isDark: Boolean, progress: () -> Float) {
+private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, onClick: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val iconPx = with(LocalDensity.current) { 88.dp.roundToPx() }
     val icon = remember(iconPx) {
@@ -265,10 +267,10 @@ private fun Header(versionText: String, isDark: Boolean, progress: () -> Float) 
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(88.dp))
+        Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(88.dp).clickable(onClick = onClick))
         BasicText(
             text = stringResource(R.string.app_name),
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp),
+            modifier = Modifier.clickable(onClick = onClick).padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp),
             style = TextStyle(
                 brush = nameBrush,
                 fontSize = 30.sp,
@@ -278,6 +280,7 @@ private fun Header(versionText: String, isDark: Boolean, progress: () -> Float) 
         )
         Text(
             text = versionText,
+            modifier = Modifier.clickable(onClick = onClick),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,

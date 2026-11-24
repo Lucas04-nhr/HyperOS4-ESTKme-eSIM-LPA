@@ -207,15 +207,16 @@ private fun HomePage(activity: MainActivity, state: MainUiState, bottom: Dp, onO
     ) {
         item(key = "status") {
             if (model == null) {
-                MiuixStatusCard(palette, StatusMode.LOADING, stringResource(R.string.status_loading))
+                MiuixStatusCard(palette, StatusMode.LOADING, stringResource(R.string.status_loading), onClick = { activity.onProbeStatusTap() })
             } else if (model.bannerOk) {
-                MiuixStatusCard(palette, StatusMode.OK, model.bannerTitle, model.bannerText, model.bannerTags)
+                MiuixStatusCard(palette, StatusMode.OK, model.bannerTitle, model.bannerText, model.bannerTags, onClick = { activity.onProbeStatusTap() })
             } else {
                 MiuixStatusCard(
                     palette = palette,
                     mode = StatusMode.ERROR,
                     title = model.bannerTitle,
                     text = model.bannerText,
+                    onClick = { activity.onProbeStatusTap() },
                     actionText = model.bannerActionText,
                     onAction = when (model.bannerAction) {
                         DashboardModel.BannerAction.OPEN_SETTINGS -> onOpenSettings
@@ -243,21 +244,6 @@ private fun HomePage(activity: MainActivity, state: MainUiState, bottom: Dp, onO
         }
         item(key = "healthTitle") { SmallTitle(text = stringResource(R.string.section_health)) }
         item(key = "sim") { SimCard(activity, model, palette) }
-        item(key = "footer") {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-                TextButton(
-                    text = stringResource(R.string.btn_reprobe),
-                    onClick = { activity.triggerReprobeSim2() },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(10.dp))
-                TextButton(
-                    text = stringResource(R.string.btn_diagnostics),
-                    onClick = { activity.showDiagnosticsDialog() },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
     }
 }
 
@@ -317,9 +303,14 @@ private fun SimCard(activity: MainActivity, model: DashboardModel?, palette: UiK
             HealthTile(model?.tileEuicc, R.string.tile_euicc, palette)
         }
         TextButton(
+            text = stringResource(R.string.btn_reprobe),
+            onClick = { activity.triggerReprobeSim2() },
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        )
+        TextButton(
             text = stringResource(R.string.btn_manage_esim),
             onClick = { activity.openNativeEsimManager() },
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
             enabled = model?.manageEnabled ?: false,
             colors = ButtonDefaults.textButtonColorsPrimary(),
         )
@@ -369,6 +360,7 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
     }
     val status = remember(tester, version) { tester.status() }
     val log = remember(tester, version) { tester.log() }
+    val logVisible = remember(tester, version) { tester.isLogVisible() }
     val code = rememberTextFieldState(TesterPage.DEFAULT_MOCK_CODE)
 
     var refreshing by remember { mutableStateOf(false) }
@@ -391,9 +383,9 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
     ) {
         item(key = "status") {
             when {
-                status.checking -> MiuixStatusCard(palette, StatusMode.LOADING, status.title)
-                status.ready -> MiuixStatusCard(palette, StatusMode.OK, status.title, status.text, status.tags)
-                else -> MiuixStatusCard(palette, StatusMode.ERROR, status.title, status.text)
+                status.checking -> MiuixStatusCard(palette, StatusMode.LOADING, status.title, onClick = { tester.onStatusTap() })
+                status.ready -> MiuixStatusCard(palette, StatusMode.OK, status.title, status.text, status.tags, onClick = { tester.onStatusTap() })
+                else -> MiuixStatusCard(palette, StatusMode.ERROR, status.title, status.text, onClick = { tester.onStatusTap() })
             }
         }
         item(key = "mockTitle") { SmallTitle(text = stringResource(R.string.tester_mock_title)) }
@@ -440,32 +432,34 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
                 )
             }
         }
-        item(key = "logTitle") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SmallTitle(text = stringResource(R.string.tester_console_title), modifier = Modifier.weight(1f))
+        if (logVisible) {
+            item(key = "logTitle") {
+                SmallTitle(text = stringResource(R.string.tester_console_title))
+            }
+            item(key = "log") {
+                MiuixCard(insideMargin = PaddingValues(0.dp)) {
+                    SelectionContainer {
+                        Text(
+                            text = log,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 120.dp)
+                                .background(Color(palette.tileBg), RoundedCornerShape(16.dp))
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            color = colors.onSurface,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 18.sp,
+                        )
+                    }
+                }
+            }
+            item(key = "clearLog") {
                 TextButton(
                     text = stringResource(R.string.tester_clear_log),
                     onClick = { tester.clearLog() },
-                    modifier = Modifier.padding(end = 12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-            }
-        }
-        item(key = "log") {
-            MiuixCard(insideMargin = PaddingValues(0.dp)) {
-                SelectionContainer {
-                    Text(
-                        text = log,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 120.dp)
-                            .background(Color(0xFF12151C), RoundedCornerShape(16.dp))
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        color = Color(0xFFD8E4F8),
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 18.sp,
-                    )
-                }
             }
         }
     }

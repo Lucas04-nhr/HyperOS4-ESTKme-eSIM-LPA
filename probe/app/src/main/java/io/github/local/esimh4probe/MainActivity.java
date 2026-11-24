@@ -332,34 +332,21 @@ public final class MainActivity extends ThemedActivity {
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_health)));
         col.addView(buildSimCard());
 
-        // Utility buttons
-        LinearLayout footerRow = new LinearLayout(this);
-        footerRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams frLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        frLp.topMargin = UiKit.dp(this, 16);
-        footerRow.setLayoutParams(frLp);
-
-        LinearLayout btnReprobe = UiKit.createActionButton(
-                this, palette, UiKit.ButtonStyle.OUTLINED, R.drawable.ic_refresh_24,
-                getString(R.string.btn_reprobe), 42, this::triggerReprobeSim2);
-        LinearLayout.LayoutParams rpLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        rpLp.rightMargin = UiKit.dp(this, 5);
-        footerRow.addView(btnReprobe, rpLp);
-
-        LinearLayout btnShowDiag = UiKit.createActionButton(
-                this, palette, UiKit.ButtonStyle.OUTLINED, R.drawable.ic_terminal_24,
-                getString(R.string.btn_diagnostics), 42, this::showDiagnosticsDialog);
-        LinearLayout.LayoutParams sdLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        sdLp.leftMargin = UiKit.dp(this, 5);
-        footerRow.addView(btnShowDiag, sdLp);
-        col.addView(footerRow);
         return col;
+    }
+
+    private final HiddenEntryGesture diagnosticsGesture = new HiddenEntryGesture();
+
+    void onProbeStatusTap() {
+        if (diagnosticsGesture.tap(this, R.string.diag_taps_remaining, R.string.diag_opened)) {
+            showDiagnosticsDialog();
+        }
     }
 
     /** SukiSU-style status banner: green when running, red when off or needing attention. */
     private View buildStatusBanner() {
         statusBanner = new StatusBanner(this, palette);
+        statusBanner.setOnClickListener(v -> onProbeStatusTap());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = UiKit.dp(this, 4);
@@ -443,12 +430,20 @@ public final class MainActivity extends ThemedActivity {
         tvBadgeEuicc = addHealthTile(gridRow2, getString(R.string.tile_euicc), false);
         simCard.addView(gridRow2);
 
+        LinearLayout btnReprobe = UiKit.createActionButton(
+                this, palette, UiKit.ButtonStyle.TONAL, R.drawable.ic_refresh_24,
+                getString(R.string.btn_reprobe), 44, this::triggerReprobeSim2);
+        LinearLayout.LayoutParams reprobeLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        reprobeLp.topMargin = UiKit.dp(this, 16);
+        simCard.addView(btnReprobe, reprobeLp);
+
         btnManageEsim = UiKit.createActionButton(
                 this, palette, UiKit.ButtonStyle.FILLED, R.drawable.ic_qr_code_scanner_24,
                 getString(R.string.btn_manage_esim), 48, this::openNativeEsimManager);
         LinearLayout.LayoutParams manageLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        manageLp.topMargin = UiKit.dp(this, 16);
+        manageLp.topMargin = UiKit.dp(this, 10);
         simCard.addView(btnManageEsim, manageLp);
 
         LinearLayout secBtnRow = new LinearLayout(this);

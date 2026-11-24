@@ -91,6 +91,22 @@ final class TesterPage {
     private StatusBanner banner;
     private EditText codeInput;
     private TextView logView;
+    private LinearLayout logSection;
+    private boolean logVisible;
+    private final HiddenEntryGesture logGesture = new HiddenEntryGesture();
+
+    boolean isLogVisible() {
+        return logVisible;
+    }
+
+    void onStatusTap() {
+        if (logVisible) return;
+        if (logGesture.tap(activity, R.string.log_taps_remaining, R.string.log_shown)) {
+            logVisible = true;
+            if (logSection != null) logSection.setVisibility(View.VISIBLE);
+            notifyChanged();
+        }
+    }
     private final StringBuilder logBuffer = new StringBuilder();
     private int requestSeq = 1;
     private boolean receiverRegistered;
@@ -203,6 +219,7 @@ final class TesterPage {
 
         // Red / green readiness banner
         banner = new StatusBanner(ctx, palette);
+        banner.setOnClickListener(v -> onStatusTap());
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         blp.topMargin = UiKit.dp(ctx, 4);
@@ -259,45 +276,28 @@ final class TesterPage {
                 str(R.string.tester_test3), 44, this::startStandardActivationTest), 10);
         col.addView(testCard);
 
-        // Card 2: callback console
-        // Header row: section title on the left, Clear button on the right, with room
-        // above and below so the button does not touch the log card.
-        LinearLayout logHdr = new LinearLayout(ctx);
-        logHdr.setOrientation(LinearLayout.HORIZONTAL);
-        logHdr.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rowLp.topMargin = UiKit.dp(ctx, 14);
-        rowLp.bottomMargin = UiKit.dp(ctx, 10);
-        logHdr.setLayoutParams(rowLp);
-        TextView hdr = UiKit.createSectionHeader(ctx, palette, str(R.string.tester_console_title));
-        LinearLayout.LayoutParams hlp = (LinearLayout.LayoutParams) hdr.getLayoutParams();
-        hlp.width = 0;
-        hlp.weight = 1f;
-        hlp.topMargin = 0;
-        hlp.bottomMargin = 0;
-        logHdr.addView(hdr);
-        LinearLayout btnClear = UiKit.createActionButton(
-                ctx, palette, UiKit.ButtonStyle.TONAL, 0, str(R.string.tester_clear_log), 34, this::clearLog);
-        btnClear.setPadding(UiKit.dp(ctx, 18), btnClear.getPaddingTop(), UiKit.dp(ctx, 18), btnClear.getPaddingBottom());
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clp.rightMargin = UiKit.dp(ctx, 4);
-        logHdr.addView(btnClear, clp);
-        col.addView(logHdr);
+        // Callback console is revealed by the shared seven-tap gesture.
+        logSection = new LinearLayout(ctx);
+        logSection.setOrientation(LinearLayout.VERTICAL);
+        logSection.setVisibility(logVisible ? View.VISIBLE : View.GONE);
+        logSection.addView(UiKit.createSectionHeader(ctx, palette, str(R.string.tester_console_title)));
+        col.addView(logSection);
 
         LinearLayout logCard = UiKit.createCard(ctx, palette);
         logView = new TextView(ctx);
         logView.setMinimumHeight(UiKit.dp(ctx, 120));
         logView.setPadding(UiKit.dp(ctx, 14), UiKit.dp(ctx, 12), UiKit.dp(ctx, 14), UiKit.dp(ctx, 12));
-        logView.setBackground(UiKit.roundedRect(ctx, 0xFF12151C, UiKit.radius(16f, 12f), 0, 0));
+        logView.setBackground(UiKit.roundedRect(ctx, palette.tileBg, UiKit.radius(16f, 12f), 0, 0));
         logView.setTypeface(Typeface.MONOSPACE);
         logView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         logView.setLineSpacing(UiKit.dpf(ctx, 3f), 1.0f);
-        logView.setTextColor(0xFFD8E4F8);
+        logView.setTextColor(palette.onSurface);
         logView.setTextIsSelectable(true);
         logCard.addView(logView);
-        col.addView(logCard);
+        logSection.addView(logCard);
+        addFullWidth(logSection, UiKit.createActionButton(
+                ctx, palette, UiKit.ButtonStyle.TONAL, 0,
+                str(R.string.tester_clear_log), 44, this::clearLog), 10);
 
         start();
         showStatus();

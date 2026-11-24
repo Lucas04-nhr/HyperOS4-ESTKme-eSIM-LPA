@@ -26,7 +26,24 @@ final class AboutSection {
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         cardLp.topMargin = UiKit.dp(activity, 8);
+        android.view.View.OnClickListener headerTap = v -> ((AboutActivity) activity).onHeaderTap();
+        android.widget.ImageView icon = new android.widget.ImageView(activity);
+        icon.setImageDrawable(activity.getApplicationInfo().loadIcon(activity.getPackageManager()));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(UiKit.dp(activity, 88), UiKit.dp(activity, 88));
+        iconLp.gravity = Gravity.CENTER_HORIZONTAL;
+        icon.setOnClickListener(headerTap);
+        icon.setContentDescription(activity.getString(R.string.app_name));
+        card.addView(icon, iconLp);
+        TextView name = new TextView(activity);
+        name.setText(R.string.app_name);
+        name.setTextColor(palette.onSurface);
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+        name.setGravity(Gravity.CENTER);
+        name.setPadding(0, UiKit.dp(activity, 14), 0, UiKit.dp(activity, 6));
+        name.setOnClickListener(headerTap);
+        card.addView(name);
         TextView versionView = UiKit.addInfoLine(activity, palette, card, activity.getString(R.string.about_version), "…", true);
+        versionView.setOnClickListener(headerTap);
         TextView commitView = UiKit.addInfoLine(activity, palette, card, activity.getString(R.string.about_commit), "—", true);
         col.addView(card, cardLp);
 
