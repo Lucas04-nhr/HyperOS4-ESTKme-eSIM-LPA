@@ -105,6 +105,13 @@ jobs:
           base64 -d <<< "$SIGNING_KEYSTORE_BASE64" > "$keystore"
           echo "SIGNING_STORE_FILE=$keystore" >> "$GITHUB_ENV"
 
+      - name: Write About page data
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The repository (fork or original), the commit and the contributors with their avatars
+        run: .github/scripts/about_info.sh
+
       - name: Build APKs
         id: build
         if: steps.check.outputs.skip == 'false'

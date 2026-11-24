@@ -8,9 +8,11 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Outline;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -25,6 +27,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.Window;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
@@ -649,6 +652,7 @@ public final class UiKit {
         public final TextView subtitleView;
         public final TextView valueView;
         private final FrameLayout iconWrap;
+        private final ImageView iconView;
 
         public NavRow(
                 Context ctx, Palette p, int iconRes, String title, String subtitle,
@@ -656,6 +660,7 @@ public final class UiKit {
             card = createRowShell(ctx, p, topRadiusDp, bottomRadiusDp, bottomGapDp);
             ImageView[] icon = new ImageView[1];
             iconWrap = createRowIcon(ctx, iconRes, icon);
+            iconView = icon[0];
             if (isMiuix()) {
                 icon[0].setImageTintList(ColorStateList.valueOf(p.onSurface));
             } else {
@@ -687,6 +692,23 @@ public final class UiKit {
             card.setOnClickListener(v -> {
                 if (card.isEnabled()) onClick.run();
             });
+        }
+
+        /** Replaces the icon with a round, untinted image that fills the icon box (an avatar). */
+        public void setIconBitmap(Bitmap bitmap) {
+            iconView.setImageTintList(null);
+            iconView.setImageBitmap(bitmap);
+            iconView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            iconView.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            iconWrap.setBackground(null);
+            iconWrap.setOutlineProvider(new ViewOutlineProvider() {
+                @Override
+                public void getOutline(View view, Outline outline) {
+                    outline.setOval(0, 0, view.getWidth(), view.getHeight());
+                }
+            });
+            iconWrap.setClipToOutline(true);
         }
 
         public void setValue(String value) {

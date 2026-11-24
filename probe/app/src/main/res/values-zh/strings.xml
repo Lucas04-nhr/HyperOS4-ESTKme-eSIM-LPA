@@ -2,8 +2,6 @@
 <resources>
     <string name="app_name">HYPEROS4实体ESIM桥接</string>
     <string name="xposed_description">在小米 HyperOS 4 上将卡槽 2 的可插拔 eSIM 卡（ESTKme、小白卡、9eSIM、Xesim）桥接到系统 LPA。v0.6.1</string>
-    <string name="action_refresh">刷新</string>
-    <string name="action_diagnostics">诊断报告</string>
     <string name="tab_home">首页</string>
     <string name="tab_settings">设置</string>
     <string name="status_loading">正在检测…</string>
@@ -157,4 +155,21 @@
     <string name="bridge_toast_detecting">仍在检测卡槽 2 的卡片，请稍后再试。</string>
     <string name="bridge_toast_unavailable">卡槽 2 没有可用的 eSIM，或模块未开启</string>
     <string name="bridge_toast_launch_failed">无法打开小米 eSIM 写卡页：%1$s</string>
+
+    <!-- 关于（设置页底部） -->
+    <string name="section_about">关于</string>
+    <string name="section_authors">作者</string>
+    <string name="about_version">版本</string>
+    <string name="about_commit">提交</string>
+    <string name="about_license">许可证</string>
+    <string name="about_license_value">Apache License 2.0</string>
+    <string name="about_repo">软件仓库</string>
+    <string name="about_repo_fork">复刻</string>
+    <string name="about_repo_original">原始仓库</string>
+    <string name="about_upstream">原始仓库</string>
+    <plurals name="about_commits">
+        <item quantity="other">%d 次提交</item>
+    </plurals>
+    <string name="about_copyright">Copyright © %1$s jabe1122、Lucas04-nhr 及贡献者</string>
+    <string name="snack_open_link_failed">没有可以打开此链接的应用</string>
 </resources>

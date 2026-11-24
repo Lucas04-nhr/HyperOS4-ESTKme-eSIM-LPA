@@ -23,6 +23,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.activity.OnBackPressedCallback;
 import io.github.local.esimh4ui.BottomBar;
 import io.github.local.esimh4ui.LanguageSetting;
 import io.github.local.esimh4ui.Scaffold;
@@ -40,7 +41,7 @@ import org.json.JSONObject;
 
 /**
  * Control panel for the Xiaomi HyperOS 4 removable eSIM (SIM2) bridge.
- * Home tab: status banner and live diagnostics. Settings tab: feature switches and theme.
+ * Home tab: status banner and live diagnostics. Settings tab: feature switches, theme and about.
  */
 public final class MainActivity extends ThemedActivity {
     private static final String TAG = "EsimH4Probe";
@@ -63,6 +64,13 @@ public final class MainActivity extends ThemedActivity {
     private Scaffold scaffold;
     private BottomBar bottomBar;
     private int currentTab = TAB_HOME;
+    /** Back on the settings tab returns to the home tab; it is enabled only there. */
+    private final OnBackPressedCallback backToHome = new OnBackPressedCallback(false) {
+        @Override
+        public void handleOnBackPressed() {
+            scaffold.showPage(TAB_HOME, true);
+        }
+    };
 
     // Home: status banner
     private StatusBanner statusBanner;
@@ -102,14 +110,6 @@ public final class MainActivity extends ThemedActivity {
         currentTab = savedInstanceState != null ? savedInstanceState.getInt(STATE_TAB, TAB_HOME) : TAB_HOME;
 
         scaffold = new Scaffold(this, palette, getString(R.string.app_name), null, false);
-        scaffold.addAction(UiKit.createIconButton(
-                this, palette, R.drawable.ic_refresh_24, getString(R.string.action_refresh), () -> {
-                    refreshDashboard();
-                    showToast(getString(R.string.snack_refreshed));
-                }));
-        scaffold.addAction(UiKit.createIconButton(
-                this, palette, R.drawable.ic_terminal_24, getString(R.string.action_diagnostics),
-                this::showDiagnosticsDialog));
         scaffold.addPage(buildHomePage(), io.github.local.esimh4ui.R.id.ui_page_1, getString(R.string.app_name));
         scaffold.addPage(buildSettingsPage(), io.github.local.esimh4ui.R.id.ui_page_2, getString(R.string.tab_settings));
 
@@ -121,6 +121,8 @@ public final class MainActivity extends ThemedActivity {
         bottomBar.setOnSelectListener(tab -> scaffold.showPage(tab, true));
         scaffold.setBottomBar(bottomBar);
         scaffold.setOnPageChangeListener(this::onPageSelected);
+
+        getOnBackPressedDispatcher().addCallback(this, backToHome);
 
         setContentView(scaffold.root);
         UiKit.applyEdgeToEdge(this, palette);
@@ -155,7 +157,7 @@ public final class MainActivity extends ThemedActivity {
         currentTab = tab;
         bottomBar.select(tab);
         scaffold.setTitle(getString(tab == TAB_HOME ? R.string.app_name : R.string.tab_settings));
-        scaffold.setActionsVisible(tab == TAB_HOME);
+        backToHome.setEnabled(tab != TAB_HOME);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -472,6 +474,8 @@ public final class MainActivity extends ThemedActivity {
                 ? io.github.local.esimh4ui.R.string.theme_style_miuix
                 : io.github.local.esimh4ui.R.string.theme_style_material3));
         col.addView(rowTheme.card);
+
+        AboutSection.build(this, palette, IO_EXEC, col, this::showToast);
         return col;
     }
 
