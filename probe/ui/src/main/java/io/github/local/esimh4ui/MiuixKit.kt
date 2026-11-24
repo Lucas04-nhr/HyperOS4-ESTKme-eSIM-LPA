@@ -32,9 +32,11 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontFamily
@@ -69,6 +71,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -241,6 +244,8 @@ fun MiuixCard(
     modifier: Modifier = Modifier,
     insideMargin: PaddingValues = CardDefaults.InsideMargin,
     color: Color = miuixCardColor(),
+    pressFeedbackType: PressFeedbackType = PressFeedbackType.None,
+    onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
@@ -250,6 +255,8 @@ fun MiuixCard(
             .padding(bottom = 12.dp),
         insideMargin = insideMargin,
         colors = CardDefaults.defaultColors(color = color),
+        pressFeedbackType = pressFeedbackType,
+        onClick = onClick,
         content = content,
     )
 }
@@ -314,9 +321,13 @@ fun MiuixStatusCard(
     val okBg = Color(if (dynamic) palette.primaryContainer else if (palette.isNight) 0xFF1A3825.toInt() else 0xFFDFFAE4.toInt())
     val okAccent = Color(if (dynamic) palette.primary else 0xFF36D167.toInt())
     val bg = if (mode == StatusMode.OK) okBg else miuixCardColor()
+    val haptic = LocalHapticFeedback.current
     MiuixCard(
         insideMargin = PaddingValues(0.dp),
         color = bg,
+        // No action on tap: only the tilt and a haptic tick, like the SukiSU status card.
+        pressFeedbackType = PressFeedbackType.Tilt,
+        onClick = { haptic.performHapticFeedback(HapticFeedbackType.ContextClick) },
     ) {
         Box(Modifier.fillMaxWidth().heightIn(min = 188.dp)) {
             if (mode == StatusMode.OK) {
@@ -437,6 +448,9 @@ fun MiuixBottomBar(items: List<BarItem>, selected: Int, onSelect: (Int) -> Unit,
                 selectedIndex = selected,
                 onSelect = onSelect,
                 backdrop = backdrop,
+                // The glass bar fills the width by itself; keep the 28dp side margins of the
+                // View floating bar (BottomBar).
+                modifier = Modifier.padding(horizontal = 28.dp),
             )
         }
         ThemeConfig.barFloating -> {
