@@ -66,8 +66,8 @@ public final class PressFeedback {
         view.animate()
                 .scaleX(PRESSED_SCALE)
                 .scaleY(PRESSED_SCALE)
-                .rotationX(-ny * MAX_TILT_X)
-                .rotationY(-nx * MAX_TILT_Y)
+                .rotationX(ny * MAX_TILT_X)
+                .rotationY(nx * MAX_TILT_Y)
                 .setDuration(duration)
                 .setInterpolator(UiKit.STANDARD_EASING)
                 .start();
