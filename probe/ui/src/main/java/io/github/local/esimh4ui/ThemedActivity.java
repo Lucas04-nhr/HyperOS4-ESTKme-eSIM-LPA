@@ -1,14 +1,16 @@
 package io.github.local.esimh4ui;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import androidx.activity.ComponentActivity;
 
 /**
  * Base activity that loads the theme settings before the views are built and rebuilds itself
  * when the settings changed while it was in the background (for example in {@link ThemeActivity}).
+ *
+ * <p>It extends {@link ComponentActivity} so that pages can be written in Compose.
  */
-public abstract class ThemedActivity extends Activity {
+public abstract class ThemedActivity extends ComponentActivity {
     protected UiKit.Palette palette;
     private int themeVersion;
     private boolean themeRecreating;
@@ -36,10 +38,18 @@ public abstract class ThemedActivity extends Activity {
         return themeRecreating;
     }
 
+    /**
+     * False for pages that follow theme changes on their own (Compose pages read the settings as
+     * state), so returning to them does not rebuild them.
+     */
+    protected boolean recreatesOnThemeChange() {
+        return true;
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
-        recreateIfThemeChanged();
+        if (recreatesOnThemeChange()) recreateIfThemeChanged();
     }
 
     protected void openThemeSettings() {

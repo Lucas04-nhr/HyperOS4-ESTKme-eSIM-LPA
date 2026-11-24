@@ -9,6 +9,9 @@ import android.widget.LinearLayout;
 /**
  * Theme settings page (SukiSU-style): UI style, dark mode, dynamic color, Miuix bottom bar
  * (glass / floating) and the custom app background with blur, dim and card opacity.
+ *
+ * <p>The Miuix style shows the Compose page in {@code ThemeScreen.kt}; the Material 3 style still
+ * uses the View page below.
  */
 public final class ThemeActivity extends ThemedActivity {
     public static final String EXTRA_SHOW_LANGUAGE = "show_language";
@@ -16,14 +19,28 @@ public final class ThemeActivity extends ThemedActivity {
 
     private Scaffold scaffold;
     private UiKit.NavRow rowNight;
+    private boolean composePage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (UiKit.isMiuix()) {
+            composePage = true;
+            UiKit.applyEdgeToEdge(this, palette);
+            ThemeScreen.setThemeContent(this, getIntent().getBooleanExtra(EXTRA_SHOW_LANGUAGE, true));
+            return;
+        }
         scaffold = new Scaffold(this, palette, getString(R.string.theme_title), null, true);
         scaffold.addPage(buildContent(), R.id.ui_page_1, getString(R.string.theme_title));
         setContentView(scaffold.root);
         UiKit.applyEdgeToEdge(this, palette);
+    }
+
+    @Override
+    protected boolean recreatesOnThemeChange() {
+        // The Compose page reads the settings as state; rebuilding it on return from the image
+        // picker would also drop an import that is still running.
+        return !composePage;
     }
 
     @Override
@@ -261,6 +278,7 @@ public final class ThemeActivity extends ThemedActivity {
     @SuppressWarnings("deprecation")
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (composePage) return; // the Compose page gets its result through its own launcher
         if (requestCode != REQ_PICK_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) {
             return;
         }

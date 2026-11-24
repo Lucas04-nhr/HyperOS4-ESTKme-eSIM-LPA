@@ -20,11 +20,12 @@ miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.re
 miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
 miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuix" }
 miuix-glass = { module = "top.yukonga.miuix.kmp:miuix-glass-android", version.ref = "miuix" }
+miuix-glass-icons = { module = "top.yukonga.miuix.kmp:miuix-glass-icons-android", version.ref = "miuix" }
 miuix-nav = { module = "top.yukonga.miuix.kmp:miuix-nav-android", version.ref = "miuix" }
 libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed-api" }
 
 [bundles]
-miuix = ["miuix-ui", "miuix-icons", "miuix-preference", "miuix-blur", "miuix-glass", "miuix-nav"]
+miuix = ["miuix-ui", "miuix-icons", "miuix-preference", "miuix-blur", "miuix-glass", "miuix-glass-icons", "miuix-nav"]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

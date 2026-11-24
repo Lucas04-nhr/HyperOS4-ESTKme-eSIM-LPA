@@ -7,7 +7,10 @@ name: Nightly Build
 #
 # - The scheduled run builds main once a day, and skips when main has no new
 #   commits since the last nightly artifacts were uploaded.
-# - Running the workflow by hand always builds the branch it runs on.
+# - Running the workflow by hand always builds the branch it runs on. Tick
+#   "Build debug APKs" to build the debug APKs instead (not minified, so there
+#   is no mapping file). Debug builds are not counted as nightlies when the
+#   scheduled run checks for new commits.
 #
 # Secrets:
 # - SIGNING_KEYSTORE_BASE64: the keystore (.jks), base64-encoded
@@ -19,6 +22,11 @@ on:
     - cron: "0 3 * * *" # 每天 3:00（哥本哈根时间）构建一次
       timezone: "Europe/Copenhagen"
   workflow_dispatch:
+    inputs:
+      debug:
+        description: Build debug APKs instead of the R8-minified release APKs
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,6 +44,9 @@ env:
 jobs:
   nightly:
     runs-on: ubuntu-latest
+    env:
+      # Scheduled runs have no inputs, so they always build the release
+      BUILD_TYPE: ${{ inputs.debug && 'debug' || 'release' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -102,10 +113,10 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          gradle -p probe --no-daemon clean assembleRelease
+          gradle -p probe --no-daemon clean "assemble${BUILD_TYPE^}"
 
           apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)apksigner"
-          for apk in probe/app/build/outputs/apk/release/app-release.apk probe/tester/build/outputs/apk/release/tester-release.apk; do
+          for apk in "probe/app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk" "probe/tester/build/outputs/apk/$BUILD_TYPE/tester-$BUILD_TYPE.apk"; do
             certs="$("$apksigner" verify --print-certs "$apk")"
             if grep -q "CN=Android Debug" <<< "$certs"; then
               echo "::error title=Wrong signing key::$apk is signed with the debug key."
@@ -118,7 +129,10 @@ jobs:
 
           version="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' probe/app/build.gradle.kts | head -n 1)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "name=v${version}-nightly.$(TZ=Europe/Copenhagen date +%Y%m%d).${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          # Debug builds are named -nightly-debug., so the new-commit check above skips them
+          suffix="nightly"
+          [ "$BUILD_TYPE" = "debug" ] && suffix="nightly-debug"
+          echo "name=v${version}-${suffix}.$(TZ=Europe/Copenhagen date +%Y%m%d).${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
       - name: Package module
         id: package
@@ -129,28 +143,34 @@ jobs:
         run: |
           out="$RUNNER_TEMP/out"
           dist="$RUNNER_TEMP/dist"
-          python3 build_module.py --output-dir "$out"
+          if [ "$BUILD_TYPE" = "debug" ]; then
+            python3 build_module.py --output-dir "$out" --debug
+          else
+            python3 build_module.py --output-dir "$out"
+          fi
           mkdir -p "$dist"
           module="$dist/${MODULE_PREFIX}${NAME}.zip"
           compat="$dist/Xiaomi-eSIM-Compat-${NAME}.apk"
           tester="$dist/Xiaomi-eSIM-Tester-${NAME}.apk"
           cp "$out/${MODULE_PREFIX}v${VERSION}.zip" "$module"
-          cp probe/app/build/outputs/apk/release/app-release.apk "$compat"
-          cp probe/tester/build/outputs/apk/release/tester-release.apk "$tester"
-
-          # R8 mapping files, to decode stack traces (retrace) from this build
-          mapping="$dist/Xiaomi-eSIM-mapping-${NAME}.zip"
-          staging="$RUNNER_TEMP/mapping"
-          mkdir -p "$staging/compat" "$staging/tester"
-          cp probe/app/build/outputs/mapping/release/mapping.txt "$staging/compat/"
-          cp probe/tester/build/outputs/mapping/release/mapping.txt "$staging/tester/"
-          (cd "$staging" && zip -qr "$mapping" compat tester)
+          cp "probe/app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk" "$compat"
+          cp "probe/tester/build/outputs/apk/$BUILD_TYPE/tester-$BUILD_TYPE.apk" "$tester"
           {
             echo "module=$module"
             echo "compat=$compat"
             echo "tester=$tester"
-            echo "mapping=$mapping"
           } >> "$GITHUB_OUTPUT"
+
+          # R8 mapping files, to decode stack traces (retrace) from a release build
+          if [ "$BUILD_TYPE" = "release" ]; then
+            mapping="$dist/Xiaomi-eSIM-mapping-${NAME}.zip"
+            staging="$RUNNER_TEMP/mapping"
+            mkdir -p "$staging/compat" "$staging/tester"
+            cp probe/app/build/outputs/mapping/release/mapping.txt "$staging/compat/"
+            cp probe/tester/build/outputs/mapping/release/mapping.txt "$staging/tester/"
+            (cd "$staging" && zip -qr "$mapping" compat tester)
+            echo "mapping=$mapping" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upload module
         id: upload-module
@@ -181,7 +201,7 @@ jobs:
 
       - name: Upload R8 mapping
         id: upload-mapping
-        if: steps.check.outputs.skip == 'false'
+        if: steps.check.outputs.skip == 'false' && env.BUILD_TYPE == 'release'
         uses: actions/upload-artifact@v7
         with:
           archive: false
@@ -216,9 +236,14 @@ jobs:
             row "$MODULE" "$MODULE_URL"
             row "$COMPAT" "$COMPAT_URL"
             row "$TESTER" "$TESTER_URL"
-            row "$MAPPING" "$MAPPING_URL"
-            echo
-            echo "The APKs are R8-minified release builds. Decode their stack traces with the mapping zip (\`retrace compat/mapping.txt stacktrace.txt\`)."
+            if [ -n "$MAPPING" ]; then
+              row "$MAPPING" "$MAPPING_URL"
+              echo
+              echo "The APKs are R8-minified release builds. Decode their stack traces with the mapping zip (\`retrace compat/mapping.txt stacktrace.txt\`)."
+            else
+              echo
+              echo "The APKs are **debug builds** (not minified), built by hand. They are not counted as nightlies."
+            fi
             echo
             echo "APK signing certificate SHA-256: \`$CERT\`"
             if [ -n "$PREVIOUS" ] && [ "$PREVIOUS" != "$GITHUB_SHA" ] && git merge-base --is-ancestor "$PREVIOUS" HEAD 2>/dev/null; then
@@ -231,14 +256,15 @@ jobs:
 
       - name: Send ServerChan push
         # Push when the nightly was uploaded or the run failed, not when it was skipped
-        if: ${{ !cancelled() && (failure() || steps.upload-mapping.outcome == 'success') }}
+        if: ${{ !cancelled() && (failure() || steps.upload-tester.outcome == 'success') }}
         env:
           SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
           JOB_STATUS: ${{ job.status }}
           NAME: ${{ steps.build.outputs.name }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           PACKAGE_OUTCOME: ${{ steps.package.outcome }}
-          UPLOAD_OUTCOME: ${{ steps.upload-mapping.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload-tester.outcome }}
+          MAPPING_OUTCOME: ${{ steps.upload-mapping.outcome }}
         run: |
           repo="${GITHUB_REPOSITORY#*/}"
           if [ "$JOB_STATUS" = "success" ]; then
@@ -250,13 +276,13 @@ jobs:
               export SHORT="$repo: Could not build the APKs"
             elif [ "$PACKAGE_OUTCOME" = "failure" ]; then
               export SHORT="$repo: Could not package the module"
-            elif [ "$UPLOAD_OUTCOME" != "success" ]; then
+            elif [ "$UPLOAD_OUTCOME" != "success" ] || [ "$MAPPING_OUTCOME" = "failure" ]; then
               export SHORT="$repo: Could not upload the artifacts"
             else
               export SHORT="$repo: The nightly workflow failed"
             fi
           fi
-          export DESP="- Build: \`${NAME:-unknown}\`
+          export DESP="- Build: \`${NAME:-unknown}\` ($BUILD_TYPE)
           - Commit: \`${GITHUB_SHA:0:7}\` on \`$GITHUB_REF_NAME\`
           - Trigger: \`$GITHUB_EVENT_NAME\`
           - APKs: \`${BUILD_OUTCOME:-skipped}\`
