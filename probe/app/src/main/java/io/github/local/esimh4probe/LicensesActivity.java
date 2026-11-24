@@ -1,7 +1,6 @@
 package io.github.local.esimh4probe;
 
 import android.os.Bundle;
-import android.view.View;
 import android.widget.LinearLayout;
 import io.github.local.esimh4ui.Scaffold;
 import io.github.local.esimh4ui.ThemedActivity;
@@ -9,8 +8,9 @@ import io.github.local.esimh4ui.UiKit;
 
 /**
  * Open source licenses page, opened from the About page: the license of this project and of each
- * library in the app. The Miuix style shows the Compose page ({@code LicensesScreen.kt}); the
- * Material 3 style shows the View page below, with each license text in a dialog.
+ * library in the app, one card per library ("1.13.0, Apache-2.0"). Tapping a library opens its web
+ * page; tapping this project shows its license text. The Miuix style shows the Compose page
+ * ({@code LicensesScreen.kt}); the Material 3 style shows the View page below.
  */
 public final class LicensesActivity extends ThemedActivity {
     private Scaffold scaffold;
@@ -49,24 +49,23 @@ public final class LicensesActivity extends ThemedActivity {
 
     private void bind(LinearLayout col, LicenseData data) {
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.licenses_section_project)));
-        col.addView(row(data.project, 24f, 24f, 0));
+        col.addView(card(data.project, () -> showProjectLicense(data.project)).card);
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.licenses_section_libraries)));
-        int count = data.libraries.size();
-        for (int i = 0; i < count; i++) {
-            boolean last = i == count - 1;
-            col.addView(row(data.libraries.get(i), i == 0 ? 24f : 6f, last ? 24f : 6f, last ? 0 : 2));
+        for (LicenseData.Entry lib : data.libraries) {
+            UiKit.NavRow row = card(lib, () -> AboutSection.openUrl(this, lib.url, msg -> scaffold.showToast(msg)));
+            if (lib.url == null) row.setEnabled(false);
+            col.addView(row.card);
         }
     }
 
-    private View row(LicenseData.Entry entry, float top, float bottom, int gap) {
-        String summary = entry.coordinate != null ? entry.coordinate + "\n" + entry.licenses : entry.licenses;
-        UiKit.NavRow row = new UiKit.NavRow(this, palette, R.drawable.ic_code_24, entry.title, summary,
-                top, bottom, gap, () -> showLicense(entry));
-        return row.card;
+    /** One separate card per entry, 10dp apart. */
+    private UiKit.NavRow card(LicenseData.Entry entry, Runnable onClick) {
+        return new UiKit.NavRow(this, palette, R.drawable.ic_code_24, entry.title, entry.summary,
+                24f, 24f, 10, onClick);
     }
 
-    private void showLicense(LicenseData.Entry entry) {
+    private void showProjectLicense(LicenseData.Entry entry) {
         String text = entry.text != null ? entry.text : getString(R.string.licenses_no_text, entry.licenses);
         UiKit.showDialog(this, palette, entry.title, text, false,
                 entry.url != null ? getString(R.string.licenses_open_web) : null,
