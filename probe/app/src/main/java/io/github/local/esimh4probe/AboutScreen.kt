@@ -288,7 +288,7 @@ private fun TextureSetSheet(show: Boolean, settings: TextureSettings, onDismiss:
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
-                top.yukonga.miuix.kmp.preference.DropdownPreference(
+                top.yukonga.miuix.kmp.preference.WindowDropdownPreference(
                     title = stringResource(io.github.local.esimh4ui.R.string.theme_miuix_version),
                     items = listOf("OS2", "OS3"),
                     selectedIndex = settings.version - 2,
