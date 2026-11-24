@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,11 +38,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontFamily
@@ -115,6 +119,25 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
     val current = tabs.getOrElse(pagerState.currentPage) { Tab.HOME }
     SideEffect { state.currentPage = current.pageId }
 
+    val haptic = LocalHapticFeedback.current
+    val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
+    LaunchedEffect(pagerState, tabs, haptic) {
+        var swipeStartPage: Int? = null
+        snapshotFlow { Triple(isDragged, pagerState.isScrollInProgress, pagerState.settledPage) }
+            .collect { (dragging, scrolling, settledPage) ->
+                if (dragging && swipeStartPage == null) {
+                    swipeStartPage = settledPage
+                }
+                // Wait for the fling to settle; canceled swipes and programmatic navigation stay silent.
+                if (!dragging && !scrolling) {
+                    if (swipeStartPage != null && swipeStartPage != settledPage) {
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    }
+                    swipeStartPage = null
+                }
+            }
+    }
+
     // The Test tab appears or disappears from the settings page: stay there.
     var lastTabs by remember { mutableStateOf(tabs) }
     LaunchedEffect(tabs) {
@@ -140,7 +163,13 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
             MiuixBottomBar(
                 items = tabs.map { BarItem(stringResource(it.label), it.icon) },
                 selected = pagerState.currentPage,
-                onSelect = { index -> scope.launch { pagerState.animateScrollToPage(index) } },
+                onSelect = { index ->
+                    // Both indicator drags and label taps use this callback.
+                    if (index != pagerState.targetPage) {
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        scope.launch { pagerState.animateScrollToPage(index) }
+                    }
+                },
                 backdrop = backdrop,
             )
         },
@@ -460,7 +489,7 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
                 TextButton(
                     text = stringResource(R.string.tester_clear_log),
                     onClick = { tester.clearLog() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                 )
             }
         }

@@ -267,10 +267,10 @@ private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, 
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(88.dp).clickable(onClick = onClick))
+        Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(88.dp).clickable(interactionSource = null, indication = null, onClick = onClick))
         BasicText(
             text = stringResource(R.string.app_name),
-            modifier = Modifier.clickable(onClick = onClick).padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp),
+            modifier = Modifier.clickable(interactionSource = null, indication = null, onClick = onClick).padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp),
             style = TextStyle(
                 brush = nameBrush,
                 fontSize = 30.sp,
@@ -280,7 +280,7 @@ private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, 
         )
         Text(
             text = versionText,
-            modifier = Modifier.clickable(onClick = onClick),
+            modifier = Modifier.clickable(interactionSource = null, indication = null, onClick = onClick),
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,

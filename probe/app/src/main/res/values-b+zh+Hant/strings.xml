@@ -54,7 +54,7 @@
     <string name="health_undeclared">未宣告</string>
     <string name="btn_manage_esim">管理 eSIM</string>
     <string name="btn_mobile_network">行動網路</string>
-    <string name="btn_reprobe">重新檢測卡槽 2</string>
+    <string name="btn_reprobe">重新檢測</string>
     <string name="btn_diagnostics">診斷報告</string>
     <string name="info_device">裝置</string>
     <string name="info_android">Android</string>

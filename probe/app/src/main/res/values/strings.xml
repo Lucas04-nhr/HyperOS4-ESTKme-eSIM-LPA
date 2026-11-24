@@ -54,7 +54,7 @@
     <string name="health_undeclared">Missing</string>
     <string name="btn_manage_esim">Manage eSIM</string>
     <string name="btn_mobile_network">Mobile network</string>
-    <string name="btn_reprobe">Re-detect slot 2</string>
+    <string name="btn_reprobe">Re-detect</string>
     <string name="btn_diagnostics">Diagnostics</string>
     <string name="info_device">Device</string>
     <string name="info_android">Android</string>
