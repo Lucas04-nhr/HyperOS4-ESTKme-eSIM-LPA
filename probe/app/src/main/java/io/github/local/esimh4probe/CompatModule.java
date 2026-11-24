@@ -1296,7 +1296,11 @@ public final class CompatModule extends XposedModule {
                         try {
                             Context appCtx = (Context) getAppCtx.invoke(null);
                             if (appCtx != null) {
-                                Toast.makeText(appCtx, "【安全拦截】小米写卡页已成功接收模拟 LPA 激活码，未向实体卡写入测试数据", Toast.LENGTH_LONG).show();
+                                // Resolve module strings from its APK, using the LPA UI language.
+                                Context moduleCtx = appCtx.createPackageContext(MODULE_PKG, 0)
+                                        .createConfigurationContext(appCtx.getResources().getConfiguration());
+                                Toast.makeText(appCtx, moduleCtx.getString(R.string.tester_mock_uri_intercepted),
+                                        Toast.LENGTH_LONG).show();
                             }
                         } catch (Throwable ignored) {
                         }

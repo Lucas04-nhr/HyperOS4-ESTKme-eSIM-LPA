@@ -188,6 +188,7 @@
     <string name="tag_sim2_esim">SIM2 eSIM</string>
     <string name="tester_status_title">eUICC 狀態</string>
     <string name="tester_mock_title">模擬寫卡</string>
+    <string name="tester_mock_uri_intercepted">【安全攔截】小米寫卡頁已成功接收模擬 LPA 啟用碼，未向實體卡寫入測試資料</string>
     <string name="tester_safety_note">含 test.esim.local 的啟用碼不會寫入卡片。</string>
     <string name="tester_reset_code">恢復預設碼</string>
     <string name="tester_test1">測試 1：電信業者寫卡授權視窗</string>

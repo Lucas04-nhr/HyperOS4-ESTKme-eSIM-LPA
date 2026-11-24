@@ -188,6 +188,7 @@
     <string name="tag_sim2_esim">SIM2 eSIM</string>
     <string name="tester_status_title">eUICC status</string>
     <string name="tester_mock_title">Mock install</string>
+    <string name="tester_mock_uri_intercepted">Safely intercepted: Xiaomi LPA received the mock activation code. No test data was written to the physical card.</string>
     <string name="tester_safety_note">Codes with test.esim.local are not written to the card.</string>
     <string name="tester_reset_code">Reset code</string>
     <string name="tester_test1">Test 1: Carrier install dialog</string>
