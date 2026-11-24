@@ -368,7 +368,7 @@ private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, 
             imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_monochrome),
             contentDescription = null,
             tint = MiuixTheme.colorScheme.onSurface,
-            modifier = Modifier.size(88.dp)
+            modifier = Modifier.size(144.dp)
                 .clickable(interactionSource = null, indication = null, onClick = onClick)
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
