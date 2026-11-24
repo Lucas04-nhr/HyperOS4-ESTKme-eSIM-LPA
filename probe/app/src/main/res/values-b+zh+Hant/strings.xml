@@ -249,4 +249,13 @@
     <string name="export_started">正在匯出模組日誌…</string>
     <string name="export_saved">日誌已儲存至 %1$s</string>
     <string name="export_failed">匯出日誌失敗：%1$s</string>
+    <string name="texture_set_title">Texture Set</string>
+    <string name="texture_set_summary">調整關於頁的背景與圖示，僅在本次開啟頁面期間生效；滑回頂部可查看效果。</string>
+    <string name="texture_background">背景效果</string>
+    <string name="texture_animation">背景動畫</string>
+    <string name="texture_full_screen">全螢幕背景</string>
+    <string name="texture_noise">雜訊</string>
+    <string name="texture_brightness">亮度</string>
+    <string name="texture_saturation">飽和度</string>
+    <string name="texture_reset">恢復預設值</string>
 </resources>

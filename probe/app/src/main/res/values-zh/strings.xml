@@ -249,4 +249,13 @@
     <string name="export_started">正在导出模块日志…</string>
     <string name="export_saved">日志已保存到 %1$s</string>
     <string name="export_failed">导出日志失败：%1$s</string>
+    <string name="texture_set_title">Texture Set</string>
+    <string name="texture_set_summary">调整关于页的背景与图标，仅在本次打开页面期间生效；滑回顶部可查看效果。</string>
+    <string name="texture_background">背景效果</string>
+    <string name="texture_animation">背景动画</string>
+    <string name="texture_full_screen">全屏背景</string>
+    <string name="texture_noise">噪点</string>
+    <string name="texture_brightness">亮度</string>
+    <string name="texture_saturation">饱和度</string>
+    <string name="texture_reset">恢复默认值</string>
 </resources>

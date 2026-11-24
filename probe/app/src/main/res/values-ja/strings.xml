@@ -249,4 +249,13 @@
     <string name="export_started">モジュールログをエクスポート中…</string>
     <string name="export_saved">ログを %1$s に保存しました</string>
     <string name="export_failed">ログをエクスポートできませんでした: %1$s</string>
+    <string name="texture_set_title">Texture Set</string>
+    <string name="texture_set_summary">このアプリについてのページの背景とアイコンを調整します。変更はこのページを開いている間のみ有効です。先頭までスクロールすると効果を確認できます。</string>
+    <string name="texture_background">背景エフェクト</string>
+    <string name="texture_animation">背景アニメーション</string>
+    <string name="texture_full_screen">全画面の背景</string>
+    <string name="texture_noise">ノイズ</string>
+    <string name="texture_brightness">明るさ</string>
+    <string name="texture_saturation">彩度</string>
+    <string name="texture_reset">デフォルトに戻す</string>
 </resources>

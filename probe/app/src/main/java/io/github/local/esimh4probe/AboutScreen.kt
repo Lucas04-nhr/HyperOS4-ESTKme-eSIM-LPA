@@ -4,8 +4,7 @@ package io.github.local.esimh4probe
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
+import android.os.SystemClock
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.setContent
@@ -18,6 +17,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,9 +35,17 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -41,7 +53,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
@@ -64,6 +76,9 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
@@ -95,6 +110,10 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
     }
     val listState = rememberLazyListState()
     val scrollBehavior = MiuixScrollBehavior()
+    val texture = remember { TextureSettings() }
+    var showTextureSet by remember { mutableStateOf(false) }
+    var copyrightTaps by remember { mutableIntStateOf(0) }
+    var lastCopyrightTap by remember { mutableLongStateOf(0L) }
 
     // 0 while the header is fully visible, 1 once it has scrolled away.
     val progress by remember {
@@ -128,7 +147,8 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
         surface = colors.surface,
         modifier = Modifier.fillMaxSize(),
         alpha = { 1f - progress },
-    ) {
+        settings = texture,
+    ) { iconBrush ->
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -167,68 +187,141 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                         isDark = isDark,
                         progress = { progress },
                         onClick = { activity.onHeaderTap() },
+                        iconBrush = iconBrush,
                     )
                 }
                 val data = info ?: return@LazyColumn
-                item(key = "repo") {
-                    AboutCard {
-                        ArrowPreference(
-                            title = stringResource(R.string.about_repo),
-                            summary = data.repo,
-                            endActions = {
-                                EndText(stringResource(if (data.fork) R.string.about_repo_fork else R.string.about_repo_original))
-                            },
-                            onClick = { open(data.repoUrl) },
-                        )
-                        if (data.fork && data.parent != null) {
-                            ArrowPreference(
-                                title = stringResource(R.string.about_upstream),
-                                summary = data.parent,
-                                onClick = { open(data.parentUrl) },
+                // Match the demo: the details occupy at least one viewport so the header
+                // can scroll completely away even when there are only a few contributors.
+                item(key = "details") {
+                    Box {
+                        Spacer(Modifier.fillParentMaxHeight())
+                        Column {
+                            AboutCard {
+                                ArrowPreference(
+                                    title = stringResource(R.string.about_repo),
+                                    summary = data.repo,
+                                    endActions = {
+                                        EndText(stringResource(if (data.fork) R.string.about_repo_fork else R.string.about_repo_original))
+                                    },
+                                    onClick = { open(data.repoUrl) },
+                                )
+                                if (data.fork && data.parent != null) {
+                                    ArrowPreference(
+                                        title = stringResource(R.string.about_upstream),
+                                        summary = data.parent,
+                                        onClick = { open(data.parentUrl) },
+                                    )
+                                }
+                            }
+                            AboutCard {
+                                ArrowPreference(
+                                    title = stringResource(R.string.licenses_title),
+                                    onClick = { activity.startActivity(Intent(activity, LicensesActivity::class.java)) },
+                                )
+                                val commit = data.shortCommit()
+                                if (commit != null) {
+                                    ArrowPreference(
+                                        title = stringResource(R.string.about_commit),
+                                        endActions = { EndText(commit) },
+                                        onClick = { open(data.commitUrl()) },
+                                    )
+                                }
+                            }
+                            SmallTitle(text = stringResource(R.string.section_authors))
+                            AboutCard {
+                                for (person in data.people) {
+                                    ArrowPreference(
+                                        title = person.name,
+                                        summary = AboutSection.personSummary(activity, person),
+                                        startAction = { Avatar(person) },
+                                        onClick = { open(person.url) },
+                                    )
+                                }
+                            }
+                            Text(
+                                text = stringResource(R.string.about_copyright, data.years()),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(interactionSource = null, indication = null) {
+                                        val now = SystemClock.elapsedRealtime()
+                                        copyrightTaps = if (now - lastCopyrightTap <= 1500L) copyrightTaps + 1 else 1
+                                        lastCopyrightTap = now
+                                        if (copyrightTaps >= 7) {
+                                            copyrightTaps = 0
+                                            showTextureSet = true
+                                        }
+                                    }
+                                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                                color = colors.onSurfaceVariantSummary,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
                             )
                         }
                     }
                 }
-                item(key = "build") {
-                    AboutCard {
-                        ArrowPreference(
-                            title = stringResource(R.string.licenses_title),
-                            onClick = { activity.startActivity(Intent(activity, LicensesActivity::class.java)) },
-                        )
-                        val commit = data.shortCommit()
-                        if (commit != null) {
-                            ArrowPreference(
-                                title = stringResource(R.string.about_commit),
-                                endActions = { EndText(commit) },
-                                onClick = { open(data.commitUrl()) },
-                            )
-                        }
-                    }
-                }
-                item(key = "authorsTitle") { SmallTitle(text = stringResource(R.string.section_authors)) }
-                item(key = "authors") {
-                    AboutCard {
-                        for (person in data.people) {
-                            ArrowPreference(
-                                title = person.name,
-                                summary = AboutSection.personSummary(activity, person),
-                                startAction = { Avatar(person) },
-                                onClick = { open(person.url) },
-                            )
-                        }
-                    }
-                }
-                item(key = "copyright") {
-                    Text(
-                        text = stringResource(R.string.about_copyright, data.years()),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 8.dp),
-                        color = colors.onSurfaceVariantSummary,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                }
+            }
+        }
+    }
+    TextureSetSheet(showTextureSet, texture) { showTextureSet = false }
+}
+
+@Composable
+private fun TextureSetSheet(show: Boolean, settings: TextureSettings, onDismiss: () -> Unit) {
+    WindowBottomSheet(
+        show = show,
+        title = stringResource(R.string.texture_set_title),
+        onDismissRequest = onDismiss,
+        insideMargin = DpSize(0.dp, 0.dp),
+    ) {
+        LazyColumn {
+            item {
+                Text(
+                    stringResource(R.string.texture_set_summary),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.texture_background),
+                    checked = settings.enabled,
+                    onCheckedChange = { settings.enabled = it },
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.texture_animation),
+                    checked = settings.animated,
+                    onCheckedChange = { settings.animated = it },
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.texture_full_screen),
+                    checked = settings.fullScreen,
+                    onCheckedChange = { settings.fullScreen = it },
+                )
+                SliderPreference(
+                    title = stringResource(R.string.texture_noise),
+                    value = settings.noise,
+                    valueText = "${(settings.noise * 100).toInt()}%",
+                    valueRange = 0f..2f,
+                    onValueChange = { settings.noise = it },
+                )
+                SliderPreference(
+                    title = stringResource(R.string.texture_brightness),
+                    value = settings.brightness,
+                    valueText = "${(settings.brightness * 100).toInt()}%",
+                    valueRange = -0.5f..0.5f,
+                    onValueChange = { settings.brightness = it },
+                )
+                SliderPreference(
+                    title = stringResource(R.string.texture_saturation),
+                    value = settings.saturation,
+                    valueText = "${(settings.saturation * 100).toInt()}%",
+                    valueRange = 0f..2f,
+                    onValueChange = { settings.saturation = it },
+                )
+                ArrowPreference(
+                    title = stringResource(R.string.texture_reset),
+                    onClick = { settings.reset() },
+                )
+                Spacer(Modifier.height(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()))
             }
         }
     }
@@ -236,16 +329,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
 
 /** App icon, name (with a gradient, like the Miuix example) and version; fades out on scroll. */
 @Composable
-private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, onClick: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val iconPx = with(LocalDensity.current) { 88.dp.roundToPx() }
-    val icon = remember(iconPx) {
-        val drawable = context.packageManager.getApplicationIcon(context.packageName)
-        val bitmap = Bitmap.createBitmap(iconPx, iconPx, Bitmap.Config.ARGB_8888)
-        drawable.setBounds(0, 0, iconPx, iconPx)
-        drawable.draw(Canvas(bitmap))
-        bitmap.asImageBitmap()
-    }
+private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, onClick: () -> Unit, iconBrush: (Size) -> Brush) {
     val nameBrush = remember(isDark) {
         Brush.linearGradient(
             if (isDark) {
@@ -267,7 +351,19 @@ private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, 
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(bitmap = icon, contentDescription = null, modifier = Modifier.size(88.dp).clickable(interactionSource = null, indication = null, onClick = onClick))
+        Icon(
+            imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_monochrome),
+            contentDescription = null,
+            tint = MiuixTheme.colorScheme.onSurface,
+            modifier = Modifier.size(88.dp)
+                .clickable(interactionSource = null, indication = null, onClick = onClick)
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    // Share the background's palette, clock and controls, masked to the glyph.
+                    drawRect(iconBrush(size), blendMode = BlendMode.SrcIn)
+                },
+        )
         BasicText(
             text = stringResource(R.string.app_name),
             modifier = Modifier.clickable(interactionSource = null, indication = null, onClick = onClick).padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp),

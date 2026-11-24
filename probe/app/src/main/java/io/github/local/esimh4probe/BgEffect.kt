@@ -20,6 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
 import kotlin.math.cos
@@ -61,6 +63,25 @@ private val PHONE_DARK = BgEffectPreset(
     pointOffset = 0.4f,
 )
 
+/** Session-only controls for the About page's hidden texture panel. */
+internal class TextureSettings {
+    var enabled by androidx.compose.runtime.mutableStateOf(true)
+    var animated by androidx.compose.runtime.mutableStateOf(true)
+    var fullScreen by androidx.compose.runtime.mutableStateOf(false)
+    var noise by mutableFloatStateOf(1f)
+    var brightness by mutableFloatStateOf(0f)
+    var saturation by mutableFloatStateOf(1f)
+
+    fun reset() {
+        enabled = true
+        animated = true
+        fullScreen = false
+        noise = 1f
+        brightness = 0f
+        saturation = 1f
+    }
+}
+
 /** Holds the shader and sets only the uniforms that changed since the last frame. */
 private class BgEffectPainter(preset: BgEffectPreset) {
     val shader = RuntimeShader(BG_EFFECT_FRAG).apply {
@@ -77,12 +98,14 @@ private class BgEffectPainter(preset: BgEffectPreset) {
     private var width = Float.NaN
     private var height = Float.NaN
     private var stage = Float.NaN
+    private var lastEffectHeight = Float.NaN
     private val colors = FloatArray(16)
     private val pointsAnim = FloatArray(8)
 
     /** [effectHeight]: the top part of the page the color points are laid out in. */
     fun update(w: Float, h: Float, effectHeight: Float, preset: BgEffectPreset, colorStage: Float, time: Float) {
-        if (w != width || h != height) {
+        if (w != width || h != height || effectHeight != lastEffectHeight) {
+            lastEffectHeight = effectHeight
             width = w
             height = h
             shader.setFloatUniform("uResolution", w, h)
@@ -115,6 +138,12 @@ private class BgEffectPainter(preset: BgEffectPreset) {
         shader.setFloatUniform("uAnimTime", time)
     }
 
+    fun applySettings(settings: TextureSettings) {
+        shader.setFloatUniform("uTextureNoise", settings.noise)
+        shader.setFloatUniform("uTextureBrightness", settings.brightness)
+        shader.setFloatUniform("uTextureSaturation", settings.saturation)
+    }
+
     private fun colorsAt(preset: BgEffectPreset, index: Int): FloatArray = when (index.mod(4)) {
         1 -> preset.colors1
         3 -> preset.colors3
@@ -133,15 +162,18 @@ internal fun BgEffectBackground(
     modifier: Modifier = Modifier,
     effectFraction: Float = 0.8f,
     alpha: () -> Float = { 1f },
-    content: @Composable BoxScope.() -> Unit,
+    settings: TextureSettings = remember { TextureSettings() },
+    content: @Composable BoxScope.(iconBrush: (Size) -> Brush) -> Unit,
 ) {
     val preset = if (isDark) PHONE_DARK else PHONE_LIGHT
     val painter = remember(preset) { BgEffectPainter(preset) }
+    val iconPainter = remember(preset) { BgEffectPainter(preset) }
     val colorStage = remember { Animatable(0f) }
     var time by remember { mutableFloatStateOf(0f) }
 
     // The colors move to the next set every few seconds.
-    LaunchedEffect(preset) {
+    LaunchedEffect(preset, settings.animated) {
+        if (!settings.animated) return@LaunchedEffect
         var target = floor(colorStage.value) + 1f
         while (isActive) {
             delay((preset.colorInterpPeriod * 500).toLong())
@@ -150,10 +182,12 @@ internal fun BgEffectBackground(
         }
     }
     // The points drift continuously; reading `time` only in the draw phase redraws, not recomposes.
-    LaunchedEffect(Unit) {
+    LaunchedEffect(settings.animated) {
+        if (!settings.animated) return@LaunchedEffect
+        val elapsed = time
         val origin = withFrameNanos { it }
         while (isActive) {
-            withFrameNanos { time = (it - origin) / 1_000_000_000f }
+            withFrameNanos { time = elapsed + (it - origin) / 1_000_000_000f }
         }
     }
 
@@ -161,12 +195,19 @@ internal fun BgEffectBackground(
         modifier = modifier.drawBehind {
             drawRect(surface)
             val a = alpha()
-            if (a > 0f) {
-                painter.update(size.width, size.height, size.height * effectFraction, preset, colorStage.value, time)
+            if (a > 0f && settings.enabled) {
+                painter.update(size.width, size.height, size.height * if (settings.fullScreen) 1f else effectFraction, preset, colorStage.value, time)
+                painter.applySettings(settings)
                 drawRect(painter.brush, alpha = a)
             }
         },
-        content = content,
+        content = {
+            content { size ->
+                iconPainter.update(size.width, size.height, size.height, preset, colorStage.value, time)
+                iconPainter.applySettings(settings)
+                iconPainter.brush
+            }
+        },
     )
 }
 
@@ -183,6 +224,9 @@ private const val BG_EFFECT_FRAG = """
     uniform float uPointRadiusMulti;
     uniform float uSaturateOffset;
     uniform float uLightOffset;
+    uniform float uTextureNoise;
+    uniform float uTextureBrightness;
+    uniform float uTextureSaturation;
 
     vec3 rgb2hsv(vec3 c) {
         vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -243,16 +287,18 @@ private const val BG_EFFECT_FRAG = """
         }
 
         float oppositeNoise = smoothstep(0., 1., noiseValue);
-        color.rgb /= color.a;
+        color.rgb /= max(color.a, 0.0001);
         vec3 hsv = rgb2hsv(color.rgb);
         hsv.y = mix(hsv.y, 0.0, oppositeNoise * uSaturateOffset);
+        hsv.y = clamp(hsv.y * uTextureSaturation, 0.0, 1.0);
         color.rgb = hsv2rgb(hsv);
-        color.rgb += oppositeNoise * uLightOffset;
+        color.rgb += oppositeNoise * uLightOffset + uTextureBrightness;
 
         color.a = clamp(color.a, 0., 1.);
         color.a *= uAlphaMulti;
 
-        color += (10.0 / 255.0) * gradientNoise(fragCoord.xy) - (5.0 / 255.0);
+        color.rgb += uTextureNoise * ((10.0 / 255.0) * gradientNoise(fragCoord.xy) - (5.0 / 255.0));
+        color.rgb = clamp(color.rgb, 0.0, 1.0);
         return vec4(color.rgb * color.a, color.a);
     }
 """

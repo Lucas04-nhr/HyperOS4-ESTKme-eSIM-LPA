@@ -249,4 +249,13 @@
     <string name="export_started">Exporting module logs…</string>
     <string name="export_saved">Logs saved to %1$s</string>
     <string name="export_failed">Could not export logs: %1$s</string>
+    <string name="texture_set_title">Texture Set</string>
+    <string name="texture_set_summary">Adjust the About background and icon. Changes apply only while this page is open; scroll to the top to view them.</string>
+    <string name="texture_background">Background effect</string>
+    <string name="texture_animation">Animate background</string>
+    <string name="texture_full_screen">Full screen background</string>
+    <string name="texture_noise">Noise</string>
+    <string name="texture_brightness">Brightness</string>
+    <string name="texture_saturation">Saturation</string>
+    <string name="texture_reset">Restore defaults</string>
 </resources>
