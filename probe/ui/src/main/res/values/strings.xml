@@ -42,4 +42,9 @@
     <string name="theme_progressive_blur_summary">Blur fades from the screen edge toward the content</string>
     <string name="theme_needs_glass">Turn on frosted glass first</string>
     <string name="theme_liquid_glass_needs_floating">Turn on the floating bottom bar first</string>
+    <!-- Pull to refresh (Miuix pages) -->
+    <string name="ptr_pull">Pull down to refresh</string>
+    <string name="ptr_release">Release to refresh</string>
+    <string name="ptr_refreshing">Refreshing…</string>
+    <string name="ptr_done">Refreshed</string>
 </resources>

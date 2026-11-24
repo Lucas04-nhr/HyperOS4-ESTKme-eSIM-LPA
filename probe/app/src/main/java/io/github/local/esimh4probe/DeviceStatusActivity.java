@@ -65,6 +65,11 @@ public final class DeviceStatusActivity extends ThemedActivity {
     /** Compose page: re-reads the values; set by {@code DeviceStatusScreen.kt}. */
     Runnable composeRefresh;
 
+    /** The theme colors, for the Compose page (the field is protected). */
+    UiKit.Palette paletteColors() {
+        return palette;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

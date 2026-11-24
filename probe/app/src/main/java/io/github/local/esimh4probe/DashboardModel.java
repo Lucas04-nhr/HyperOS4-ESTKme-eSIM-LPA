@@ -13,12 +13,12 @@ import org.json.JSONObject;
  * The Material 3 View pages ({@link MainActivity}) and the Miuix Compose pages
  * ({@code MainScreen.kt}) both read it, so the two styles always agree.
  */
-final class DashboardModel {
+public final class DashboardModel {
     /** The status banner's action button. */
-    enum BannerAction { NONE, OPEN_SETTINGS, DIAGNOSTICS }
+    public enum BannerAction { NONE, OPEN_SETTINGS, DIAGNOSTICS }
 
     /** A health tile: green when ok, grey when muted (module off), red otherwise. */
-    static final class Tile {
+    public static final class Tile {
         final String label;
         final String text;
         final boolean ok;
@@ -43,7 +43,7 @@ final class DashboardModel {
     }
 
     /** A settings switch row. */
-    static final class Row {
+    public static final class Row {
         final boolean checked;
         final boolean enabled;
         final String summary;

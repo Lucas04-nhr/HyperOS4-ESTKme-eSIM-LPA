@@ -146,9 +146,11 @@ work/esim-adapt/
 │   │       ├── EuiccCardReader.java    # 双通道探测与 EID 摘要工具
 │   │       ├── ProbeInspector.java     # 纯净 SDK 脱敏诊断引擎与 CLI 入口
 │   │       ├── M3Ui.java               # 原生 Material Design 3 动态取色与自定义胶囊开关组件库
-│   │       ├── MainActivity.java       # Material 3 控制中心面板
+│   │       ├── MainActivity.java       # 控制中心：逻辑与 Material 3 页面
+│   │       ├── MainScreen.kt           # 控制中心的 Miuix Compose 页面（首页 / 测试 / 设置）
+│   │       ├── DashboardModel.java     # 首页与设置页状态，两种风格共用
 │   │       ├── TesterPage.java         # 「测试」标签页：模拟运营商写卡验证
-│   │       ├── DeviceStatusActivity.java # 「设备与 eUICC 状态」二级页面
+│   │       ├── DeviceStatusActivity.java # 「设备与 eUICC 状态」二级页面（Miuix 下见 DeviceStatusScreen.kt）
 │   │       ├── LpaBridgeActivity.java  # LPA:// 链接与扫码激活 Intent 桥接
 │   │       ├── Sim2Subscription.java   # 卡2订阅解析与空白卡兼容
 │   │       └── Sim2Control.java        # Root CLI 状态探测与同步工具

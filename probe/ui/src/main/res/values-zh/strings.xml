@@ -42,4 +42,9 @@
     <string name="theme_progressive_blur_summary">模糊从屏幕边缘向内容逐渐减弱</string>
     <string name="theme_needs_glass">请先开启毛玻璃效果</string>
     <string name="theme_liquid_glass_needs_floating">请先开启悬浮底栏</string>
+    <!-- Pull to refresh (Miuix pages) -->
+    <string name="ptr_pull">下拉刷新</string>
+    <string name="ptr_release">松开刷新</string>
+    <string name="ptr_refreshing">正在刷新…</string>
+    <string name="ptr_done">刷新成功</string>
 </resources>

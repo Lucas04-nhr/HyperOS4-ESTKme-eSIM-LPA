@@ -12,7 +12,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -22,6 +21,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import io.github.local.esimh4ui.BottomBar;
 import io.github.local.esimh4ui.LanguageSetting;
@@ -37,21 +37,35 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.json.JSONObject;
 
 /**
  * Control panel for the Xiaomi HyperOS 4 removable eSIM (SIM2) bridge.
  * Home tab: status banner and live diagnostics. Test tab (optional, see {@link TesterPage}): mock
  * carrier install checks. Settings tab: feature switches, theme and about.
+ *
+ * <p>The Miuix style shows the Compose screen ({@code MainScreen.kt}); the Material 3 style shows
+ * the View pages below. Both read {@link DashboardModel} and change settings through
+ * {@link #requestSwitch}.
  */
 public final class MainActivity extends ThemedActivity {
     private static final String TAG = "EsimH4Probe";
     private static final String ACTION_SCRIPT = "/data/adb/modules/XiaomiEsimLPAHyperOS4/action.sh";
     /** Saves the selected page id (not its index), because the Test tab can be hidden. */
     private static final String STATE_PAGE = "page";
-    private static final int PAGE_HOME = 0;
-    private static final int PAGE_TESTER = 1;
-    private static final int PAGE_SETTINGS = 2;
+    static final int PAGE_HOME = 0;
+    static final int PAGE_TESTER = 1;
+    static final int PAGE_SETTINGS = 2;
+
+    // Settings switches, see requestSwitch
+    static final String SW_MASTER = "master";
+    static final String SW_SYSTEM_ESIM = "system_esim";
+    static final String SW_CARRIER_BRIDGE = "carrier_bridge";
+    static final String SW_LPA_URI_BRIDGE = "lpa_uri_bridge";
+    static final String SW_REWRITE_TEXT = "rewrite_text";
+    static final String SW_UMOUNT_GUARD = "umount_guard";
+    static final String SW_ESTK_SE1 = "estk_se1";
     private static final int TAB_HOME = 0;
 
     private static final ExecutorService IO_EXEC = Executors.newSingleThreadExecutor(r -> {
@@ -66,6 +80,10 @@ public final class MainActivity extends ThemedActivity {
     private final List<Runnable> refreshDone = new ArrayList<>();
     private boolean bindingUi = false;
     private JSONObject lastReport = null;
+
+    /** Miuix style: the Compose screen's state; null in the Material 3 style. */
+    private MainUiState composeUi;
+    private Toast toast;
 
     private Scaffold scaffold;
     private BottomBar bottomBar;
@@ -101,7 +119,6 @@ public final class MainActivity extends ThemedActivity {
 
     // Settings
     private UiKit.SwitchRow rowMaster;
-    private UiKit.ToggleSwitch switchMasterMode;
     private UiKit.SwitchRow rowSystemEsim;
     private UiKit.SwitchRow rowCarrierBridge;
     private UiKit.SwitchRow rowLpaUriBridge;
@@ -114,13 +131,32 @@ public final class MainActivity extends ThemedActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         boolean showTester = TesterPage.isEnabled(this);
-        pageIds = showTester
-                ? new int[]{PAGE_HOME, PAGE_TESTER, PAGE_SETTINGS}
-                : new int[]{PAGE_HOME, PAGE_SETTINGS};
         int savedPage = savedInstanceState != null ? savedInstanceState.getInt(STATE_PAGE, PAGE_HOME) : PAGE_HOME;
         boolean autoTest = showTester && savedInstanceState == null
                 && getIntent() != null && getIntent().getBooleanExtra("auto_test", false);
         if (autoTest) savedPage = PAGE_TESTER;
+        if (savedPage == PAGE_TESTER && !showTester) savedPage = PAGE_HOME;
+
+        if (UiKit.isMiuix()) {
+            if (showTester) {
+                testerPage = new TesterPage(this, palette);
+                testerPage.start();
+            }
+            composeUi = new MainUiState(showTester, savedPage);
+            UiKit.applyEdgeToEdge(this, palette);
+            MainScreen.setMainContent(this, composeUi);
+            refreshDashboard();
+            if (autoTest) {
+                uiHandler.postDelayed(() -> {
+                    if (testerPage != null) testerPage.startMockDownload(TesterPage.DEFAULT_MOCK_CODE);
+                }, 400);
+            }
+            return;
+        }
+
+        pageIds = showTester
+                ? new int[]{PAGE_HOME, PAGE_TESTER, PAGE_SETTINGS}
+                : new int[]{PAGE_HOME, PAGE_SETTINGS};
         currentTab = Math.max(TAB_HOME, tabOf(savedPage));
 
         scaffold = new Scaffold(this, palette, getString(R.string.app_name), null, false);
@@ -168,9 +204,41 @@ public final class MainActivity extends ThemedActivity {
         refreshDashboard();
         if (autoTest) {
             scaffold.root.postDelayed(() -> {
-                if (testerPage != null) testerPage.startMockDownload();
+                if (testerPage != null) testerPage.startMockDownload(TesterPage.DEFAULT_MOCK_CODE);
             }, 400);
         }
+    }
+
+    // --- for the Compose screen (MainScreen.kt) -------------------------------------------------
+
+    /** The theme colors (the field is protected). */
+    UiKit.Palette paletteColors() {
+        return palette;
+    }
+
+    /** The Test tab's logic, or null while the tab is hidden. */
+    TesterPage testerPage() {
+        return testerPage;
+    }
+
+    void openMobileNetwork() {
+        try {
+            startActivity(new Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS));
+        } catch (Throwable e) {
+            showToast(getString(R.string.snack_mobile_network_failed));
+        }
+    }
+
+    void openDeviceStatus() {
+        startActivity(new Intent(this, DeviceStatusActivity.class));
+    }
+
+    void openAbout() {
+        startActivity(new Intent(this, AboutActivity.class));
+    }
+
+    void openTheme() {
+        openThemeSettings(false);
     }
 
     /** Index of the tab that shows {@code pageId}, or -1 when it is hidden. */
@@ -192,7 +260,7 @@ public final class MainActivity extends ThemedActivity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putInt(STATE_PAGE, pageIds[currentTab]);
+        outState.putInt(STATE_PAGE, composeUi != null ? composeUi.getCurrentPage() : pageIds[currentTab]);
     }
 
     @Override
@@ -392,13 +460,7 @@ public final class MainActivity extends ThemedActivity {
 
         LinearLayout btnMobileNetwork = UiKit.createActionButton(
                 this, palette, UiKit.ButtonStyle.TONAL, R.drawable.ic_settings_cell_24,
-                getString(R.string.btn_mobile_network), 44, () -> {
-                    try {
-                        startActivity(new Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS));
-                    } catch (Throwable e) {
-                        showToast(getString(R.string.snack_mobile_network_failed));
-                    }
-                });
+                getString(R.string.btn_mobile_network), 44, this::openMobileNetwork);
         LinearLayout.LayoutParams mnLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         secBtnRow.addView(btnMobileNetwork, mnLp);
         simCard.addView(secBtnRow);
@@ -453,12 +515,11 @@ public final class MainActivity extends ThemedActivity {
         rowMaster = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_power_24,
                 getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 6f, 2);
-        switchMasterMode = rowMaster.toggle;
         col.addView(rowMaster.card);
         UiKit.NavRow rowDeviceStatus = new UiKit.NavRow(
                 this, palette, R.drawable.ic_sim_card_24, getString(R.string.row_device_status),
                 getString(R.string.row_device_status_summary),
-                6f, 24f, 0, () -> startActivity(new Intent(this, DeviceStatusActivity.class)));
+                6f, 24f, 0, this::openDeviceStatus);
         col.addView(rowDeviceStatus.card);
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_core)));
@@ -504,7 +565,7 @@ public final class MainActivity extends ThemedActivity {
 
         UiKit.NavRow rowAbout = new UiKit.NavRow(
                 this, palette, R.drawable.ic_info_24, getString(R.string.section_about), null,
-                24f, 24f, 0, () -> startActivity(new Intent(this, AboutActivity.class)));
+                24f, 24f, 0, this::openAbout);
         rowAbout.setValue(AboutInfo.versionName(this));
         LinearLayout.LayoutParams aboutLp = (LinearLayout.LayoutParams) rowAbout.card.getLayoutParams();
         aboutLp.topMargin = UiKit.dp(this, 16);
@@ -516,7 +577,7 @@ public final class MainActivity extends ThemedActivity {
     // Actions
     // ---------------------------------------------------------------------------------------------
 
-    private void openNativeEsimManager() {
+    void openNativeEsimManager() {
         if (lastReport != null) {
             if (!lastReport.optBoolean("moduleActive", true)) {
                 showToast(getString(R.string.snack_enable_master_first));
@@ -596,7 +657,7 @@ public final class MainActivity extends ThemedActivity {
         });
     }
 
-    private void triggerReprobeSim2() {
+    void triggerReprobeSim2() {
         setBusy(true);
         IO_EXEC.execute(() -> {
             Bundle res = ProbeInspector.callPhoneCtrl(MainActivity.this, "reprobe", null);
@@ -635,145 +696,161 @@ public final class MainActivity extends ThemedActivity {
         bindRowClick(rowTesterApp, null);
         bindRowClick(rowEstkSe1, hintMaster);
 
-        switchMasterMode.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (bindingUi) return;
-            rowMaster.refreshIconTint(isChecked);
-            runRootSwitchAction(
-                    switchMasterMode,
-                    rowMaster,
-                    isChecked,
-                    new String[]{isChecked ? "on" : "off"},
-                    output -> {
-                        if (output.contains("RESULT=MISSING_METAMODULE")) {
-                            showInfoDialog(getString(R.string.dialog_missing_metamodule_title),
-                                    getString(R.string.dialog_missing_metamodule_message));
-                        } else if (output.contains("RESULT=NEED_REBOOT")) {
-                            showInfoDialog(getString(R.string.dialog_need_reboot_title),
-                                    getString(R.string.dialog_need_reboot_message));
-                        } else if (output.contains("RESULT=ACTIVE_NOW")) {
-                            showToast(getString(R.string.snack_master_on));
-                        } else if (output.contains("RESULT=OFF_APPLIED")) {
-                            showInfoDialog(getString(R.string.dialog_master_off_title),
-                                    getString(R.string.dialog_master_off_message));
-                        } else {
-                            showToast(getString(isChecked ? R.string.snack_master_on_sent : R.string.snack_master_off_sent));
-                        }
-                        refreshDashboard();
-                    });
-        });
+        bindSwitch(rowMaster, SW_MASTER);
+        bindSwitch(rowSystemEsim, SW_SYSTEM_ESIM);
+        bindSwitch(rowCarrierBridge, SW_CARRIER_BRIDGE);
+        bindSwitch(rowLpaUriBridge, SW_LPA_URI_BRIDGE);
+        bindSwitch(rowRewriteText, SW_REWRITE_TEXT);
+        bindSwitch(rowUmountGuard, SW_UMOUNT_GUARD);
+        bindSwitch(rowEstkSe1, SW_ESTK_SE1);
 
-        rowSystemEsim.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (bindingUi) return;
-            rowSystemEsim.refreshIconTint(isChecked);
-            setBusy(true);
-            rowSystemEsim.toggle.setEnabled(false);
-            IO_EXEC.execute(() -> {
-                Bundle extras = new Bundle();
-                extras.putBoolean("enabled", isChecked);
-                Bundle res = ProbeInspector.callPhoneCtrl(MainActivity.this, "set_esim_state", extras);
-                boolean ok = res != null && res.getBoolean("ok", false);
-                runOnUiThread(() -> {
-                    setBusy(false);
-                    rowSystemEsim.toggle.setEnabled(true);
-                    if (!ok) {
-                        setSwitchSilently(rowSystemEsim.toggle, rowSystemEsim, !isChecked);
-                        showToast(getString(R.string.snack_esim_toggle_failed));
-                    } else {
-                        showToast(getString(isChecked ? R.string.snack_esim_on : R.string.snack_esim_off));
-                        refreshDashboard();
-                    }
-                });
-            });
-        });
-
-        rowCarrierBridge.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (bindingUi) return;
-            rowCarrierBridge.refreshIconTint(isChecked);
-            updatePhonePref(rowCarrierBridge, CardTypeGuard.KEY_CARRIER_BRIDGE, isChecked,
-                    getString(isChecked ? R.string.snack_carrier_on : R.string.snack_carrier_off));
-        });
-
-        rowLpaUriBridge.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (bindingUi) return;
-            rowLpaUriBridge.refreshIconTint(isChecked);
-            try {
-                ComponentName comp = new ComponentName(this, LpaBridgeActivity.class);
-                getPackageManager().setComponentEnabledSetting(
-                        comp,
-                        isChecked
-                                ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                                : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                        PackageManager.DONT_KILL_APP);
-            } catch (Throwable e) {
-                setSwitchSilently(rowLpaUriBridge.toggle, rowLpaUriBridge, !isChecked);
-                showToast(getString(R.string.snack_component_failed, e.getClass().getSimpleName()));
-                return;
-            }
-            IO_EXEC.execute(() -> {
-                Bundle extras = new Bundle();
-                extras.putString("key", CardTypeGuard.KEY_LPA_URI_BRIDGE);
-                extras.putBoolean("enabled", isChecked);
-                ProbeInspector.callPhoneCtrl(MainActivity.this, "set_pref", extras);
-                runOnUiThread(() -> {
-                    showToast(getString(isChecked ? R.string.snack_lpa_uri_on : R.string.snack_lpa_uri_off));
-                    refreshDashboard();
-                });
-            });
-        });
-
-        rowRewriteText.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (bindingUi) return;
-            rowRewriteText.refreshIconTint(isChecked);
-            updatePhonePref(rowRewriteText, CardTypeGuard.KEY_REWRITE_TEXT, isChecked,
-                    getString(isChecked ? R.string.snack_rewrite_on : R.string.snack_rewrite_off));
-        });
-
-        rowUmountGuard.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (bindingUi) return;
-            rowUmountGuard.refreshIconTint(isChecked);
-            runRootSwitchAction(
-                    rowUmountGuard.toggle,
-                    rowUmountGuard,
-                    isChecked,
-                    new String[]{"umount_guard", isChecked ? "on" : "off"},
-                    output -> {
-                        showToast(getString(isChecked ? R.string.snack_umount_on : R.string.snack_umount_off));
-                        refreshDashboard();
-                    });
-        });
-
-        rowEstkSe1.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
-            if (bindingUi) return;
-            rowEstkSe1.refreshIconTint(isChecked);
-            runRootSwitchAction(
-                    rowEstkSe1.toggle,
-                    rowEstkSe1,
-                    isChecked,
-                    new String[]{"isdr_se", isChecked ? "se1" : "auto"},
-                    output -> {
-                        showInfoDialog(
-                                getString(isChecked ? R.string.dialog_se1_title : R.string.dialog_se0_title),
-                                getString(R.string.dialog_se_message));
-                        refreshDashboard();
-                    });
-        });
-
-        // App-local setting: rebuild the screen so the bottom bar gains or loses the Test tab.
+        // App-local setting: the bottom bar gains or loses the Test tab.
         boolean testerShown = testerPage != null;
         rowTesterApp.setRowState(testerShown, true,
                 getString(testerShown ? R.string.tester_sub_on : R.string.tester_sub_off));
         rowTesterApp.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
             if (bindingUi) return;
             rowTesterApp.refreshIconTint(isChecked);
-            TesterPage.setEnabled(this, isChecked);
-            showToast(getString(isChecked ? R.string.snack_tester_on : R.string.snack_tester_off));
-            // Let the switch finish its animation first.
-            uiHandler.removeCallbacks(recreateForTesterTab);
-            uiHandler.postDelayed(recreateForTesterTab, 220);
+            setTesterTabShown(isChecked);
         });
     }
 
-    private void updatePhonePref(UiKit.SwitchRow row, String key, boolean isChecked, String okMsg) {
+    /** View page: a switch row runs {@link #requestSwitch} and flips back when it fails. */
+    private void bindSwitch(UiKit.SwitchRow row, String key) {
+        row.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
+            if (bindingUi) return;
+            row.refreshIconTint(isChecked);
+            row.toggle.setEnabled(false);
+            requestSwitch(key, isChecked, ok -> {
+                row.toggle.setEnabled(true);
+                if (!ok) setSwitchSilently(row.toggle, row, !isChecked);
+            });
+        });
+    }
+
+    /**
+     * Applies a settings switch ({@code SW_*}) for either UI. {@code done} runs on the UI thread
+     * with false when the change failed, so the caller can show the old state again; on success
+     * the dashboard is refreshed and the next report shows the new state.
+     */
+    void requestSwitch(String key, boolean on, Consumer<Boolean> done) {
+        switch (key) {
+            case SW_MASTER:
+                runRootAction(new String[]{on ? "on" : "off"}, done, output -> {
+                    if (output.contains("RESULT=MISSING_METAMODULE")) {
+                        showInfoDialog(getString(R.string.dialog_missing_metamodule_title),
+                                getString(R.string.dialog_missing_metamodule_message));
+                    } else if (output.contains("RESULT=NEED_REBOOT")) {
+                        showInfoDialog(getString(R.string.dialog_need_reboot_title),
+                                getString(R.string.dialog_need_reboot_message));
+                    } else if (output.contains("RESULT=ACTIVE_NOW")) {
+                        showToast(getString(R.string.snack_master_on));
+                    } else if (output.contains("RESULT=OFF_APPLIED")) {
+                        showInfoDialog(getString(R.string.dialog_master_off_title),
+                                getString(R.string.dialog_master_off_message));
+                    } else {
+                        showToast(getString(on ? R.string.snack_master_on_sent : R.string.snack_master_off_sent));
+                    }
+                    refreshDashboard();
+                });
+                break;
+            case SW_SYSTEM_ESIM:
+                setBusy(true);
+                IO_EXEC.execute(() -> {
+                    Bundle extras = new Bundle();
+                    extras.putBoolean("enabled", on);
+                    Bundle res = ProbeInspector.callPhoneCtrl(MainActivity.this, "set_esim_state", extras);
+                    boolean ok = res != null && res.getBoolean("ok", false);
+                    runOnUiThread(() -> {
+                        setBusy(false);
+                        done.accept(ok);
+                        if (!ok) {
+                            showToast(getString(R.string.snack_esim_toggle_failed));
+                        } else {
+                            showToast(getString(on ? R.string.snack_esim_on : R.string.snack_esim_off));
+                            refreshDashboard();
+                        }
+                    });
+                });
+                break;
+            case SW_CARRIER_BRIDGE:
+                updatePhonePref(CardTypeGuard.KEY_CARRIER_BRIDGE, on,
+                        getString(on ? R.string.snack_carrier_on : R.string.snack_carrier_off), done);
+                break;
+            case SW_REWRITE_TEXT:
+                updatePhonePref(CardTypeGuard.KEY_REWRITE_TEXT, on,
+                        getString(on ? R.string.snack_rewrite_on : R.string.snack_rewrite_off), done);
+                break;
+            case SW_LPA_URI_BRIDGE:
+                try {
+                    ComponentName comp = new ComponentName(this, LpaBridgeActivity.class);
+                    getPackageManager().setComponentEnabledSetting(
+                            comp,
+                            on
+                                    ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                                    : PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                            PackageManager.DONT_KILL_APP);
+                } catch (Throwable e) {
+                    done.accept(false);
+                    showToast(getString(R.string.snack_component_failed, e.getClass().getSimpleName()));
+                    return;
+                }
+                IO_EXEC.execute(() -> {
+                    Bundle extras = new Bundle();
+                    extras.putString("key", CardTypeGuard.KEY_LPA_URI_BRIDGE);
+                    extras.putBoolean("enabled", on);
+                    ProbeInspector.callPhoneCtrl(MainActivity.this, "set_pref", extras);
+                    runOnUiThread(() -> {
+                        done.accept(true);
+                        showToast(getString(on ? R.string.snack_lpa_uri_on : R.string.snack_lpa_uri_off));
+                        refreshDashboard();
+                    });
+                });
+                break;
+            case SW_UMOUNT_GUARD:
+                runRootAction(new String[]{"umount_guard", on ? "on" : "off"}, done, output -> {
+                    showToast(getString(on ? R.string.snack_umount_on : R.string.snack_umount_off));
+                    refreshDashboard();
+                });
+                break;
+            case SW_ESTK_SE1:
+                runRootAction(new String[]{"isdr_se", on ? "se1" : "auto"}, done, output -> {
+                    showInfoDialog(
+                            getString(on ? R.string.dialog_se1_title : R.string.dialog_se0_title),
+                            getString(R.string.dialog_se_message));
+                    refreshDashboard();
+                });
+                break;
+            default:
+                done.accept(false);
+                break;
+        }
+    }
+
+    /**
+     * Shows or hides the Test tab. The View pages rebuild the screen; the Compose pages add or
+     * remove the tab in place.
+     */
+    void setTesterTabShown(boolean on) {
+        TesterPage.setEnabled(this, on);
+        showToast(getString(on ? R.string.snack_tester_on : R.string.snack_tester_off));
+        if (composeUi != null) {
+            if (on && testerPage == null) {
+                testerPage = new TesterPage(this, palette);
+                testerPage.start();
+            } else if (!on && testerPage != null) {
+                testerPage.release();
+                testerPage = null;
+            }
+            composeUi.setShowTester(on);
+            return;
+        }
+        // Let the switch finish its animation first.
+        uiHandler.removeCallbacks(recreateForTesterTab);
+        uiHandler.postDelayed(recreateForTesterTab, 220);
+    }
+
+    private void updatePhonePref(String key, boolean isChecked, String okMsg, Consumer<Boolean> done) {
         IO_EXEC.execute(() -> {
             Bundle extras = new Bundle();
             extras.putString("key", key);
@@ -781,8 +858,8 @@ public final class MainActivity extends ThemedActivity {
             Bundle res = ProbeInspector.callPhoneCtrl(MainActivity.this, "set_pref", extras);
             boolean ok = res != null && res.getBoolean("ok", false);
             runOnUiThread(() -> {
+                done.accept(ok);
                 if (!ok) {
-                    setSwitchSilently(row.toggle, row, !isChecked);
                     showToast(getString(R.string.snack_pref_failed));
                 } else {
                     showToast(okMsg);
@@ -796,14 +873,9 @@ public final class MainActivity extends ThemedActivity {
         void onSuccess(String stdout);
     }
 
-    private void runRootSwitchAction(
-            UiKit.ToggleSwitch sw,
-            UiKit.SwitchRow ownerRow,
-            boolean desiredState,
-            String[] args,
-            ActionCallback callback) {
+    /** Runs action.sh with root; {@code done} gets false (and a root dialog shows) when it fails. */
+    private void runRootAction(String[] args, Consumer<Boolean> done, ActionCallback callback) {
         setBusy(true);
-        sw.setEnabled(false);
         IO_EXEC.execute(() -> {
             StringBuilder cmd = new StringBuilder("sh ").append(ACTION_SCRIPT);
             for (String a : args) {
@@ -827,9 +899,8 @@ public final class MainActivity extends ThemedActivity {
             final String finalOut = outText;
             runOnUiThread(() -> {
                 setBusy(false);
-                sw.setEnabled(true);
+                done.accept(success);
                 if (!success) {
-                    setSwitchSilently(sw, ownerRow, !desiredState);
                     showRootPermissionDialog();
                 } else {
                     callback.onSuccess(finalOut);
@@ -854,7 +925,7 @@ public final class MainActivity extends ThemedActivity {
         UiKit.showDialog(this, palette, title, message, false, null, null, null);
     }
 
-    private void showDiagnosticsDialog() {
+    void showDiagnosticsDialog() {
         String pretty;
         try {
             JSONObject obj = lastReport != null
@@ -883,6 +954,7 @@ public final class MainActivity extends ThemedActivity {
     }
 
     private void setBusy(boolean busy) {
+        if (composeUi != null) composeUi.setBusy(busy);
         if (scaffold != null) scaffold.setBusy(busy);
     }
 
@@ -899,20 +971,27 @@ public final class MainActivity extends ThemedActivity {
         }
     }
 
-    private void showToast(String msg) {
-        if (scaffold != null) scaffold.showToast(msg);
+    void showToast(String msg) {
+        if (scaffold != null) {
+            scaffold.showToast(msg);
+            return;
+        }
+        if (isFinishing() || isDestroyed()) return;
+        if (toast != null) toast.cancel();
+        toast = Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT);
+        toast.show();
     }
 
     // ---------------------------------------------------------------------------------------------
     // Dashboard binding
     // ---------------------------------------------------------------------------------------------
 
-    private void refreshDashboard() {
+    void refreshDashboard() {
         refreshDashboard(null);
     }
 
     /** {@code onDone} runs on the UI thread once the running (or a new) refresh has finished. */
-    private void refreshDashboard(Runnable onDone) {
+    void refreshDashboard(Runnable onDone) {
         if (onDone != null) refreshDone.add(onDone);
         if (!refreshing.compareAndSet(false, true)) {
             return;
@@ -945,184 +1024,61 @@ public final class MainActivity extends ThemedActivity {
     }
 
     private void bindDashboard(JSONObject r) {
+        DashboardModel m = new DashboardModel(this, r);
+        if (composeUi != null) {
+            composeUi.setModel(m);
+            return;
+        }
         bindingUi = true;
         try {
-            boolean moduleActive = r.optBoolean("moduleActive", false);
-            boolean lpaPrivMounted = r.optBoolean("lpaPrivMounted", false);
-            boolean lpaUpdatedSys = r.optBoolean("lpaUpdatedSystemApp", false);
-            boolean phoneHook = r.optBoolean("phoneHookActive", false);
-            boolean lpaHook = r.optBoolean("lpaHookActive", false);
-            boolean hasFeature = r.optBoolean("feature", false);
-            boolean euiccEnabled = r.optBoolean("enabled", false);
-
-            int cardType = r.optInt("cardType", -1);
-            int esimSwitch = r.optInt("esimSwitch", -1);
-            int sim2State = r.optInt("sim2SimState", TelephonyManager.SIM_STATE_UNKNOWN);
-            boolean hasActiveSub = r.optBoolean("sim2HasActiveSub", false);
-            String carrierName = r.optString("sim2CarrierName", "");
-            String lpaVer = r.has("lpaVersion") ? r.optString("lpaVersion") : getString(R.string.lpa_not_installed);
-
-            boolean carrierBridge = r.optBoolean("carrierBridgeEnabled", true);
-            boolean lpaUriBridge = r.optBoolean("lpaUriBridgeEnabled", true);
-            boolean rewriteText = r.optBoolean("rewriteTextEnabled", true);
-
-            // 1. Status banner + master switch (SukiSU style: green card when working,
-            //    plain card with a red hint and an action otherwise)
-            boolean se1 = "se1".equals(EuiccCardReader.isdrSePref());
-            if (!moduleActive) {
-                statusBanner.showError(getString(R.string.status_off_hint), getString(R.string.status_off),
-                        getString(R.string.btn_turn_on), () -> scaffold.showPage(tabOf(PAGE_SETTINGS), true));
-            } else if (!lpaPrivMounted) {
-                statusBanner.showError(getString(R.string.status_wait_mount), getString(R.string.status_attention),
-                        getString(R.string.btn_diagnostics), this::showDiagnosticsDialog);
-            } else if (!phoneHook) {
-                statusBanner.showError(getString(R.string.status_wait_lsposed), getString(R.string.status_attention),
-                        getString(R.string.btn_diagnostics), this::showDiagnosticsDialog);
+            // 1. Status banner
+            if (m.bannerOk) {
+                statusBanner.showOk(m.bannerTitle, m.bannerText, m.bannerTags);
             } else {
-                List<StatusBanner.Tag> tags = new ArrayList<>();
-                tags.add(new StatusBanner.Tag(getString(cardType == 1 ? R.string.tag_esim : R.string.tag_no_esim),
-                        cardType == 1));
-                if (se1) tags.add(new StatusBanner.Tag(getString(R.string.tag_se1), false));
-                if (lpaUpdatedSys) tags.add(new StatusBanner.Tag(getString(R.string.tag_umount), false));
-                statusBanner.showOk(getString(R.string.status_running),
-                        getString(R.string.status_version_lpa, ProbeInspector.MODULE_VERSION, lpaVer), tags);
+                Runnable action = null;
+                if (m.bannerAction == DashboardModel.BannerAction.OPEN_SETTINGS) {
+                    action = () -> scaffold.showPage(tabOf(PAGE_SETTINGS), true);
+                } else if (m.bannerAction == DashboardModel.BannerAction.DIAGNOSTICS) {
+                    action = this::showDiagnosticsDialog;
+                }
+                statusBanner.showError(m.bannerText, m.bannerTitle, m.bannerActionText, action);
             }
-
-            switchMasterMode.setChecked(moduleActive, false);
-            rowMaster.setRowState(moduleActive, true, getString(moduleActive
-                    ? R.string.row_master_on
-                    : R.string.row_master_off));
 
             // 2. Alert banner
-            if (moduleActive && !lpaPrivMounted) {
-                cardAlertBanner.setVisibility(View.VISIBLE);
-                tvAlertMessage.setText(R.string.alert_mount);
-            } else if (moduleActive && !phoneHook) {
-                cardAlertBanner.setVisibility(View.VISIBLE);
-                tvAlertMessage.setText(getString(R.string.alert_hook, getString(R.string.app_name)));
-            } else {
-                cardAlertBanner.setVisibility(View.GONE);
-            }
+            cardAlertBanner.setVisibility(m.alert != null ? View.VISIBLE : View.GONE);
+            if (m.alert != null) tvAlertMessage.setText(m.alert);
 
             // 3. SIM2 card
-            tvSim2Meta.setText(getString(R.string.sim2_carrier,
-                    carrierName == null || carrierName.isEmpty() ? "—" : carrierName));
-            bindSim2Badge(cardType, esimSwitch, sim2State, hasActiveSub, lpaPrivMounted, moduleActive);
+            tvSim2Meta.setText(m.sim2Meta);
+            tvSim2Badge.setText(m.badgeRes);
+            tvSim2Badge.setTextColor(getColor(m.badgeFgRes));
+            tvSim2Badge.setBackground(UiKit.roundedRect(this, getColor(m.badgeBgRes), 999f, 0, 0));
+            setHealthTile(tvBadgeMount, m.tileMount);
+            setHealthTile(tvBadgePhoneHook, m.tilePhoneHook);
+            setHealthTile(tvBadgeLpaHook, m.tileLpaHook);
+            setHealthTile(tvBadgeEuicc, m.tileEuicc);
+            UiKit.setButtonEnabled(btnManageEsim, m.manageEnabled);
 
-            setHealthTile(tvBadgeMount, lpaPrivMounted,
-                    getString(lpaPrivMounted ? R.string.health_active : R.string.health_not_mounted), !moduleActive);
-            setHealthTile(tvBadgePhoneHook, phoneHook,
-                    getString(phoneHook ? R.string.health_hooked : R.string.health_inactive), false);
-            setHealthTile(tvBadgeLpaHook, lpaHook,
-                    getString(lpaHook ? R.string.health_hooked
-                            : (lpaPrivMounted ? R.string.health_check : R.string.health_not_mounted)), !moduleActive);
-            setHealthTile(tvBadgeEuicc, hasFeature && euiccEnabled,
-                    getString(euiccEnabled ? R.string.health_enabled
-                            : (hasFeature ? R.string.health_pending : R.string.health_undeclared)), !moduleActive);
-
-            UiKit.setButtonEnabled(btnManageEsim, moduleActive && lpaPrivMounted && cardType != 0);
-
-            // 4. Core switches
-            boolean canToggleEsim = moduleActive && lpaPrivMounted && phoneHook && cardType == 1;
-            String subEsim;
-            if (!moduleActive) {
-                subEsim = getString(R.string.esim_sub_module_off);
-            } else if (cardType == 1) {
-                subEsim = getString(esimSwitch == 1 ? R.string.esim_sub_on : R.string.esim_sub_off);
-            } else if (cardType == 0) {
-                subEsim = getString(R.string.esim_sub_isolated);
-            } else {
-                subEsim = getString(R.string.esim_sub_detecting);
-            }
-            rowSystemEsim.setRowState(cardType == 1 && esimSwitch == 1, canToggleEsim, subEsim);
-
-            boolean canUpdatePhonePrefs = moduleActive && phoneHook;
-            rowCarrierBridge.setRowState(carrierBridge, canUpdatePhonePrefs,
-                    getString(carrierBridge ? R.string.carrier_sub_on : R.string.carrier_sub_off));
-            rowLpaUriBridge.setRowState(lpaUriBridge, true,
-                    getString(lpaUriBridge ? R.string.lpa_uri_sub_on : R.string.lpa_uri_sub_off));
-            rowRewriteText.setRowState(rewriteText, canUpdatePhonePrefs,
-                    getString(rewriteText ? R.string.rewrite_sub_on : R.string.rewrite_sub_off));
-
-            // 5. Root / component switches
-            String subUmount;
-            if (lpaUpdatedSys) {
-                subUmount = getString(R.string.umount_sub_active);
-            } else if (lpaPrivMounted) {
-                subUmount = getString(R.string.umount_sub_overlay);
-            } else {
-                subUmount = getString(R.string.umount_sub_waiting);
-            }
-            rowUmountGuard.setRowState(lpaUpdatedSys, moduleActive && lpaPrivMounted, subUmount);
-
-            rowEstkSe1.setRowState(se1, moduleActive,
-                    getString(se1 ? R.string.se1_sub_on : R.string.se1_sub_off));
+            // 4. Switches
+            bindRow(rowMaster, m.master);
+            bindRow(rowSystemEsim, m.systemEsim);
+            bindRow(rowCarrierBridge, m.carrierBridge);
+            bindRow(rowLpaUriBridge, m.lpaUriBridge);
+            bindRow(rowRewriteText, m.rewriteText);
+            bindRow(rowUmountGuard, m.umountGuard);
+            bindRow(rowEstkSe1, m.estkSe1);
         } finally {
             bindingUi = false;
         }
     }
 
-    private void setHealthTile(TextView tv, boolean ok, String text, boolean muted) {
-        tv.setText((ok ? "● " : "○ ") + text);
-        int colorRes;
-        if (ok) {
-            colorRes = R.color.status_ok_fg;
-        } else if (muted) {
-            colorRes = R.color.status_off_fg;
-        } else {
-            colorRes = R.color.status_err_fg;
-        }
-        tv.setTextColor(getColor(colorRes));
+    private static void bindRow(UiKit.SwitchRow row, DashboardModel.Row state) {
+        row.setRowState(state.checked, state.enabled, state.summary);
     }
 
-    private void bindSim2Badge(
-            int cardType,
-            int esimSwitch,
-            int sim2State,
-            boolean hasActiveSub,
-            boolean lpaPrivMounted,
-            boolean moduleActive) {
-        int pillBgRes;
-        int pillFgRes;
-        int badge;
-        if (!moduleActive) {
-            badge = R.string.badge_disabled;
-            pillBgRes = R.color.status_off_bg;
-            pillFgRes = R.color.status_off_fg;
-        } else if (cardType == 1) {
-            boolean profileReady = hasActiveSub
-                    || sim2State == TelephonyManager.SIM_STATE_READY
-                    || sim2State == 10;
-            if (profileReady && esimSwitch != 0) {
-                badge = R.string.badge_profile_on;
-                pillBgRes = R.color.status_ok_bg;
-                pillFgRes = R.color.status_ok_fg;
-            } else if (esimSwitch == 0) {
-                badge = R.string.badge_stopped;
-                pillBgRes = R.color.status_warn_bg;
-                pillFgRes = R.color.status_warn_fg;
-            } else {
-                badge = R.string.badge_empty;
-                pillBgRes = R.color.status_ok_bg;
-                pillFgRes = R.color.status_ok_fg;
-            }
-        } else if (cardType == 0) {
-            boolean absent = sim2State == TelephonyManager.SIM_STATE_ABSENT;
-            badge = absent ? R.string.badge_no_card : R.string.badge_normal_sim;
-            pillBgRes = absent ? R.color.status_off_bg : R.color.status_warn_bg;
-            pillFgRes = absent ? R.color.status_off_fg : R.color.status_warn_fg;
-        } else if (!lpaPrivMounted) {
-            badge = R.string.badge_wait_mount;
-            pillBgRes = R.color.status_err_bg;
-            pillFgRes = R.color.status_err_fg;
-        } else {
-            badge = R.string.badge_detecting;
-            pillBgRes = R.color.status_off_bg;
-            pillFgRes = R.color.status_off_fg;
-        }
-        tvSim2Badge.setText(badge);
-        tvSim2Badge.setTextColor(getColor(pillFgRes));
-        tvSim2Badge.setBackground(UiKit.roundedRect(this, getColor(pillBgRes), 999f, 0, 0));
+    private void setHealthTile(TextView tv, DashboardModel.Tile tile) {
+        tv.setText(tile.display());
+        tv.setTextColor(getColor(tile.colorRes()));
     }
 
     public static String inspect(Context ctx) {
