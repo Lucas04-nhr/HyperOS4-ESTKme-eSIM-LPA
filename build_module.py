@@ -7,11 +7,20 @@ import zipfile
 BASE = Path(__file__).resolve().parent
 parser = argparse.ArgumentParser(description='Build Xiaomi HyperOS 4 removable eSIM module (v0.6.1)')
 parser.add_argument('--output-dir', type=Path, default=BASE.parents[1] / 'outputs')
-OUT = parser.parse_args().output_dir.resolve()
+parser.add_argument('--debug', action='store_true',
+                    help='package the debug APKs (assembleDebug) instead of the R8 release APKs (assembleRelease)')
+ARGS = parser.parse_args()
+OUT = ARGS.output_dir.resolve()
 MOD = BASE / 'module'
 PREBUILT_LPA = BASE / 'prebuilt/MIUIEsimLPA.apk'
-COMPAT_APK = BASE / 'probe/app/build/outputs/apk/debug/app-debug.apk'
-TESTER_APK = BASE / 'probe/tester/build/outputs/apk/debug/tester-debug.apk'
+BUILD_TYPE = 'debug' if ARGS.debug else 'release'
+COMPAT_APK = BASE / f'probe/app/build/outputs/apk/{BUILD_TYPE}/app-{BUILD_TYPE}.apk'
+TESTER_APK = BASE / f'probe/tester/build/outputs/apk/{BUILD_TYPE}/tester-{BUILD_TYPE}.apk'
+for apk in (COMPAT_APK, TESTER_APK):
+    if not apk.is_file():
+        # An unsigned release build is named *-release-unsigned.apk: release needs the signing key.
+        parser.error(f'{apk} not found. Run "gradle -p probe assemble{BUILD_TYPE.capitalize()}" first'
+                     + ('' if ARGS.debug else ' with the signing key configured') + '.')
 
 OUT.mkdir(parents=True, exist_ok=True)
 if MOD.exists():

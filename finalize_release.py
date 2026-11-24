@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 import hashlib
 import json
 import re
@@ -6,10 +7,15 @@ import shutil
 import xml.etree.ElementTree as ET
 import zipfile
 
+parser = argparse.ArgumentParser(description='Check the built module and copy the release files')
+parser.add_argument('--debug', action='store_true',
+                    help='use the debug APKs; pass it when build_module.py was run with --debug')
+build_type = 'debug' if parser.parse_args().debug else 'release'
+
 base = Path(__file__).resolve().parent
 out = base.parents[1] / 'outputs'
-apk = base / 'probe/app/build/outputs/apk/debug/app-debug.apk'
-tester_apk = base / 'probe/tester/build/outputs/apk/debug/tester-debug.apk'
+apk = base / f'probe/app/build/outputs/apk/{build_type}/app-{build_type}.apk'
+tester_apk = base / f'probe/tester/build/outputs/apk/{build_type}/tester-{build_type}.apk'
 module = out / 'XiaomiEsimLPA-HyperOS4-v0.6.1.zip'
 original_sha = '9daa20d489168264109d68532d27857a9eef7d7ce72199c565afb6b96d2e6b4f'
 sha = lambda data: hashlib.sha256(data).hexdigest()

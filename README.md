@@ -176,11 +176,21 @@ work/esim-adapt/
 
 ## 源码构建指南
 
+需要 Gradle 9（CI 使用 9.9.2）与 JDK 17+。默认构建经 R8 压缩的 release 包，需要先在 `probe/local.properties` 中配置 `signing.*` 签名信息（或设置 `SIGNING_*` 环境变量）：
+
 ```bash
 cd work/esim-adapt
-gradle -p probe clean assembleDebug
+gradle -p probe clean assembleRelease
 python build_module.py
 python finalize_release.py
+```
+
+调试时可改用 debug 包：
+
+```bash
+gradle -p probe clean assembleDebug
+python build_module.py --debug
+python finalize_release.py --debug
 ```
 
 ---
@@ -273,11 +283,21 @@ python finalize_release.py
 
 ## Building from Source
 
+Requires Gradle 9 (CI uses 9.9.2) and JDK 17+. The default build is the R8-minified release, which needs the `signing.*` entries in `probe/local.properties` (or the `SIGNING_*` environment variables):
+
 ```bash
 cd work/esim-adapt
-gradle -p probe clean assembleDebug
+gradle -p probe clean assembleRelease
 python build_module.py
 python finalize_release.py
+```
+
+To package the debug APKs instead:
+
+```bash
+gradle -p probe clean assembleDebug
+python build_module.py --debug
+python finalize_release.py --debug
 ```
 
 ---

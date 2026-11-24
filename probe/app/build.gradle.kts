@@ -1,6 +1,6 @@
 import java.util.Properties
 
-plugins { id("com.android.application") }
+plugins { alias(libs.plugins.android.application) }
 
 // Signing comes from the SIGNING_* environment variables (CI) or from signing.* in
 // probe/local.properties. Without either, the build falls back to the debug key.
@@ -15,7 +15,11 @@ val signingStoreFile = signingValue("storeFile", "SIGNING_STORE_FILE")
 
 android {
     namespace = "io.github.local.esimh4probe"
-    compileSdk = 36
+    compileSdk {
+        version = release(libs.versions.compileSdk.get().toInt()) {
+            minorApiLevel = libs.versions.compileSdkMinor.get().toInt()
+        }
+    }
     defaultConfig {
         applicationId = "io.github.jabe1122.esimh4probe"
         minSdk = 33
@@ -34,6 +38,13 @@ android {
         }
     }
     buildTypes {
+        getByName("release") {
+            // R8: the mapping file is build/outputs/mapping/release/mapping.txt
+            isMinifyEnabled = true
+            isShrinkResources = true
+            vcsInfo.include = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
         if (signingStoreFile != null) {
             getByName("debug") { signingConfig = signingConfigs.getByName("local") }
             getByName("release") { signingConfig = signingConfigs.getByName("local") }
@@ -51,5 +62,5 @@ android {
 }
 dependencies {
     implementation(project(":ui"))
-    compileOnly("io.github.libxposed:api:101.0.1")
+    compileOnly(libs.libxposed.api)
 }
