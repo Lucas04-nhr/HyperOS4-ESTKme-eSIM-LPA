@@ -290,7 +290,7 @@ private fun TextureSetSheet(show: Boolean, settings: TextureSettings, onDismiss:
                 )
                 top.yukonga.miuix.kmp.preference.DropdownPreference(
                     title = stringResource(io.github.local.esimh4ui.R.string.theme_miuix_version),
-                    items = listOf("OS2", "OS3", "OS4"),
+                    items = listOf("OS2", "OS3"),
                     selectedIndex = settings.version - 2,
                     onSelectedIndexChange = { settings.version = it + 2 },
                 )

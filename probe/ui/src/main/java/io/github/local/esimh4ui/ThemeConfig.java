@@ -31,6 +31,12 @@ public final class ThemeConfig {
     private static final String KEY_LIQUID_GLASS = "liquid_glass";
     private static final String KEY_PROGRESSIVE = "progressive_blur";
     private static final String BG_FILE = "app_background.jpg";
+    public static int miuixVersion = 4;
+    public static boolean amoledBackground = false;
+    /** 0: system, 1: scale, 2: slide. */
+    public static int predictiveBack = 0;
+    /** 0: follow gesture, 1: right, 2: left. */
+    public static int backExitDirection = 0;
 
     public static UiKit.Style style = UiKit.Style.MATERIAL3;
     public static int nightMode = NIGHT_FOLLOW_SYSTEM;
@@ -74,7 +80,43 @@ public final class ThemeConfig {
         barFloating = sp.getBoolean(KEY_BAR_FLOATING, false);
         liquidGlass = sp.getBoolean(KEY_LIQUID_GLASS, false);
         progressiveBlur = sp.getBoolean(KEY_PROGRESSIVE, true);
+        miuixVersion = Math.max(2, Math.min(4, sp.getInt("miuix_version", 4)));
+        amoledBackground = sp.getBoolean("amoled_background", false);
+        predictiveBack = Math.max(0, Math.min(2, sp.getInt("predictive_back", 0)));
+        backExitDirection = Math.max(0, Math.min(2, sp.getInt("back_exit_direction", 0)));
         loaded = true;
+    }
+
+    public static void setMiuixVersion(Context ctx, int value) {
+        miuixVersion = Math.max(2, Math.min(4, value));
+        prefs(ctx).edit().putInt("miuix_version", miuixVersion).apply();
+        version++;
+    }
+
+    public static boolean useGlass() {
+        return miuixVersion >= 3 && barGlass;
+    }
+
+    public static boolean useLiquidGlass() {
+        return miuixVersion >= 4 && liquidGlass;
+    }
+
+    public static void setAmoledBackground(Context ctx, boolean value) {
+        amoledBackground = value;
+        prefs(ctx).edit().putBoolean("amoled_background", value).apply();
+        version++;
+    }
+
+    public static void setPredictiveBack(Context ctx, int value) {
+        predictiveBack = Math.max(0, Math.min(2, value));
+        prefs(ctx).edit().putInt("predictive_back", predictiveBack).apply();
+        version++;
+    }
+
+    public static void setBackExitDirection(Context ctx, int value) {
+        backExitDirection = Math.max(0, Math.min(2, value));
+        prefs(ctx).edit().putInt("back_exit_direction", backExitDirection).apply();
+        version++;
     }
 
     public static void setStyle(Context ctx, UiKit.Style value) {

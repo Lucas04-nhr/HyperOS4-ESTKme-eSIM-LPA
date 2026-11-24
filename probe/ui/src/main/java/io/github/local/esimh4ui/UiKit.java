@@ -224,7 +224,8 @@ public final class UiKit {
                 successContainer = 0xFFC4EED0;
                 onSuccessContainer = 0xFF00210E;
             } else {
-                pageBg = sysColor(ctx, "system_surface_container_lowest_dark", 0xFF0C0E13);
+                pageBg = ThemeConfig.amoledBackground ? 0xFF000000
+                        : sysColor(ctx, "system_surface_container_lowest_dark", 0xFF0C0E13);
                 cardBase = sysColor(ctx, "system_surface_container_dark", 0xFF1B1F26);
                 tileBase = sysColor(ctx, "system_surface_container_high_dark", 0xFF252A32);
                 surfaceHigh = sysColor(ctx, "system_surface_container_high_dark", 0xFF262A32);

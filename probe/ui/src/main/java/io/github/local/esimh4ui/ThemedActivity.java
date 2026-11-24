@@ -21,6 +21,7 @@ public abstract class ThemedActivity extends ComponentActivity {
         super.onCreate(savedInstanceState);
         themeVersion = ThemeConfig.version();
         palette = UiKit.Palette.resolve(this);
+        PredictiveActivityBack.install(this);
     }
 
     /** Returns true when the activity is being recreated because the theme changed. */

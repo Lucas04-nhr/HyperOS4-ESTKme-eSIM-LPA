@@ -49,6 +49,19 @@ public final class ThemeActivity extends ThemedActivity {
         super.onDestroy();
     }
 
+    private void addChoice(LinearLayout col, int title, String[] choices, int selected,
+                           java.util.function.IntConsumer onSelected) {
+        UiKit.NavRow row = new UiKit.NavRow(this, palette, R.drawable.ic_style_24,
+                getString(title), null, 6f, 6f, 2, null);
+        row.setValue(choices[selected]);
+        row.card.setOnClickListener(v -> UiKit.showChoiceDialog(this, palette, getString(title),
+                choices, selected, index -> {
+                    onSelected.accept(index);
+                    recreateSoon();
+                }));
+        col.addView(row.card);
+    }
+
     private LinearLayout buildContent() {
         boolean miuix = UiKit.isMiuix();
         LinearLayout col = new LinearLayout(this);
@@ -105,6 +118,25 @@ public final class ThemeActivity extends ThemedActivity {
             recreateSoon();
         });
         col.addView(rowDynamic.card);
+
+        addChoice(col, R.string.theme_miuix_version, new String[]{"OS2", "OS3", "OS4"},
+                ThemeConfig.miuixVersion - 2, index -> ThemeConfig.setMiuixVersion(this, index + 2));
+        UiKit.SwitchRow rowAmoled = new UiKit.SwitchRow(this, palette, R.drawable.ic_dark_mode_24,
+                getString(R.string.theme_amoled), "", 6f, 6f, 2);
+        rowAmoled.setRowState(ThemeConfig.amoledBackground, true, getString(R.string.theme_amoled_summary));
+        rowAmoled.toggle.setOnCheckedChangeListener((sw, checked) -> {
+            ThemeConfig.setAmoledBackground(this, checked);
+            recreateSoon();
+        });
+        col.addView(rowAmoled.card);
+        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_system),
+                getString(R.string.theme_back_scale), getString(R.string.theme_back_slide)},
+                ThemeConfig.predictiveBack, index -> ThemeConfig.setPredictiveBack(this, index));
+        if (ThemeConfig.predictiveBack != 0) {
+            addChoice(col, R.string.theme_back_direction, new String[]{getString(R.string.theme_back_follow),
+                    getString(R.string.theme_back_right), getString(R.string.theme_back_left)},
+                    ThemeConfig.backExitDirection, index -> ThemeConfig.setBackExitDirection(this, index));
+        }
 
         // Top and bottom bars (Miuix only), as in SukiSU-Nova:
         // frosted glass + progressive blur for both bars, liquid glass for the floating bar.
