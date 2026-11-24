@@ -14,8 +14,11 @@ build_type = 'debug' if parser.parse_args().debug else 'release'
 
 base = Path(__file__).resolve().parent
 out = base.parents[1] / 'outputs'
-apk = base / f'probe/app/build/outputs/apk/{build_type}/app-{build_type}.apk'
-tester_apk = base / f'probe/tester/build/outputs/apk/{build_type}/tester-{build_type}.apk'
+# Gradle splits each APK by ABI; the module ships the arm64-v8a one
+abis = ('universal', 'arm64-v8a', 'armeabi-v7a')
+apk_path = lambda module, abi: base / f'probe/{module}/build/outputs/apk/{build_type}/{module}-{abi}-{build_type}.apk'
+apk = apk_path('app', 'arm64-v8a')
+tester_apk = apk_path('tester', 'arm64-v8a')
 module = out / 'XiaomiEsimLPA-HyperOS4-v0.6.1.zip'
 original_sha = '9daa20d489168264109d68532d27857a9eef7d7ce72199c565afb6b96d2e6b4f'
 sha = lambda data: hashlib.sha256(data).hexdigest()
@@ -70,10 +73,12 @@ if (base / 'final-restored-list.xml').exists():
     )
     assert values('rename-original.xml', 'dialog_input_area') == ['RedteaGO']
 
-release_apk = out / 'Xiaomi-eSIM-Compat-v0.6.1.apk'
-shutil.copy2(apk, release_apk)
-release_tester_apk = out / 'Xiaomi-eSIM-Tester-v0.6.1.apk'
-shutil.copy2(tester_apk, release_tester_apk)
+release_apks = []
+for name, module in (('Compat', 'app'), ('Tester', 'tester')):
+    for abi in abis:
+        release_apk = out / f'Xiaomi-eSIM-{name}-v0.6.1-{abi}.apk'
+        shutil.copy2(apk_path(module, abi), release_apk)
+        release_apks.append(release_apk)
 
 readme_out = out / 'README.md'
 shutil.copy2(base / 'README.md', readme_out)
@@ -219,8 +224,7 @@ report = {
 }
 (out / '验证结果.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 files = [
-    release_apk,
-    release_tester_apk,
+    *release_apks,
     module,
     source,
     readme_out,
@@ -229,5 +233,5 @@ files = [
 ]
 (out / 'SHA256SUMS.txt').write_text(''.join(f'{sha(p.read_bytes())}  {p.name}\n' for p in files), encoding='utf-8')
 print('Release v0.6.1 validation passed; upstream removed; source excludes build caches and signing keys.')
-for p in files[:4]:
+for p in files[:len(release_apks) + 2]:
     print(p.name, p.stat().st_size)

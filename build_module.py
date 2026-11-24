@@ -14,10 +14,11 @@ OUT = ARGS.output_dir.resolve()
 MOD = BASE / 'module'
 PREBUILT_LPA = BASE / 'prebuilt/MIUIEsimLPA.apk'
 BUILD_TYPE = 'debug' if ARGS.debug else 'release'
-COMPAT_APK = BASE / f'probe/app/build/outputs/apk/{BUILD_TYPE}/app-{BUILD_TYPE}.apk'
-TESTER_APK = BASE / f'probe/tester/build/outputs/apk/{BUILD_TYPE}/tester-{BUILD_TYPE}.apk'
+COMPAT_APK = BASE / f'probe/app/build/outputs/apk/{BUILD_TYPE}/app-arm64-v8a-{BUILD_TYPE}.apk'
+TESTER_APK = BASE / f'probe/tester/build/outputs/apk/{BUILD_TYPE}/tester-arm64-v8a-{BUILD_TYPE}.apk'
 for apk in (COMPAT_APK, TESTER_APK):
     if not apk.is_file():
+        # The module ships the arm64-v8a APK of each ABI split.
         # An unsigned release build is named *-release-unsigned.apk: release needs the signing key.
         parser.error(f'{apk} not found. Run "gradle -p probe assemble{BUILD_TYPE.capitalize()}" first'
                      + ('' if ARGS.debug else ' with the signing key configured') + '.')

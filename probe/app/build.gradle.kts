@@ -50,6 +50,20 @@ android {
             getByName("release") { signingConfig = signingConfigs.getByName("local") }
         }
     }
+    splits {
+        // One APK per ABI plus the universal one: <module>-universal-, -arm64-v8a- and
+        // -armeabi-v7a-<buildType>.apk. The module zip ships the arm64-v8a APK.
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
+        }
+    }
+    // No x86 support: keeps x86 / x86_64 native libraries out of the universal APK too
+    packaging {
+        jniLibs.excludes += listOf("lib/x86/**", "lib/x86_64/**")
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
