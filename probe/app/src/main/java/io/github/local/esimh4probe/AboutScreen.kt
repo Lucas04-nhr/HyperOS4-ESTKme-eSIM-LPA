@@ -228,6 +228,18 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                                     )
                                 }
                             }
+                            AboutCard {
+                                ArrowPreference(
+                                    title = stringResource(R.string.update_stable),
+                                    summary = stringResource(R.string.update_stable_summary),
+                                    onClick = { UpdateChecker.check(activity, false) },
+                                )
+                                ArrowPreference(
+                                    title = stringResource(R.string.update_nightly),
+                                    summary = stringResource(R.string.update_nightly_summary),
+                                    onClick = { UpdateChecker.check(activity, true) },
+                                )
+                            }
                             SmallTitle(text = stringResource(R.string.section_authors))
                             AboutCard {
                                 for (person in data.people) {

@@ -48,13 +48,14 @@ for login in "${logins[@]}"; do
 done
 
 jq -n --argjson repo "$repo" --arg commit "$GITHUB_SHA" --argjson year "$(date +%Y)" \
-  --slurpfile people "$people" '{
+  --arg runId "${GITHUB_RUN_ID:-0}" --slurpfile people "$people" '{
     repository: $repo.full_name,
     url: $repo.html_url,
     fork: $repo.fork,
     parent: ($repo.parent.full_name // null),
     parentUrl: ($repo.parent.html_url // null),
     commit: $commit,
+    runId: ($runId | tonumber),
     year: $year,
     contributors: $people
   }' > "$out/about.json"
