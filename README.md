@@ -52,7 +52,7 @@
 3. **SukiSU Ultra / KernelSU `ksu_handle_umount` 内核卸载自动免疫（双层驻留架构）**：
    - 彻底解决 SukiSU Ultra / KernelSU 默认对普通应用（如系统相册、相机、浏览器）执行内核挂载卸载（`ksu_handle_umount: unmounting: /product/priv-app`）导致**从相册选择二维码写卡或外部拉起写卡时闪退**的问题。
    - 模块在严格确认 `/product/priv-app/MIUIEsimLPA` 系统特权挂载（`FLAG_SYSTEM`）已生效后，自动同步 `/data/app` 系统更新层（`SYSTEM | UPDATED_SYSTEM_APP`）：既 100% 保留特权权限，又让 APK 实体文件常驻 `/data/app`，无需手动为相册等应用逐一关闭「卸载模块」即可丝滑扫码选图写卡；关闭模块时通过 `pm uninstall-system-updates` 自动无损剥离。
-4. **7 项模块化独立功能开关（含 4 项免 Root 实时热切换）**：
+4. **7 项模块化独立功能开关（含 5 项免 Root 实时热切换）**：
    - 日常切换系统 eSIM、开关第三方运营商一键写卡桥接、释放或接管 `LPA://` 激活码链接（方便与 EasyLPAC 等工具共存）、开关系统设置提示文案修正均通过电话框架安全 IPC 实时生效，**日常打开应用与切换核心功能零 Root 弹窗打扰**。
 5. **Android 17 预编译框架资源文案修正增强与元模块选型指引**：
    - 同时覆盖 `Resources.getString` 与 `Resources.getText` 钩子，适配 Android 17 `boot-framework.oat` 内联调用；新增针对澎湃 OS 4 原厂多层 `overlayfs` 分区的 **`Hybrid Mount` / `meta-overlayfs`** 元模块选型检测与引导。
@@ -84,7 +84,7 @@
 | **核心功能开关** | **接管 LPA:// 激活链接与扫码动作** | 免 Root 实时生效 | 开启时点击 `LPA:1$...` 链接自动拉起小米写卡页；关闭后释放拦截，可交由 EasyLPAC / NekokoLPA 处理。 |
 | **核心功能开关** | **系统设置 eSIM 提示文案修正** | 免 Root 实时生效 | 将澎湃 OS 原厂“打开后 eSIM 将替换 SIM 卡 2”修正为符合实体 eSIM 卡逻辑的同步说明（注：未开启 eSIM 时系统显示“发现 eSIM 卡”为小米原厂正常设计，开启后即变为“管理 eSIM”）。 |
 | **内核与组件** | **SukiSU / KernelSU 挂载卸载免疫** | 需 Root 授权 | 在特权挂载之上同步 `/data/app` 更新层，彻底免疫 `ksu_handle_umount` 导致的选图写卡闪退。 |
-| **内核与组件** | **桌面保留「模拟写卡测试」工具** | 需 Root 授权 | 按需在桌面保留或隐藏独立的「eSIM 模拟写卡测试」验证工具图标，保持桌面整洁。 |
+| **个性化** | **显示测试标签页** | 免 Root 实时生效 | 在底部导航栏显示或隐藏「测试」标签页（eSIM 模拟写卡测试）。 |
 
 ---
 
@@ -147,10 +147,10 @@ work/esim-adapt/
 │   │       ├── ProbeInspector.java     # 纯净 SDK 脱敏诊断引擎与 CLI 入口
 │   │       ├── M3Ui.java               # 原生 Material Design 3 动态取色与自定义胶囊开关组件库
 │   │       ├── MainActivity.java       # Material 3 控制中心面板
+│   │       ├── TesterPage.java         # 「测试」标签页：模拟运营商写卡验证
 │   │       ├── LpaBridgeActivity.java  # LPA:// 链接与扫码激活 Intent 桥接
 │   │       ├── Sim2Subscription.java   # 卡2订阅解析与空白卡兼容
 │   │       └── Sim2Control.java        # Root CLI 状态探测与同步工具
-│   └── tester/                     # 独立 Material 3 模拟写卡测试工具 (io.github.local.esimh4tester)
 └── outputs/                        # 构建发布产物目录
 ```
 
@@ -168,7 +168,7 @@ work/esim-adapt/
 
 ## 模拟测试框架与非破坏性验证
 
-模块提供独立的 **「eSIM 模拟写卡测试」** 应用（可在主界面随时隐藏或恢复安装）：
+主应用底部导航栏提供 **「测试」** 标签页（eSIM 模拟写卡测试，可在设置中随时显示或隐藏）：
 - 实时展示 **LPA 特权挂载**、`EUICC` 特性声明、`EuiccManager.isEnabled()`、`defaultCardId` 与 `LPA://` 接管状态；
 - 默认使用安全模拟码 `LPA:1$test.esim.local$MOCK-TEST-001` 验证小米原生授权弹窗 `DownloadConfirmDialogActivity`、深色控制台回调与 `LPA://` 跳转，底层自动拦截测试码，**零写卡风险**。
 
@@ -246,7 +246,7 @@ python finalize_release.py --debug
 - **`LPA://` URI & Activation Scanner Bridge** (Zero-Root): Intercepts `LPA:1$...` links for Xiaomi LPA, or releases them cleanly to third-party LPAs such as EasyLPAC when switched off.
 - **Settings eSIM Prompt Rewrite** (Zero-Root): Updates stock "replaces SIM 2" wording to accurately describe SIM2 removable eSIM synchronization.
 - **SukiSU / KernelSU `umount` Immunity** (Root): Controls dual-layer `/product/priv-app` + `/data/app` (`UPDATED_SYSTEM_APP`) residency.
-- **Keep Mock Tester App on Launcher** (Root): Installs or hides the standalone zero-risk `eSIM 模拟写卡测试` app.
+- **Show the Test Tab** (Zero-Root): Shows or hides the zero-risk mock install **Test** tab in the bottom bar.
 
 ---
 

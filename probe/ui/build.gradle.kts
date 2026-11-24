@@ -21,7 +21,7 @@ android {
     }
 }
 dependencies {
-    // `api`: the app and tester screens are built with the same Miuix components.
+    // `api`: the app screens are built with the same Miuix components.
     api(libs.androidx.activity.compose)
     api(libs.bundles.miuix)
 }

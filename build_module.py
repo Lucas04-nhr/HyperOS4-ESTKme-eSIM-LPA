@@ -15,13 +15,11 @@ MOD = BASE / 'module'
 PREBUILT_LPA = BASE / 'prebuilt/MIUIEsimLPA.apk'
 BUILD_TYPE = 'debug' if ARGS.debug else 'release'
 COMPAT_APK = BASE / f'probe/app/build/outputs/apk/{BUILD_TYPE}/app-arm64-v8a-{BUILD_TYPE}.apk'
-TESTER_APK = BASE / f'probe/tester/build/outputs/apk/{BUILD_TYPE}/tester-arm64-v8a-{BUILD_TYPE}.apk'
-for apk in (COMPAT_APK, TESTER_APK):
-    if not apk.is_file():
-        # The module ships the arm64-v8a APK of each ABI split.
-        # An unsigned release build is named *-release-unsigned.apk: release needs the signing key.
-        parser.error(f'{apk} not found. Run "gradle -p probe assemble{BUILD_TYPE.capitalize()}" first'
-                     + ('' if ARGS.debug else ' with the signing key configured') + '.')
+if not COMPAT_APK.is_file():
+    # The module ships the arm64-v8a APK of the ABI split.
+    # An unsigned release build is named *-release-unsigned.apk: release needs the signing key.
+    parser.error(f'{COMPAT_APK} not found. Run "gradle -p probe assemble{BUILD_TYPE.capitalize()}" first'
+                 + ('' if ARGS.debug else ' with the signing key configured') + '.')
 
 OUT.mkdir(parents=True, exist_ok=True)
 if MOD.exists():
@@ -106,12 +104,6 @@ read_umount_guard() {
   UG=$(cat "$STATE/umount_guard" 2>/dev/null)
   UG=${UG#UMOUNT_GUARD=}
   [ "$UG" = off ] && UMOUNT_GUARD=off || UMOUNT_GUARD=on
-}
-
-read_tester_enabled() {
-  TE=$(cat "$STATE/tester_enabled" 2>/dev/null)
-  TE=${TE#TESTER=}
-  [ "$TE" = off ] && TESTER_ENABLED=off || TESTER_ENABLED=on
 }
 
 valid_value() {
@@ -328,6 +320,12 @@ cleanup_legacy_probe_pkg() {
     logmsg "Removing legacy v0.4.0 package io.github.local.esimh4probe."
     pm uninstall io.github.local.esimh4probe >/dev/null 2>&1
   fi
+  # Older versions shipped the mock tester as a separate app; it is now the Test tab of the compat app.
+  if pm path io.github.local.esimh4tester >/dev/null 2>&1; then
+    logmsg "Removing legacy tester package io.github.local.esimh4tester."
+    pm uninstall io.github.local.esimh4tester >/dev/null 2>&1
+  fi
+  rm -f "$STATE/tester.sha256" "$STATE/tester_enabled"
 }
 
 refresh_lsposed_index() {
@@ -335,27 +333,18 @@ refresh_lsposed_index() {
   [ -x /data/adb/modules/riru_lsposed/lspctl ] && /data/adb/modules/riru_lsposed/lspctl module show --user=0 io.github.jabe1122.esimh4probe >/dev/null 2>&1 || true
 }
 
-sync_tester_on() {
+sync_lpa_bridge_on() {
   uri_pref=$(settings --user 0 get secure xiaomi_esim_h4_lpa_uri_bridge 2>/dev/null)
   if [ "$uri_pref" = 0 ]; then
     pm disable io.github.jabe1122.esimh4probe/io.github.local.esimh4probe.LpaBridgeActivity >/dev/null 2>&1
   else
     pm enable io.github.jabe1122.esimh4probe/io.github.local.esimh4probe.LpaBridgeActivity >/dev/null 2>&1
   fi
-  read_tester_enabled
-  if [ "$TESTER_ENABLED" = on ]; then
-    sync_apk_if_needed io.github.local.esimh4tester "$MODDIR/tester.apk" "$STATE/tester.sha256"
-  else
-    pm uninstall io.github.local.esimh4tester >/dev/null 2>&1
-    rm -f "$STATE/tester.sha256"
-  fi
 }
 
-sync_tester_off() {
+sync_lpa_bridge_off() {
   pm disable io.github.jabe1122.esimh4probe/io.github.local.esimh4probe.LpaBridgeActivity >/dev/null 2>&1
-  pm uninstall io.github.local.esimh4probe >/dev/null 2>&1
-  pm uninstall io.github.local.esimh4tester >/dev/null 2>&1
-  rm -f "$STATE/tester.sha256"
+  cleanup_legacy_probe_pkg
 }
 
 sim2_slot_state() {
@@ -396,7 +385,7 @@ restore_physical_sim() {
 
 apply_mode_on() {
   sync_lpa_umount_guard
-  sync_tester_on
+  sync_lpa_bridge_on
   requested=$(settings --user 0 get secure is_enable_esim_for_user)
   case "$requested" in
     0|1) ;;
@@ -442,7 +431,7 @@ restore_settings() {
   restore_physical_sim
   strip_lpa_updates
   cleanup_unprivileged_lpa
-  sync_tester_off
+  sync_lpa_bridge_off
   [ -f "$STATE/originals.saved" ] || return 0
   value=$(cat "$STATE/secure.original")
   valid_value "$value" || return 1
@@ -503,12 +492,17 @@ if pm path io.github.local.esimh4probe >/dev/null 2>&1; then
   ui_print "- 检测到 v0.4.0 旧包名 io.github.local.esimh4probe，正在自动卸载清理... / Removing legacy io.github.local.esimh4probe..." 2>/dev/null || true
   pm uninstall io.github.local.esimh4probe >/dev/null 2>&1
 fi
+if pm path io.github.local.esimh4tester >/dev/null 2>&1; then
+  ui_print "- 模拟写卡测试已并入主应用的「测试」标签页，正在卸载旧的独立测试应用... / Removing the old standalone tester app (now the Test tab)..." 2>/dev/null || true
+  pm uninstall io.github.local.esimh4tester >/dev/null 2>&1
+fi
+rm -f "$STATE/tester.sha256" "$STATE/tester_enabled"
 sync_apk_if_needed io.github.jabe1122.esimh4probe "$MODPATH/compat.apk" "$STATE/compat.sha256"
 refresh_lsposed_index
 read_mode
 if [ "$MODE" = on ]; then
   sync_lpa_umount_guard
-  sync_tester_on
+  sync_lpa_bridge_on
 fi
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 for script in common.sh action.sh post-fs-data.sh service.sh uninstall.sh diagnostics.sh restore.sh restore-guard.sh; do
@@ -567,7 +561,7 @@ if [ "$MODE" = on ] && [ "$(getprop sys.xiaomi_esim_h4.active)" = 1 ]; then
     logmsg "ON: LPA system privilege mount & umount guard verified; eSIM management enabled; SIM2 activation synced."
   else
     setprop sys.xiaomi_esim_h4.active 0
-    sync_tester_on
+    sync_lpa_bridge_on
     suspend_esim_switch
     restore_physical_sim
     logmsg "ERROR: MODE=on but LPA system overlay is NOT mounted (mount_ok=0). Install/enable Hybrid Mount or meta-overlayfs and reboot."
@@ -593,7 +587,7 @@ set_mode_off() {
   setprop sys.xiaomi_esim_h4.active 0
   setprop sys.xiaomi_esim_h4.mount_ok 0
   echo "RESULT=OFF_APPLIED"
-  logmsg "已切换为关闭。模拟测试应用与运行状态已清理还原，请重启手机以撤销底层能力声明。"
+  logmsg "已切换为关闭。运行状态已清理还原，请重启手机以撤销底层能力声明。"
 }
 
 set_mode_on() {
@@ -653,17 +647,6 @@ case "$1" in
     logmsg "ISD-R selection set to $sel (reboot to refresh EID in Settings)."
     echo "RESULT=OK"
     ;;
-  tester)
-    if [ "$2" = off ]; then
-      echo TESTER=off > "$STATE/tester_enabled"
-      pm uninstall io.github.local.esimh4tester >/dev/null 2>&1
-      rm -f "$STATE/tester.sha256"
-    else
-      echo TESTER=on > "$STATE/tester_enabled"
-      sync_apk_if_needed io.github.local.esimh4tester "$MODDIR/tester.apk" "$STATE/tester.sha256"
-    fi
-    echo "RESULT=OK"
-    ;;
   *)
     read_mode
     if [ "$MODE" = on ]; then
@@ -684,7 +667,7 @@ restore_settings
 setprop sys.xiaomi_esim_h4.active 0
 setprop sys.xiaomi_esim_h4.mount_ok 0
 reset_property
-logmsg "原有设置已还原，模拟测试应用已卸载。重启后完成卸载系统能力声明。卡内配置未修改。"
+logmsg "原有设置已还原。重启后完成卸载系统能力声明。卡内配置未修改。"
 ''')
 
 put('restore-guard.sh', r'''#!/system/bin/sh
@@ -740,11 +723,9 @@ MODDIR=${0%/*}
 . "$MODDIR/common.sh"
 read_mode
 read_umount_guard
-read_tester_enabled
 echo "version=v0.6.1"
 echo "mode=$MODE"
 echo "umount_guard=$UMOUNT_GUARD"
-echo "tester_enabled=$TESTER_ENABLED"
 echo "build=$(getprop ro.build.version.incremental)"
 echo "active=$(getprop sys.xiaomi_esim_h4.active)"
 echo "mount_ok=$(getprop sys.xiaomi_esim_h4.mount_ok)"
@@ -760,7 +741,6 @@ echo "metamodule=$([ -e /data/adb/metamodule ] && echo present || echo absent)"
 pm list features | grep telephony.euicc
 pm path com.miui.euicc
 pm path io.github.jabe1122.esimh4probe
-pm path io.github.local.esimh4tester
 service list | grep -i euicc
 echo "sim_state=$(getprop gsm.sim.state)"
 ''')
@@ -785,7 +765,6 @@ lpa_target = MOD / 'system/product/priv-app/MIUIEsimLPA/MIUIEsimLPA.apk'
 lpa_target.parent.mkdir(parents=True, exist_ok=True)
 shutil.copy2(PREBUILT_LPA, lpa_target)
 shutil.copy2(COMPAT_APK, MOD / 'compat.apk')
-shutil.copy2(TESTER_APK, MOD / 'tester.apk')
 
 zip_path = OUT / 'XiaomiEsimLPA-HyperOS4-v0.6.1.zip'
 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:

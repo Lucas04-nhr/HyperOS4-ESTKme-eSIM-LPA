@@ -18,7 +18,6 @@ out = base.parents[1] / 'outputs'
 abis = ('universal', 'arm64-v8a', 'armeabi-v7a')
 apk_path = lambda module, abi: base / f'probe/{module}/build/outputs/apk/{build_type}/{module}-{abi}-{build_type}.apk'
 apk = apk_path('app', 'arm64-v8a')
-tester_apk = apk_path('tester', 'arm64-v8a')
 module = out / 'XiaomiEsimLPA-HyperOS4-v0.6.1.zip'
 original_sha = '9daa20d489168264109d68532d27857a9eef7d7ce72199c565afb6b96d2e6b4f'
 sha = lambda data: hashlib.sha256(data).hexdigest()
@@ -38,7 +37,7 @@ with zipfile.ZipFile(module) as z:
     assert b'version=v0.6.1\n' in mod_prop
     assert b'versionCode=601\n' in mod_prop
     assert z.read('compat.apk') == apk.read_bytes()
-    assert z.read('tester.apk') == tester_apk.read_bytes()
+    assert 'tester.apk' not in z.namelist()
     assert sha(z.read('system/product/priv-app/MIUIEsimLPA/MIUIEsimLPA.apk')) == original_sha
     for name in z.namelist():
         if name.endswith('.xml'):
@@ -74,11 +73,10 @@ if (base / 'final-restored-list.xml').exists():
     assert values('rename-original.xml', 'dialog_input_area') == ['RedteaGO']
 
 release_apks = []
-for name, module in (('Compat', 'app'), ('Tester', 'tester')):
-    for abi in abis:
-        release_apk = out / f'Xiaomi-eSIM-{name}-v0.6.1-{abi}.apk'
-        shutil.copy2(apk_path(module, abi), release_apk)
-        release_apks.append(release_apk)
+for abi in abis:
+    release_apk = out / f'Xiaomi-eSIM-Compat-v0.6.1-{abi}.apk'
+    shutil.copy2(apk_path('app', abi), release_apk)
+    release_apks.append(release_apk)
 
 readme_out = out / 'README.md'
 shutil.copy2(base / 'README.md', readme_out)

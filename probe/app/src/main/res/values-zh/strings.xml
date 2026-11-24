@@ -4,6 +4,8 @@
     <string name="xposed_description">在小米 HyperOS 4 上将卡槽 2 的可插拔 eSIM 卡（ESTKme、小白卡、9eSIM、Xesim）桥接到系统 LPA。v0.6.1</string>
     <string name="tab_home">首页</string>
     <string name="tab_settings">设置</string>
+    <string name="tab_tester">测试</string>
+    <string name="tester_title">eSIM 模拟写卡测试</string>
     <string name="status_loading">正在检测…</string>
     <string name="status_loading_summary">正在读取模块与框架状态</string>
     <string name="status_off">未启用</string>
@@ -52,7 +54,6 @@
     <string name="health_undeclared">未声明</string>
     <string name="btn_manage_esim">管理 eSIM</string>
     <string name="btn_mobile_network">移动网络</string>
-    <string name="btn_tester">模拟写卡</string>
     <string name="btn_reprobe">重新检测卡槽 2</string>
     <string name="btn_diagnostics">诊断报告</string>
     <string name="info_device">设备</string>
@@ -77,8 +78,8 @@
     <string name="row_umount_guard_summary">在 /data/app 保留一份副本，避免 SukiSU 或 KernelSU 卸载挂载后写卡闪退</string>
     <string name="row_estk_se1">eSTK.me 使用 SE1</string>
     <string name="row_estk_se1_summary">关闭时使用 SE0（标准 ISD-R）</string>
-    <string name="row_tester">显示 eSIM 测试应用</string>
-    <string name="row_tester_summary">在桌面显示其图标</string>
+    <string name="row_tester">显示测试标签页</string>
+    <string name="row_tester_summary">在底部导航栏显示模拟写卡测试</string>
     <string name="row_theme_summary">风格、深色模式、底栏、背景</string>
     <string name="esim_sub_module_off">请先开启桥接</string>
     <string name="esim_sub_on">已开启 · 与系统设置同步</string>
@@ -96,16 +97,14 @@
     <string name="umount_sub_waiting">LPA 挂载后可用</string>
     <string name="se1_sub_on">正在使用 SE1</string>
     <string name="se1_sub_off">正在使用 SE0（标准 ISD-R）</string>
-    <string name="tester_sub_on">已在桌面显示</string>
-    <string name="tester_sub_off">已隐藏 · 开启后重新安装</string>
+    <string name="tester_sub_on">已在底部导航栏显示</string>
+    <string name="tester_sub_off">已隐藏</string>
     <string name="hint_need_esim_card">需要开启桥接，且卡槽 2 有实体 eSIM</string>
     <string name="hint_need_hook">需要开启桥接，且电话 Hook 已生效</string>
     <string name="hint_need_mount">LPA 挂载后可用</string>
     <string name="hint_need_master">请先开启 eSIM 桥接</string>
     <string name="snack_refreshed">状态已刷新</string>
     <string name="snack_mobile_network_failed">无法打开移动网络设置</string>
-    <string name="snack_tester_hidden">测试应用已隐藏，可在设置中开启。</string>
-    <string name="snack_tester_failed">无法打开测试应用</string>
     <string name="snack_enable_master_first">请先在设置中开启 eSIM 桥接</string>
     <string name="snack_lpa_not_mounted">小米 LPA 未挂载，请检查元模块并重启。</string>
     <string name="snack_no_esim_card">卡槽 2 中没有实体 eSIM</string>
@@ -129,8 +128,8 @@
     <string name="snack_rewrite_off">已恢复原始 eSIM 文案</string>
     <string name="snack_umount_on">已在 /data/app 保留 LPA 副本</string>
     <string name="snack_umount_off">已移除 /data/app 中的 LPA 副本</string>
-    <string name="snack_tester_on">已安装 eSIM 测试应用</string>
-    <string name="snack_tester_off">已移除 eSIM 测试应用</string>
+    <string name="snack_tester_on">已显示测试标签页</string>
+    <string name="snack_tester_off">已隐藏测试标签页</string>
     <string name="snack_pref_failed">无法保存，请确认模块已开启且 LSPosed 作用域已生效。</string>
     <string name="snack_diag_copied">报告已复制</string>
     <string name="dialog_esim_off_title">系统 eSIM 已关闭</string>
@@ -172,4 +171,72 @@
     </plurals>
     <string name="about_copyright">Copyright © %1$s jabe1122、Lucas04-nhr 及贡献者</string>
     <string name="snack_open_link_failed">没有可以打开此链接的应用</string>
+
+    <!-- Test tab: mock carrier install -->
+    <string name="tester_refresh">刷新状态</string>
+    <string name="tester_state_checking">正在检测…</string>
+    <string name="tester_state_ready">可以测试</string>
+    <string name="tester_state_not_ready">无法测试</string>
+    <string name="tester_reason_mount">小米 LPA 未挂载</string>
+    <string name="tester_reason_euicc">eUICC 服务未启用</string>
+    <string name="tester_reason_card">卡槽 2 中没有实体 eSIM</string>
+    <string name="st_feature_yes">已声明</string>
+    <string name="st_feature_no">未声明</string>
+    <string name="st_enabled_yes">已启用</string>
+    <string name="st_enabled_no">未启用</string>
+    <string name="tag_sim2_esim">SIM2 eSIM</string>
+    <string name="tester_status_title">eUICC 状态</string>
+    <string name="tester_mock_title">模拟写卡</string>
+    <string name="tester_safety_note">含 test.esim.local 的激活码不会写入卡片。</string>
+    <string name="tester_reset_code">恢复默认码</string>
+    <string name="tester_test1">测试 1：运营商写卡授权弹窗</string>
+    <string name="tester_test2">测试 2：打开 LPA:// 链接</string>
+    <string name="tester_test3">测试 3：标准激活页</string>
+    <string name="tester_console_title">回调日志</string>
+    <string name="tester_clear_log">清空</string>
+    <string name="st_mount">LPA 挂载</string>
+    <string name="st_mount_ok">已生效</string>
+    <string name="st_mount_bad">未挂载</string>
+    <string name="st_feature">eUICC 特性</string>
+    <string name="st_enabled">eUICC 服务</string>
+    <string name="st_card_id">默认卡槽 ID</string>
+    <string name="st_card">卡槽 2</string>
+    <string name="st_lpa_scheme">LPA:// 链接</string>
+    <string name="st_lpa_scheme_on">已接管</string>
+    <string name="st_lpa_scheme_off">已释放</string>
+    <string name="st_activation">标准激活</string>
+    <string name="st_activation_ok">可用</string>
+    <string name="st_activation_bad">不可用</string>
+    <string name="st_error">状态检测失败：%1$s</string>
+    <string name="card_esim_active">实体 eSIM，套餐已启用</string>
+    <string name="card_esim_switch_off">实体 eSIM，系统 eSIM 开关已关闭</string>
+    <string name="card_esim_empty">实体 eSIM，暂无启用的套餐</string>
+    <string name="card_absent">未插卡</string>
+    <string name="card_regular">普通 SIM 卡或未适配</string>
+    <string name="card_wait_mount">等待 LPA 挂载</string>
+    <string name="card_detecting">识别中…</string>
+    <string name="log_ready">就绪（%1$s）。点击「测试 1」检查运营商写卡弹窗。</string>
+    <string name="log_reset_code">已恢复默认激活码：%1$s</string>
+    <string name="log_cleared">日志已清空。</string>
+    <string name="log_resolvable">系统回调：RESOLVABLE_ERROR (1)</string>
+    <string name="log_resolvable_note">请求已接受，正在打开小米确认弹窗…</string>
+    <string name="log_resolution_failed">无法打开确认弹窗：%1$s</string>
+    <string name="log_direct_ok">直接写卡完成：RESULT_OK (0)</string>
+    <string name="log_request_error">写卡请求失败：resultCode=%1$d，detailedCode=%2$d</string>
+    <string name="log_after_auth_ok">确认后回调：RESULT_OK (0)</string>
+    <string name="log_mock_intercepted">模拟码 test.esim.local 已被拦截，未写入卡片。</string>
+    <string name="log_real_ok">确认后回调：激活码写卡成功 (RESULT_OK)</string>
+    <string name="log_after_auth_end">确认后回调：resultCode=%1$d（已取消，卡片未改动）</string>
+    <string name="log_auth_result_ok">确认弹窗返回：RESULT_OK（-1，已确认）</string>
+    <string name="log_auth_result_cancel">确认弹窗返回：RESULT_CANCELED（0，已取消）</string>
+    <string name="log_activate_result">激活页返回：resultCode=%1$d</string>
+    <string name="log_err_mount">错误：LPA 特权挂载未生效，请检查元模块并重启。</string>
+    <string name="log_err_euicc">错误：EuiccManager 未启用，请确认模块已开启且卡槽 2 有实体 eSIM。</string>
+    <string name="log_start_download">调用 EuiccManager.downloadSubscription…</string>
+    <string name="log_code">激活码：%1$s</string>
+    <string name="log_call_error">调用失败：%1$s</string>
+    <string name="log_start_view">通过 ACTION_VIEW 打开：%1$s</string>
+    <string name="log_view_failed">无法打开 LPA:// 链接（可能已在设置中关闭链接接管）：%1$s</string>
+    <string name="log_start_activation">调用 ACTION_START_EUICC_ACTIVATION…</string>
+    <string name="log_activation_failed">标准激活调用失败：%1$s</string>
 </resources>

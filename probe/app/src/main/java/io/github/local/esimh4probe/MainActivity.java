@@ -41,14 +41,18 @@ import org.json.JSONObject;
 
 /**
  * Control panel for the Xiaomi HyperOS 4 removable eSIM (SIM2) bridge.
- * Home tab: status banner and live diagnostics. Settings tab: feature switches, theme and about.
+ * Home tab: status banner and live diagnostics. Test tab (optional, see {@link TesterPage}): mock
+ * carrier install checks. Settings tab: feature switches, theme and about.
  */
 public final class MainActivity extends ThemedActivity {
     private static final String TAG = "EsimH4Probe";
     private static final String ACTION_SCRIPT = "/data/adb/modules/XiaomiEsimLPAHyperOS4/action.sh";
-    private static final String STATE_TAB = "tab";
+    /** Saves the selected page id (not its index), because the Test tab can be hidden. */
+    private static final String STATE_PAGE = "page";
+    private static final int PAGE_HOME = 0;
+    private static final int PAGE_TESTER = 1;
+    private static final int PAGE_SETTINGS = 2;
     private static final int TAB_HOME = 0;
-    private static final int TAB_SETTINGS = 1;
 
     private static final ExecutorService IO_EXEC = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "EsimH4-UIWorker");
@@ -63,8 +67,13 @@ public final class MainActivity extends ThemedActivity {
 
     private Scaffold scaffold;
     private BottomBar bottomBar;
+    /** Page id of each tab, in bottom bar order. */
+    private int[] pageIds;
     private int currentTab = TAB_HOME;
-    /** Back on the settings tab returns to the home tab; it is enabled only there. */
+    /** Null while the Test tab is hidden. */
+    private TesterPage testerPage;
+    private final Runnable recreateForTesterTab = this::recreate;
+    /** Back on any tab but home returns to the home tab; it is enabled only there. */
     private final OnBackPressedCallback backToHome = new OnBackPressedCallback(false) {
         @Override
         public void handleOnBackPressed() {
@@ -87,7 +96,6 @@ public final class MainActivity extends ThemedActivity {
     private TextView tvBadgeLpaHook;
     private TextView tvBadgeEuicc;
     private LinearLayout btnManageEsim;
-    private LinearLayout btnLaunchTester;
 
     // Home: device info card
     private TextView tvInfoLpa;
@@ -107,17 +115,40 @@ public final class MainActivity extends ThemedActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        currentTab = savedInstanceState != null ? savedInstanceState.getInt(STATE_TAB, TAB_HOME) : TAB_HOME;
+        boolean showTester = TesterPage.isEnabled(this);
+        pageIds = showTester
+                ? new int[]{PAGE_HOME, PAGE_TESTER, PAGE_SETTINGS}
+                : new int[]{PAGE_HOME, PAGE_SETTINGS};
+        int savedPage = savedInstanceState != null ? savedInstanceState.getInt(STATE_PAGE, PAGE_HOME) : PAGE_HOME;
+        boolean autoTest = showTester && savedInstanceState == null
+                && getIntent() != null && getIntent().getBooleanExtra("auto_test", false);
+        if (autoTest) savedPage = PAGE_TESTER;
+        currentTab = Math.max(TAB_HOME, tabOf(savedPage));
 
         scaffold = new Scaffold(this, palette, getString(R.string.app_name), null, false);
         scaffold.addPage(buildHomePage(), io.github.local.esimh4ui.R.id.ui_page_1, getString(R.string.app_name));
+        if (showTester) {
+            testerPage = new TesterPage(this, palette);
+            scaffold.addPage(testerPage.build(), io.github.local.esimh4ui.R.id.ui_page_3, getString(R.string.tester_title));
+            // Refresh for the Test tab; shown only while that tab is selected.
+            scaffold.addAction(UiKit.createIconButton(
+                    this, palette, R.drawable.ic_refresh_24, getString(R.string.tester_refresh),
+                    testerPage::refreshStatus));
+        }
         scaffold.addPage(buildSettingsPage(), io.github.local.esimh4ui.R.id.ui_page_2, getString(R.string.tab_settings));
 
-        bottomBar = new BottomBar(
-                this,
-                palette,
-                new String[]{getString(R.string.tab_home), getString(R.string.tab_settings)},
-                new int[]{R.drawable.ic_home_24, R.drawable.ic_settings_24});
+        bottomBar = showTester
+                ? new BottomBar(
+                        this,
+                        palette,
+                        new String[]{getString(R.string.tab_home), getString(R.string.tab_tester),
+                                getString(R.string.tab_settings)},
+                        new int[]{R.drawable.ic_home_24, R.drawable.ic_science_24, R.drawable.ic_settings_24})
+                : new BottomBar(
+                        this,
+                        palette,
+                        new String[]{getString(R.string.tab_home), getString(R.string.tab_settings)},
+                        new int[]{R.drawable.ic_home_24, R.drawable.ic_settings_24});
         bottomBar.setOnSelectListener(tab -> scaffold.showPage(tab, true));
         scaffold.setBottomBar(bottomBar);
         scaffold.setOnPageChangeListener(this::onPageSelected);
@@ -130,6 +161,19 @@ public final class MainActivity extends ThemedActivity {
         scaffold.showPage(currentTab, false);
         onPageSelected(currentTab);
         refreshDashboard();
+        if (autoTest) {
+            scaffold.root.postDelayed(() -> {
+                if (testerPage != null) testerPage.startMockDownload();
+            }, 400);
+        }
+    }
+
+    /** Index of the tab that shows {@code pageId}, or -1 when it is hidden. */
+    private int tabOf(int pageId) {
+        for (int i = 0; i < pageIds.length; i++) {
+            if (pageIds[i] == pageId) return i;
+        }
+        return -1;
     }
 
     @Override
@@ -137,16 +181,25 @@ public final class MainActivity extends ThemedActivity {
         super.onResume();
         if (isThemeRecreating()) return;
         refreshDashboard();
+        if (testerPage != null) testerPage.onResume();
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putInt(STATE_TAB, currentTab);
+        outState.putInt(STATE_PAGE, pageIds[currentTab]);
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (testerPage != null) testerPage.onActivityResult(requestCode, resultCode);
     }
 
     @Override
     protected void onDestroy() {
+        if (testerPage != null) testerPage.release();
         if (scaffold != null) scaffold.release();
         uiHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
@@ -156,7 +209,10 @@ public final class MainActivity extends ThemedActivity {
     private void onPageSelected(int tab) {
         currentTab = tab;
         bottomBar.select(tab);
-        scaffold.setTitle(getString(tab == TAB_HOME ? R.string.app_name : R.string.tab_settings));
+        int page = pageIds[tab];
+        scaffold.setTitle(getString(page == PAGE_HOME ? R.string.app_name
+                : page == PAGE_TESTER ? R.string.tester_title : R.string.tab_settings));
+        scaffold.setActionsVisible(page == PAGE_TESTER);
         backToHome.setEnabled(tab != TAB_HOME);
     }
 
@@ -348,24 +404,6 @@ public final class MainActivity extends ThemedActivity {
                 });
         LinearLayout.LayoutParams mnLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         secBtnRow.addView(btnMobileNetwork, mnLp);
-
-        btnLaunchTester = UiKit.createActionButton(
-                this, palette, UiKit.ButtonStyle.TONAL, R.drawable.ic_science_24,
-                getString(R.string.btn_tester), 44, () -> {
-                    try {
-                        Intent launch = getPackageManager().getLaunchIntentForPackage(ProbeInspector.TESTER_PKG);
-                        if (launch != null) {
-                            startActivity(launch);
-                        } else {
-                            showToast(getString(R.string.snack_tester_hidden));
-                        }
-                    } catch (Throwable e) {
-                        showToast(getString(R.string.snack_tester_failed));
-                    }
-                });
-        LinearLayout.LayoutParams ltLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        ltLp.leftMargin = UiKit.dp(this, 10);
-        secBtnRow.addView(btnLaunchTester, ltLp);
         simCard.addView(secBtnRow);
         return simCard;
     }
@@ -453,17 +491,17 @@ public final class MainActivity extends ThemedActivity {
                 getString(R.string.row_umount_guard), getString(R.string.row_umount_guard_summary), 24f, 6f, 2);
         col.addView(rowUmountGuard.card);
         rowEstkSe1 = new UiKit.SwitchRow(this, palette, R.drawable.ic_sync_alt_24,
-                getString(R.string.row_estk_se1), getString(R.string.row_estk_se1_summary), 6f, 6f, 2);
+                getString(R.string.row_estk_se1), getString(R.string.row_estk_se1_summary), 6f, 24f, 0);
         col.addView(rowEstkSe1.card);
-        rowTesterApp = new UiKit.SwitchRow(this, palette, R.drawable.ic_science_24,
-                getString(R.string.row_tester), getString(R.string.row_tester_summary), 6f, 24f, 0);
-        col.addView(rowTesterApp.card);
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_personalize)));
+        rowTesterApp = new UiKit.SwitchRow(this, palette, R.drawable.ic_science_24,
+                getString(R.string.row_tester), getString(R.string.row_tester_summary), 24f, 6f, 2);
+        col.addView(rowTesterApp.card);
         UiKit.NavRow rowLanguage = new UiKit.NavRow(
                 this, palette, io.github.local.esimh4ui.R.drawable.ic_language_24,
                 getString(io.github.local.esimh4ui.R.string.lang_title), null,
-                24f, 6f, 2, () -> LanguageSetting.showPicker(this, palette));
+                6f, 6f, 2, () -> LanguageSetting.showPicker(this, palette));
         rowLanguage.setValue(LanguageSetting.currentLabel(this));
         col.addView(rowLanguage.card);
         UiKit.NavRow rowTheme = new UiKit.NavRow(
@@ -599,7 +637,7 @@ public final class MainActivity extends ThemedActivity {
         bindRowClick(rowLpaUriBridge, null);
         bindRowClick(rowRewriteText, hintHook);
         bindRowClick(rowUmountGuard, getString(R.string.hint_need_mount));
-        bindRowClick(rowTesterApp, hintMaster);
+        bindRowClick(rowTesterApp, null);
         bindRowClick(rowEstkSe1, hintMaster);
 
         switchMasterMode.setOnCheckedChangeListener((btn, isChecked) -> {
@@ -725,18 +763,18 @@ public final class MainActivity extends ThemedActivity {
                     });
         });
 
+        // App-local setting: rebuild the screen so the bottom bar gains or loses the Test tab.
+        boolean testerShown = testerPage != null;
+        rowTesterApp.setRowState(testerShown, true,
+                getString(testerShown ? R.string.tester_sub_on : R.string.tester_sub_off));
         rowTesterApp.toggle.setOnCheckedChangeListener((btn, isChecked) -> {
             if (bindingUi) return;
             rowTesterApp.refreshIconTint(isChecked);
-            runRootSwitchAction(
-                    rowTesterApp.toggle,
-                    rowTesterApp,
-                    isChecked,
-                    new String[]{"tester", isChecked ? "on" : "off"},
-                    output -> {
-                        showToast(getString(isChecked ? R.string.snack_tester_on : R.string.snack_tester_off));
-                        refreshDashboard();
-                    });
+            TesterPage.setEnabled(this, isChecked);
+            showToast(getString(isChecked ? R.string.snack_tester_on : R.string.snack_tester_off));
+            // Let the switch finish its animation first.
+            uiHandler.removeCallbacks(recreateForTesterTab);
+            uiHandler.postDelayed(recreateForTesterTab, 220);
         });
     }
 
@@ -912,7 +950,6 @@ public final class MainActivity extends ThemedActivity {
             boolean lpaHook = r.optBoolean("lpaHookActive", false);
             boolean hasFeature = r.optBoolean("feature", false);
             boolean euiccEnabled = r.optBoolean("enabled", false);
-            boolean testerInstalled = r.optBoolean("testerInstalled", false);
 
             int cardType = r.optInt("cardType", -1);
             int esimSwitch = r.optInt("esimSwitch", -1);
@@ -931,7 +968,7 @@ public final class MainActivity extends ThemedActivity {
             boolean se1 = "se1".equals(EuiccCardReader.isdrSePref());
             if (!moduleActive) {
                 statusBanner.showError(getString(R.string.status_off_hint), getString(R.string.status_off),
-                        getString(R.string.btn_turn_on), () -> scaffold.showPage(TAB_SETTINGS, true));
+                        getString(R.string.btn_turn_on), () -> scaffold.showPage(tabOf(PAGE_SETTINGS), true));
             } else if (!lpaPrivMounted) {
                 statusBanner.showError(getString(R.string.status_wait_mount), getString(R.string.status_attention),
                         getString(R.string.btn_diagnostics), this::showDiagnosticsDialog);
@@ -981,7 +1018,6 @@ public final class MainActivity extends ThemedActivity {
                             : (hasFeature ? R.string.health_pending : R.string.health_undeclared)), !moduleActive);
 
             UiKit.setButtonEnabled(btnManageEsim, moduleActive && lpaPrivMounted && cardType != 0);
-            btnLaunchTester.setVisibility(testerInstalled ? View.VISIBLE : View.GONE);
 
             // 4. Device info
             tvInfoLpa.setText(lpaVer);
@@ -1022,9 +1058,6 @@ public final class MainActivity extends ThemedActivity {
 
             rowEstkSe1.setRowState(se1, moduleActive,
                     getString(se1 ? R.string.se1_sub_on : R.string.se1_sub_off));
-
-            rowTesterApp.setRowState(testerInstalled, moduleActive,
-                    getString(testerInstalled ? R.string.tester_sub_on : R.string.tester_sub_off));
         } finally {
             bindingUi = false;
         }
