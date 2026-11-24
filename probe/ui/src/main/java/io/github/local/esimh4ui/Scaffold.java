@@ -8,8 +8,6 @@ import android.graphics.Insets;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -22,6 +20,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,8 +31,7 @@ import java.util.List;
  * root
  *  ├─ stage (blurred by the bars): background image + swipeable pages
  *  ├─ header (overlay): top bar + progress line
- *  ├─ bottom bar (overlay, optional)
- *  └─ snackbar
+ *  └─ bottom bar (overlay, optional)
  * </pre>
  *
  * Miuix follows the SukiSU-Nova top bar: each page starts with a large title that scrolls with
@@ -56,11 +54,9 @@ public final class Scaffold {
     private final FrameLayout barRow;
     private final LinearLayout actions;
     private final ProgressLine progress;
-    private final TextView snackView;
     private final List<ScrollView> pages = new ArrayList<>();
     private final List<TextView> largeTitles = new ArrayList<>();
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private Runnable hideSnack;
+    private Toast toast;
     private BottomBar bottomBar;
     private Insets bars = Insets.NONE;
     private int headerHeight = 0;
@@ -185,21 +181,6 @@ public final class Scaffold {
         header.addView(progress, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, UiKit.dp(activity, 3)));
 
-        // Snackbar
-        snackView = new TextView(activity);
-        FrameLayout.LayoutParams snackLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
-        snackLp.leftMargin = UiKit.dp(activity, 18);
-        snackLp.rightMargin = UiKit.dp(activity, 18);
-        snackView.setLayoutParams(snackLp);
-        snackView.setPadding(UiKit.dp(activity, 16), UiKit.dp(activity, 13), UiKit.dp(activity, 16), UiKit.dp(activity, 13));
-        snackView.setBackground(UiKit.roundedRect(activity, p.inverseSurface, UiKit.radius(14f, 16f), 0, 0));
-        snackView.setTextColor(p.inverseOnSurface);
-        snackView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
-        snackView.setElevation(UiKit.dpf(activity, 6f));
-        snackView.setVisibility(View.GONE);
-        root.addView(snackView);
-
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             bars = insets.getInsets(WindowInsets.Type.systemBars());
             applyInsets();
@@ -300,7 +281,7 @@ public final class Scaffold {
         pager.setOnPageScrollListener(bar::setIndicatorPosition);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, bar.contentHeightPx(), Gravity.BOTTOM);
-        root.addView(bar, root.indexOfChild(snackView), lp);
+        root.addView(bar, lp);
         applyInsets();
     }
 
@@ -340,9 +321,6 @@ public final class Scaffold {
             bottomBar.setLayoutParams(lp);
         }
 
-        FrameLayout.LayoutParams slp = (FrameLayout.LayoutParams) snackView.getLayoutParams();
-        slp.bottomMargin = UiKit.dp(ctx, 20) + bars.bottom + bottomBarSpace();
-        snackView.setLayoutParams(slp);
         updateCollapse();
     }
 
@@ -356,26 +334,17 @@ public final class Scaffold {
         }
     }
 
-    public void showSnack(String msg) {
+    /** Shows {@code msg} as a short system toast, replacing any toast still on screen. */
+    public void showToast(String msg) {
         if (activity.isFinishing() || activity.isDestroyed()) return;
-        if (hideSnack != null) handler.removeCallbacks(hideSnack);
-        snackView.setText(msg);
-        if (snackView.getVisibility() != View.VISIBLE) {
-            snackView.setAlpha(0f);
-            snackView.setTranslationY(UiKit.dpf(activity, 14f));
-            snackView.setVisibility(View.VISIBLE);
-        }
-        snackView.animate().alpha(1f).translationY(0f).setDuration(180L)
-                .setInterpolator(UiKit.STANDARD_EASING).start();
-        hideSnack = () -> snackView.animate().alpha(0f).translationY(UiKit.dpf(activity, 10f))
-                .setDuration(160L).withEndAction(() -> snackView.setVisibility(View.GONE)).start();
-        handler.postDelayed(hideSnack, 2600L);
+        if (toast != null) toast.cancel();
+        toast = Toast.makeText(activity.getApplicationContext(), msg, Toast.LENGTH_SHORT);
+        toast.show();
     }
 
     /** Call from {@code onDestroy}. */
     public void release() {
         progress.stop();
-        handler.removeCallbacksAndMessages(null);
     }
 
     /** Thin 3dp indeterminate progress line. */

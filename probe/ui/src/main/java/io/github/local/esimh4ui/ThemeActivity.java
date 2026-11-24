@@ -252,7 +252,7 @@ public final class ThemeActivity extends ThemedActivity {
                         .setType("image/*");
                 startActivityForResult(intent, REQ_PICK_IMAGE);
             } catch (Throwable e2) {
-                scaffold.showSnack(getString(R.string.theme_bg_pick_failed));
+                scaffold.showToast(getString(R.string.theme_bg_pick_failed));
             }
         }
     }
@@ -274,7 +274,7 @@ public final class ThemeActivity extends ThemedActivity {
                 if (ok) {
                     recreate();
                 } else {
-                    scaffold.showSnack(getString(R.string.theme_bg_pick_failed));
+                    scaffold.showToast(getString(R.string.theme_bg_pick_failed));
                 }
             });
         }, "ThemeBgImport").start();

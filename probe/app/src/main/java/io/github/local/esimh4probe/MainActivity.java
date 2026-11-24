@@ -105,7 +105,7 @@ public final class MainActivity extends ThemedActivity {
         scaffold.addAction(UiKit.createIconButton(
                 this, palette, R.drawable.ic_refresh_24, getString(R.string.action_refresh), () -> {
                     refreshDashboard();
-                    showSnack(getString(R.string.snack_refreshed));
+                    showToast(getString(R.string.snack_refreshed));
                 }));
         scaffold.addAction(UiKit.createIconButton(
                 this, palette, R.drawable.ic_terminal_24, getString(R.string.action_diagnostics),
@@ -240,7 +240,7 @@ public final class MainActivity extends ThemedActivity {
         statusBanner.showLoading(getString(R.string.status_loading));
         statusBanner.setOnClickListener(v -> {
             refreshDashboard();
-            showSnack(getString(R.string.snack_refreshed));
+            showToast(getString(R.string.snack_refreshed));
         });
         return statusBanner;
     }
@@ -341,11 +341,10 @@ public final class MainActivity extends ThemedActivity {
                     try {
                         startActivity(new Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS));
                     } catch (Throwable e) {
-                        showSnack(getString(R.string.snack_mobile_network_failed));
+                        showToast(getString(R.string.snack_mobile_network_failed));
                     }
                 });
         LinearLayout.LayoutParams mnLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        mnLp.rightMargin = UiKit.dp(this, 5);
         secBtnRow.addView(btnMobileNetwork, mnLp);
 
         btnLaunchTester = UiKit.createActionButton(
@@ -356,14 +355,14 @@ public final class MainActivity extends ThemedActivity {
                         if (launch != null) {
                             startActivity(launch);
                         } else {
-                            showSnack(getString(R.string.snack_tester_hidden));
+                            showToast(getString(R.string.snack_tester_hidden));
                         }
                     } catch (Throwable e) {
-                        showSnack(getString(R.string.snack_tester_failed));
+                        showToast(getString(R.string.snack_tester_failed));
                     }
                 });
         LinearLayout.LayoutParams ltLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        ltLp.leftMargin = UiKit.dp(this, 5);
+        ltLp.leftMargin = UiKit.dp(this, 10);
         secBtnRow.addView(btnLaunchTester, ltLp);
         simCard.addView(secBtnRow);
         return simCard;
@@ -483,16 +482,16 @@ public final class MainActivity extends ThemedActivity {
     private void openNativeEsimManager() {
         if (lastReport != null) {
             if (!lastReport.optBoolean("moduleActive", true)) {
-                showSnack(getString(R.string.snack_enable_master_first));
+                showToast(getString(R.string.snack_enable_master_first));
                 return;
             }
             if (!lastReport.optBoolean("lpaPrivMounted", true)) {
-                showSnack(getString(R.string.snack_lpa_not_mounted));
+                showToast(getString(R.string.snack_lpa_not_mounted));
                 return;
             }
             int cardType = lastReport.optInt("cardType", -1);
             if (cardType == 0) {
-                showSnack(getString(R.string.snack_no_esim_card));
+                showToast(getString(R.string.snack_no_esim_card));
                 return;
             }
             int esimSwitch = lastReport.optInt("esimSwitch", 1);
@@ -517,7 +516,7 @@ public final class MainActivity extends ThemedActivity {
                                         refreshDashboard();
                                         launchMiuiEsimProfileList();
                                     } else {
-                                        showSnack(getString(R.string.snack_wake_failed));
+                                        showToast(getString(R.string.snack_wake_failed));
                                     }
                                 });
                             });
@@ -553,7 +552,7 @@ public final class MainActivity extends ThemedActivity {
             boolean ok = res != null && res.getBoolean("ok", false);
             if (!ok) {
                 String err = res != null ? res.getString("error", "") : "";
-                runOnUiThread(() -> showSnack(err.isEmpty()
+                runOnUiThread(() -> showToast(err.isEmpty()
                         ? getString(R.string.snack_open_lpa_failed)
                         : getString(R.string.snack_open_lpa_failed_detail, err)));
             }
@@ -571,7 +570,7 @@ public final class MainActivity extends ThemedActivity {
             runOnUiThread(() -> {
                 setBusy(false);
                 boolean ok = res != null && res.getBoolean("ok", false);
-                showSnack(getString(ok ? R.string.snack_reprobe_ok : R.string.snack_reprobe_failed));
+                showToast(getString(ok ? R.string.snack_reprobe_ok : R.string.snack_reprobe_failed));
                 refreshDashboard();
             });
         });
@@ -582,7 +581,7 @@ public final class MainActivity extends ThemedActivity {
             if (row.toggle.isEnabled()) {
                 row.toggle.performUserToggle();
             } else if (disabledHint != null) {
-                showSnack(disabledHint);
+                showToast(disabledHint);
             }
         });
     }
@@ -615,12 +614,12 @@ public final class MainActivity extends ThemedActivity {
                             showInfoDialog(getString(R.string.dialog_need_reboot_title),
                                     getString(R.string.dialog_need_reboot_message));
                         } else if (output.contains("RESULT=ACTIVE_NOW")) {
-                            showSnack(getString(R.string.snack_master_on));
+                            showToast(getString(R.string.snack_master_on));
                         } else if (output.contains("RESULT=OFF_APPLIED")) {
                             showInfoDialog(getString(R.string.dialog_master_off_title),
                                     getString(R.string.dialog_master_off_message));
                         } else {
-                            showSnack(getString(isChecked ? R.string.snack_master_on_sent : R.string.snack_master_off_sent));
+                            showToast(getString(isChecked ? R.string.snack_master_on_sent : R.string.snack_master_off_sent));
                         }
                         refreshDashboard();
                     });
@@ -641,9 +640,9 @@ public final class MainActivity extends ThemedActivity {
                     rowSystemEsim.toggle.setEnabled(true);
                     if (!ok) {
                         setSwitchSilently(rowSystemEsim.toggle, rowSystemEsim, !isChecked);
-                        showSnack(getString(R.string.snack_esim_toggle_failed));
+                        showToast(getString(R.string.snack_esim_toggle_failed));
                     } else {
-                        showSnack(getString(isChecked ? R.string.snack_esim_on : R.string.snack_esim_off));
+                        showToast(getString(isChecked ? R.string.snack_esim_on : R.string.snack_esim_off));
                         refreshDashboard();
                     }
                 });
@@ -670,7 +669,7 @@ public final class MainActivity extends ThemedActivity {
                         PackageManager.DONT_KILL_APP);
             } catch (Throwable e) {
                 setSwitchSilently(rowLpaUriBridge.toggle, rowLpaUriBridge, !isChecked);
-                showSnack(getString(R.string.snack_component_failed, e.getClass().getSimpleName()));
+                showToast(getString(R.string.snack_component_failed, e.getClass().getSimpleName()));
                 return;
             }
             IO_EXEC.execute(() -> {
@@ -679,7 +678,7 @@ public final class MainActivity extends ThemedActivity {
                 extras.putBoolean("enabled", isChecked);
                 ProbeInspector.callPhoneCtrl(MainActivity.this, "set_pref", extras);
                 runOnUiThread(() -> {
-                    showSnack(getString(isChecked ? R.string.snack_lpa_uri_on : R.string.snack_lpa_uri_off));
+                    showToast(getString(isChecked ? R.string.snack_lpa_uri_on : R.string.snack_lpa_uri_off));
                     refreshDashboard();
                 });
             });
@@ -701,7 +700,7 @@ public final class MainActivity extends ThemedActivity {
                     isChecked,
                     new String[]{"umount_guard", isChecked ? "on" : "off"},
                     output -> {
-                        showSnack(getString(isChecked ? R.string.snack_umount_on : R.string.snack_umount_off));
+                        showToast(getString(isChecked ? R.string.snack_umount_on : R.string.snack_umount_off));
                         refreshDashboard();
                     });
         });
@@ -731,7 +730,7 @@ public final class MainActivity extends ThemedActivity {
                     isChecked,
                     new String[]{"tester", isChecked ? "on" : "off"},
                     output -> {
-                        showSnack(getString(isChecked ? R.string.snack_tester_on : R.string.snack_tester_off));
+                        showToast(getString(isChecked ? R.string.snack_tester_on : R.string.snack_tester_off));
                         refreshDashboard();
                     });
         });
@@ -747,9 +746,9 @@ public final class MainActivity extends ThemedActivity {
             runOnUiThread(() -> {
                 if (!ok) {
                     setSwitchSilently(row.toggle, row, !isChecked);
-                    showSnack(getString(R.string.snack_pref_failed));
+                    showToast(getString(R.string.snack_pref_failed));
                 } else {
-                    showSnack(okMsg);
+                    showToast(okMsg);
                     refreshDashboard();
                 }
             });
@@ -840,7 +839,7 @@ public final class MainActivity extends ThemedActivity {
                     ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                     if (cm != null) {
                         cm.setPrimaryClip(ClipData.newPlainText("EsimH4Diagnostics", reportText));
-                        showSnack(getString(R.string.snack_diag_copied));
+                        showToast(getString(R.string.snack_diag_copied));
                     }
                 },
                 getString(R.string.diag_close));
@@ -863,8 +862,8 @@ public final class MainActivity extends ThemedActivity {
         }
     }
 
-    private void showSnack(String msg) {
-        if (scaffold != null) scaffold.showSnack(msg);
+    private void showToast(String msg) {
+        if (scaffold != null) scaffold.showToast(msg);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -978,7 +977,7 @@ public final class MainActivity extends ThemedActivity {
                             : (hasFeature ? R.string.health_pending : R.string.health_undeclared)), !moduleActive);
 
             UiKit.setButtonEnabled(btnManageEsim, moduleActive && lpaPrivMounted && cardType != 0);
-            btnLaunchTester.setAlpha(testerInstalled ? 1.0f : 0.65f);
+            btnLaunchTester.setVisibility(testerInstalled ? View.VISIBLE : View.GONE);
 
             // 4. Device info
             tvInfoLpa.setText(lpaVer);
