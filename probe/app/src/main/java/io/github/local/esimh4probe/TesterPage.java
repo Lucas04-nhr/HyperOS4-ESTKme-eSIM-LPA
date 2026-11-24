@@ -34,8 +34,10 @@ import java.util.Locale;
  * LPA:// URI bridging and the authorization dialog safely. Codes on {@code test.esim.local} are
  * stopped by the compat module after the user confirms, so nothing is written to the card.
  *
- * <p>The host activity forwards {@link #onResume}, {@link #release} and
- * {@link #onActivityResult} to this page.
+ * <p>The logic and state live here; {@link #build} adds the Material 3 View page, and the Miuix
+ * Compose page ({@code MainScreen.kt}) reads {@link #status()} and {@link #log()} after
+ * {@link Listener#onChanged}. The host activity calls {@link #start} (or {@link #build}) and
+ * forwards {@link #onResume}, {@link #release} and {@link #onActivityResult} to this page.
  */
 final class TesterPage {
     /** Shows or hides the Test tab; kept in the app's own preferences (no root needed). */
@@ -45,7 +47,7 @@ final class TesterPage {
     private static final String TAG = "EsimH4Tester";
     private static final String KEY_CARD_TYPE = "xiaomi_esim_h4_card_type";
     private static final String ACTION_DOWNLOAD_CB = "io.github.local.esimh4probe.ACTION_TESTER_DOWNLOAD_CB";
-    private static final String DEFAULT_MOCK_CODE = "LPA:1$test.esim.local$MOCK-TEST-001";
+    static final String DEFAULT_MOCK_CODE = "LPA:1$test.esim.local$MOCK-TEST-001";
     private static final int REQ_RESOLVE = 1001;
     private static final int REQ_ACTIVATE = 1002;
 
@@ -57,8 +59,35 @@ final class TesterPage {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_SHOW_TESTER, enabled).apply();
     }
 
+    /** Called on the UI thread when {@link #status()} or {@link #log()} changed. */
+    interface Listener {
+        void onChanged();
+    }
+
+    /** The readiness banner. */
+    static final class Status {
+        /** Still checking: only {@link #title} is set. */
+        final boolean checking;
+        final boolean ready;
+        final String title;
+        /** Version line when ready, otherwise the reason it is not ready. */
+        final String text;
+        final List<StatusBanner.Tag> tags;
+
+        Status(boolean checking, boolean ready, String title, String text, List<StatusBanner.Tag> tags) {
+            this.checking = checking;
+            this.ready = ready;
+            this.title = title;
+            this.text = text;
+            this.tags = tags;
+        }
+    }
+
     private final Activity activity;
     private final UiKit.Palette palette;
+    private Listener listener;
+    private Status status;
+    private boolean started;
     private StatusBanner banner;
     private EditText codeInput;
     private TextView logView;
@@ -120,17 +149,53 @@ final class TesterPage {
     TesterPage(Activity activity, UiKit.Palette palette) {
         this.activity = activity;
         this.palette = palette;
+        this.status = new Status(true, false, activity.getString(R.string.tester_state_checking), null,
+                new ArrayList<>());
+    }
+
+    void setListener(Listener l) {
+        this.listener = l;
+    }
+
+    Status status() {
+        return status;
+    }
+
+    String log() {
+        return logBuffer.toString();
+    }
+
+    /** Starts listening for download callbacks and reads the status; safe to call twice. */
+    void start() {
+        if (started) return;
+        started = true;
+        activity.registerReceiver(downloadReceiver, new IntentFilter(ACTION_DOWNLOAD_CB), Context.RECEIVER_EXPORTED);
+        receiverRegistered = true;
+        refreshStatus();
+        appendLog(activity.getString(R.string.log_ready, ProbeInspector.MODULE_VERSION));
+    }
+
+    void clearLog() {
+        logBuffer.setLength(0);
+        logBuffer.append(str(R.string.log_cleared)).append("\n");
+        if (logView != null) logView.setText(logBuffer.toString());
+        notifyChanged();
+    }
+
+    void logCodeReset() {
+        appendLog(activity.getString(R.string.log_reset_code, DEFAULT_MOCK_CODE));
+    }
+
+    private void notifyChanged() {
+        if (listener != null) listener.onChanged();
     }
 
     private String str(int res) {
         return activity.getString(res);
     }
 
-    /** Builds the page content and starts listening for download callbacks. */
+    /** Builds the Material 3 View page and calls {@link #start}. */
     View build() {
-        activity.registerReceiver(downloadReceiver, new IntentFilter(ACTION_DOWNLOAD_CB), Context.RECEIVER_EXPORTED);
-        receiverRegistered = true;
-
         Activity ctx = activity;
         LinearLayout col = new LinearLayout(ctx);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -176,15 +241,19 @@ final class TesterPage {
         addFullWidth(testCard, UiKit.createActionButton(
                 ctx, palette, UiKit.ButtonStyle.TONAL, 0, str(R.string.tester_reset_code), 44, () -> {
                     codeInput.setText(DEFAULT_MOCK_CODE);
-                    appendLog(activity.getString(R.string.log_reset_code, DEFAULT_MOCK_CODE));
+                    logCodeReset();
                 }), 10);
 
         addFullWidth(testCard, UiKit.createActionButton(
                 ctx, palette, UiKit.ButtonStyle.FILLED, R.drawable.ic_science_24,
-                str(R.string.tester_test1), 48, this::startMockDownload), 12);
+                str(R.string.tester_test1), 48, () -> {
+                    String code = codeInput.getText() != null ? codeInput.getText().toString().trim() : "";
+                    if (code.isEmpty()) codeInput.setText(DEFAULT_MOCK_CODE);
+                    startMockDownload(code);
+                }), 12);
         addFullWidth(testCard, UiKit.createActionButton(
-                ctx, palette, UiKit.ButtonStyle.TONAL, 0,
-                str(R.string.tester_test2), 44, this::startLpaUriTest), 10);
+                ctx, palette, UiKit.ButtonStyle.TONAL, 0, str(R.string.tester_test2), 44, () ->
+                        startLpaUriTest(codeInput.getText() != null ? codeInput.getText().toString() : "")), 10);
         addFullWidth(testCard, UiKit.createActionButton(
                 ctx, palette, UiKit.ButtonStyle.OUTLINED, 0,
                 str(R.string.tester_test3), 44, this::startStandardActivationTest), 10);
@@ -209,10 +278,7 @@ final class TesterPage {
         hlp.bottomMargin = 0;
         logHdr.addView(hdr);
         LinearLayout btnClear = UiKit.createActionButton(
-                ctx, palette, UiKit.ButtonStyle.TONAL, 0, str(R.string.tester_clear_log), 34, () -> {
-                    logBuffer.setLength(0);
-                    logView.setText(str(R.string.log_cleared) + "\n");
-                });
+                ctx, palette, UiKit.ButtonStyle.TONAL, 0, str(R.string.tester_clear_log), 34, this::clearLog);
         btnClear.setPadding(UiKit.dp(ctx, 18), btnClear.getPaddingTop(), UiKit.dp(ctx, 18), btnClear.getPaddingBottom());
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -233,8 +299,9 @@ final class TesterPage {
         logCard.addView(logView);
         col.addView(logCard);
 
-        refreshStatus();
-        appendLog(activity.getString(R.string.log_ready, ProbeInspector.MODULE_VERSION));
+        start();
+        showStatus();
+        logView.setText(logBuffer.toString());
         return col;
     }
 
@@ -273,9 +340,27 @@ final class TesterPage {
         return false;
     }
 
-    /** Updates the readiness banner (pull to refresh calls this). */
+    /** Reads the readiness status again (pull to refresh calls this). */
     void refreshStatus() {
+        status = readStatus();
+        showStatus();
+        notifyChanged();
+    }
+
+    private void showStatus() {
         if (banner == null) return;
+        if (status.checking) {
+            banner.showLoading(status.title);
+        } else if (status.ready) {
+            banner.showOk(status.title, status.text, status.tags);
+        } else {
+            banner.showError(status.text, status.title, null, null);
+        }
+    }
+
+    private Status readStatus() {
+        String notReady = str(R.string.tester_state_not_ready);
+        List<StatusBanner.Tag> none = new ArrayList<>();
         try {
             boolean lpaPrivMounted = ProbeInspector.isLpaPrivMounted(activity.getPackageManager());
             EuiccManager em = activity.getSystemService(EuiccManager.class);
@@ -286,25 +371,25 @@ final class TesterPage {
                     ? ProbeInspector.MODULE_VERSION + " · cardId " + defaultCardId
                     : ProbeInspector.MODULE_VERSION;
             if (!lpaPrivMounted) {
-                banner.showError(str(R.string.tester_reason_mount), str(R.string.tester_state_not_ready), null, null);
+                return new Status(false, false, notReady, str(R.string.tester_reason_mount), none);
             } else if (!enabled) {
-                banner.showError(str(R.string.tester_reason_euicc), str(R.string.tester_state_not_ready), null, null);
+                return new Status(false, false, notReady, str(R.string.tester_reason_euicc), none);
             } else if (cardType != 1) {
-                banner.showError(str(R.string.tester_reason_card), str(R.string.tester_state_not_ready), null, null);
-            } else {
-                List<StatusBanner.Tag> tags = new ArrayList<>();
-                tags.add(new StatusBanner.Tag(str(R.string.tag_sim2_esim), true));
-                tags.add(new StatusBanner.Tag("LPA", false));
-                tags.add(new StatusBanner.Tag("eUICC", false));
-                banner.showOk(str(R.string.tester_state_ready), version, tags);
+                return new Status(false, false, notReady, str(R.string.tester_reason_card), none);
             }
+            List<StatusBanner.Tag> tags = new ArrayList<>();
+            tags.add(new StatusBanner.Tag(str(R.string.tag_sim2_esim), true));
+            tags.add(new StatusBanner.Tag("LPA", false));
+            tags.add(new StatusBanner.Tag("eUICC", false));
+            return new Status(false, true, str(R.string.tester_state_ready), version, tags);
         } catch (Throwable t) {
-            banner.showError(activity.getString(R.string.st_error, String.valueOf(t.getMessage())),
-                    str(R.string.tester_state_not_ready), null, null);
+            return new Status(false, false, notReady,
+                    activity.getString(R.string.st_error, String.valueOf(t.getMessage())), none);
         }
     }
 
-    void startMockDownload() {
+    /** Test 1: the carrier install flow; an empty code uses {@link #DEFAULT_MOCK_CODE}. */
+    void startMockDownload(String code) {
         try {
             if (!ProbeInspector.isLpaPrivMounted(activity.getPackageManager())) {
                 appendLog(str(R.string.log_err_mount));
@@ -315,11 +400,8 @@ final class TesterPage {
                 appendLog(str(R.string.log_err_euicc));
                 return;
             }
-            String raw = codeInput.getText() != null ? codeInput.getText().toString().trim() : "";
-            if (raw.isEmpty()) {
-                raw = DEFAULT_MOCK_CODE;
-                codeInput.setText(raw);
-            }
+            String raw = code != null ? code.trim() : "";
+            if (raw.isEmpty()) raw = DEFAULT_MOCK_CODE;
             appendLog("----------------------------------------");
             appendLog(str(R.string.log_start_download));
             appendLog(activity.getString(R.string.log_code, raw));
@@ -337,9 +419,10 @@ final class TesterPage {
         }
     }
 
-    private void startLpaUriTest() {
+    /** Test 2: opens the code as an LPA: link. */
+    void startLpaUriTest(String code) {
         try {
-            String raw = codeInput.getText() != null ? codeInput.getText().toString().trim() : DEFAULT_MOCK_CODE;
+            String raw = code != null ? code.trim() : DEFAULT_MOCK_CODE;
             if (!raw.regionMatches(true, 0, "LPA:", 0, 4)) {
                 raw = "LPA:" + raw;
             }
@@ -352,8 +435,9 @@ final class TesterPage {
         }
     }
 
+    /** Test 3: the standard activation page. */
     @SuppressWarnings("deprecation")
-    private void startStandardActivationTest() {
+    void startStandardActivationTest() {
         try {
             appendLog("----------------------------------------");
             appendLog(str(R.string.log_start_activation));
@@ -371,5 +455,6 @@ final class TesterPage {
             logView.setText(logBuffer.toString());
         }
         Log.i(TAG, msg);
+        notifyChanged();
     }
 }

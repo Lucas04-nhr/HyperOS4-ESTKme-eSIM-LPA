@@ -17,6 +17,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -37,15 +38,18 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -56,7 +60,8 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /**
  * Shows the open source licenses page in the Miuix style, laid out like the Miuix example app's
- * third party licenses page: a glass top bar and one card per library ("1.13.0, Apache-2.0").
+ * third party licenses page: one card per library ("1.13.0, Apache-2.0"), under the same top bar
+ * as the theme page.
  * Tapping a library opens its web page; tapping this project shows its license text on the same
  * page, and back returns to the list.
  * [LicensesActivity] calls this; the Material 3 style uses its View page.
@@ -81,6 +86,7 @@ private fun LicensesPage(activity: LicensesActivity) {
     var showProject by rememberSaveable { mutableStateOf(false) }
     // Kept here, so returning from the license text shows the list where it was
     val listState = rememberLazyListState()
+    val textState = rememberLazyListState()
     val loaded = data
     val entry = if (showProject) loaded?.project else null
     BackHandler(enabled = entry != null) { showProject = false }
@@ -97,9 +103,10 @@ private fun LicensesPage(activity: LicensesActivity) {
     PageScaffold(
         title = entry?.title ?: stringResource(R.string.licenses_title),
         onBack = { if (entry != null) showProject = false else activity.finish() },
+        listState = if (entry != null) textState else listState,
     ) { padding, scrollModifier ->
         if (entry != null) {
-            LazyColumn(modifier = scrollModifier, contentPadding = padding) {
+            LazyColumn(state = textState, modifier = scrollModifier, contentPadding = padding) {
                 item(key = "license") {
                     LicenseCard {
                         Text(
@@ -154,36 +161,61 @@ private fun LicensesPage(activity: LicensesActivity) {
     }
 }
 
-/** Miuix scaffold with a glass top bar: a small centered title and a glass back button. */
+/**
+ * Miuix scaffold with the same top bar as the theme page: a large title that collapses into a
+ * small centered one on scroll. With the glass bar setting it is a glass bar (transparent at rest;
+ * once the page scrolls, the back button gets its glass pill and the band fades in, with a
+ * progressive blur if enabled); otherwise the plain Miuix bar.
+ */
 @Composable
 private fun PageScaffold(
     title: String,
     onBack: () -> Unit,
+    listState: LazyListState,
     content: @Composable (PaddingValues, Modifier) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     val scrollBehavior = MiuixScrollBehavior()
     // What the glass bar samples: the page behind it
     val backdrop = rememberLayerBackdrop()
+    val back = stringResource(io.github.local.esimh4ui.R.string.ui_back)
     Scaffold(
         containerColor = colors.surface,
         topBar = {
-            GlassTopAppBar(
-                title = title,
-                expandable = false,
-                backdrop = backdrop,
-                scrollBehavior = scrollBehavior,
-                navigationIcon = {
-                    GlassIconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = MiuixIcons.Glass.ChevronBackward,
-                            contentDescription = stringResource(io.github.local.esimh4ui.R.string.ui_back),
-                            modifier = Modifier.size(28.dp),
-                            tint = colors.onSurface,
-                        )
-                    }
-                },
-            )
+            if (ThemeConfig.barGlass) {
+                GlassTopAppBar(
+                    title = title,
+                    backdrop = backdrop,
+                    isContentScrolled = listState.canScrollBackward,
+                    scrollBehavior = scrollBehavior,
+                    progressiveBlur = ThemeConfig.progressiveBlur,
+                    navigationIcon = {
+                        GlassIconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = MiuixIcons.Glass.ChevronBackward,
+                                contentDescription = back,
+                                modifier = Modifier.size(28.dp),
+                                tint = colors.onSurface,
+                            )
+                        }
+                    },
+                )
+            } else {
+                TopAppBar(
+                    title = title,
+                    color = colors.surface,
+                    scrollBehavior = scrollBehavior,
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = MiuixIcons.Back,
+                                contentDescription = back,
+                                tint = colors.onBackground,
+                            )
+                        }
+                    },
+                )
+            }
         },
     ) { innerPadding ->
         Box(
