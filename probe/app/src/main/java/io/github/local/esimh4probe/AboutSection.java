@@ -55,15 +55,10 @@ final class AboutSection {
 
         UiKit.NavRow stableRow = new UiKit.NavRow(
                 activity, palette, R.drawable.ic_link_24, activity.getString(R.string.update_stable),
-                activity.getString(R.string.update_stable_summary), 24f, 6f, 2,
-                () -> UpdateChecker.check(activity, false));
+                activity.getString(R.string.update_stable_summary), 24f, 24f, 0,
+                () -> UpdateChecker.check(activity));
         ((LinearLayout.LayoutParams) stableRow.card.getLayoutParams()).topMargin = UiKit.dp(activity, 10);
         col.addView(stableRow.card);
-        UiKit.NavRow nightlyRow = new UiKit.NavRow(
-                activity, palette, R.drawable.ic_link_24, activity.getString(R.string.update_nightly),
-                activity.getString(R.string.update_nightly_summary), 6f, 24f, 0,
-                () -> UpdateChecker.check(activity, true));
-        col.addView(nightlyRow.card);
 
         LinearLayout repoGroup = new LinearLayout(activity);
         repoGroup.setOrientation(LinearLayout.VERTICAL);

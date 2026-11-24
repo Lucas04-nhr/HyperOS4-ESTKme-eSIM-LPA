@@ -96,7 +96,7 @@ fun setAboutContent(activity: AboutActivity, isDark: Boolean) {
         val controller = remember {
             ThemeController(if (ThemeConfig.dynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System)
         }
-        MiuixTheme(controller = controller) {
+        io.github.local.esimh4ui.AppMiuixTheme(controller = controller) {
             AboutPage(activity, isDark)
         }
     }
@@ -232,12 +232,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                                 ArrowPreference(
                                     title = stringResource(R.string.update_stable),
                                     summary = stringResource(R.string.update_stable_summary),
-                                    onClick = { UpdateChecker.check(activity, false) },
-                                )
-                                ArrowPreference(
-                                    title = stringResource(R.string.update_nightly),
-                                    summary = stringResource(R.string.update_nightly_summary),
-                                    onClick = { UpdateChecker.check(activity, true) },
+                                    onClick = { UpdateChecker.check(activity) },
                                 )
                             }
                             SmallTitle(text = stringResource(R.string.section_authors))
@@ -292,6 +287,12 @@ private fun TextureSetSheet(show: Boolean, settings: TextureSettings, onDismiss:
                     stringResource(R.string.texture_set_summary),
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                top.yukonga.miuix.kmp.preference.DropdownPreference(
+                    title = stringResource(io.github.local.esimh4ui.R.string.theme_miuix_version),
+                    items = listOf("OS2", "OS3", "OS4"),
+                    selectedIndex = settings.version - 2,
+                    onSelectedIndexChange = { settings.version = it + 2 },
                 )
                 SwitchPreference(
                     title = stringResource(R.string.texture_background),

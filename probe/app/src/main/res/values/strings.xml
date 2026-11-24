@@ -259,9 +259,7 @@
     <string name="texture_saturation">Saturation</string>
     <string name="texture_reset">Restore defaults</string>
     <string name="update_stable">Check stable updates</string>
-    <string name="update_stable_summary">LSPosed module repository · Download available updates</string>
-    <string name="update_nightly">Check Nightly updates</string>
-    <string name="update_nightly_summary">Latest available module across all branches · Download via nightly.link</string>
+    <string name="update_stable_summary">Official releases · Fork first, then upstream · Download available updates</string>
     <string name="update_checking">Checking for updates…</string>
     <string name="update_current">No newer update is available</string>
     <string name="update_download_started">Added to system downloads: %1$s</string>

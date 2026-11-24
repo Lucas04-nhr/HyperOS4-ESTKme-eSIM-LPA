@@ -259,9 +259,7 @@
     <string name="texture_saturation">饱和度</string>
     <string name="texture_reset">恢复默认值</string>
     <string name="update_stable">检查稳定版更新</string>
-    <string name="update_stable_summary">LSPosed 模块仓库 · 有更新时直接下载</string>
-    <string name="update_nightly">检查 Nightly 更新</string>
-    <string name="update_nightly_summary">所有分支中最新可用的模块 · 通过 nightly.link 下载</string>
+    <string name="update_stable_summary">正式 Release · 优先检查 fork，再检查原始仓库 · 有更新时直接下载</string>
     <string name="update_checking">正在检查更新…</string>
     <string name="update_current">暂无更新的版本</string>
     <string name="update_download_started">已加入系统下载：%1$s</string>

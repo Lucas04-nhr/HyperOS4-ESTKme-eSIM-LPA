@@ -12,23 +12,27 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Shared update policy for both About layouts. No installation or privileged operations. */
+/** Shared release update policy for both About layouts. */
 public final class UpdateChecker {
     private static final String API = "https://api.github.com/repos/";
-    private static final String NIGHTLY_REPO = "Lucas04-nhr/HyperOS4-ESTKme-eSIM-LPA";
-    private static final String STABLE_REPO = "Xposed-Modules-Repo/io.github.jabe1122.esimh4probe";
+    private static final String[] REPOSITORIES = {
+            "Lucas04-nhr/HyperOS4-ESTKme-eSIM-LPA",
+            "jabe1122/HyperOS4-ESTKme-eSIM-LPA"
+    };
+    private static final Pattern VERSION = Pattern.compile("^[vV]?(\\d+(?:\\.\\d+)*)(?:\\+[A-Za-z0-9.-]+)?$");
     private static final AtomicBoolean BUSY = new AtomicBoolean();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     private UpdateChecker() {}
 
-    public static void check(Context context, boolean nightly) {
+    public static void check(Context context) {
         Context app = context.getApplicationContext();
         if (!BUSY.compareAndSet(false, true)) {
             toast(app, app.getString(R.string.update_checking));
@@ -37,8 +41,7 @@ public final class UpdateChecker {
         toast(app, app.getString(R.string.update_checking));
         new Thread(() -> {
             try {
-                AboutInfo installed = AboutInfo.load(app);
-                Download update = nightly ? nightly(app, installed) : stable(installed);
+                Download update = stable(AboutInfo.load(app));
                 if (update == null) {
                     toast(app, app.getString(R.string.update_current));
                 } else {
@@ -62,12 +65,46 @@ public final class UpdateChecker {
     }
 
     private static Download stable(AboutInfo installed) throws Exception {
-        JSONObject release = get(API + STABLE_REPO + "/releases/latest");
-        // LSPosed repository tags use versionCode-versionName.
-        Matcher tag = Pattern.compile("^(\\d+)-(.+)$").matcher(release.getString("tag_name"));
-        if (!tag.matches()) throw new IOException("Unrecognized LSPosed release version");
-        if (Long.parseLong(tag.group(1)) <= installed.versionCode) return null;
-        JSONArray assets = release.getJSONArray("assets");
+        Exception failure = null;
+        for (String repository : REPOSITORIES) {
+            try {
+                JSONObject release = get(API + repository + "/releases/latest");
+                if (release == null || release.optBoolean("draft") || release.optBoolean("prerelease")) continue;
+                if (!isNewer(release.getString("tag_name"), installed)) continue;
+                Download update = asset(release.getJSONArray("assets"));
+                if (update != null) return update;
+                throw new IOException("No compatible release asset in " + repository);
+            } catch (Exception e) {
+                // Try upstream when the fork is unavailable, but do not report an
+                // incomplete check as up to date if neither source yields an update.
+                if (failure == null) failure = e;
+            }
+        }
+        if (failure != null) throw failure;
+        return null;
+    }
+
+    private static boolean isNewer(String tag, AboutInfo installed) throws IOException {
+        Matcher coded = Pattern.compile("^(\\d+)-[vV]?\\d+(?:\\.\\d+)*$").matcher(tag);
+        if (coded.matches()) return new BigInteger(coded.group(1))
+                .compareTo(BigInteger.valueOf(installed.versionCode)) > 0;
+        Matcher candidate = VERSION.matcher(tag);
+        Matcher current = VERSION.matcher(installed.versionName);
+        if (!candidate.matches() || !current.matches()) {
+            throw new IOException("Unrecognized release version: " + tag);
+        }
+        String[] next = candidate.group(1).split("\\.");
+        String[] previous = current.group(1).split("\\.");
+        for (int i = 0; i < Math.max(next.length, previous.length); i++) {
+            BigInteger a = i < next.length ? new BigInteger(next[i]) : BigInteger.ZERO;
+            BigInteger b = i < previous.length ? new BigInteger(previous[i]) : BigInteger.ZERO;
+            int comparison = a.compareTo(b);
+            if (comparison != 0) return comparison > 0;
+        }
+        return false;
+    }
+
+    private static Download asset(JSONArray assets) throws Exception {
         Download apk = null;
         for (int i = 0; i < assets.length(); i++) {
             JSONObject asset = assets.getJSONObject(i);
@@ -77,54 +114,11 @@ public final class UpdateChecker {
                 return new Download(name, url);
             }
             if (name.endsWith(".apk") && !name.contains("armeabi-v7a")
-                    && (apk == null || name.contains("universal"))) apk = new Download(name, url);
-        }
-        if (apk != null) return apk;
-        throw new IOException("No compatible release asset");
-    }
-
-    private static Download nightly(Context context, AboutInfo installed) throws Exception {
-        long installedRun = 0;
-        try (InputStream in = context.getAssets().open("about/about.json")) {
-            JSONObject build = new JSONObject(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-            if (NIGHTLY_REPO.equals(build.optString("repository"))) {
-                installedRun = build.optLong("runId", 0);
+                    && !name.contains("x86") && (apk == null || name.contains("universal"))) {
+                apk = new Download(name, url);
             }
-        } catch (IOException ignored) {
-            // Local builds have no workflow identity; offer the newest available artifact.
         }
-        // No branch, event or conclusion filter: even a run with a later failed step can
-        // have a valid uploaded module. Skip expired artifacts and runs without a module.
-        for (int page = 1; page <= 5; page++) {
-            JSONArray runs = get(API + NIGHTLY_REPO
-                    + "/actions/workflows/nightly.yml/runs?per_page=100&page=" + page)
-                    .getJSONArray("workflow_runs");
-            for (int i = 0; i < runs.length(); i++) {
-                JSONObject run = runs.getJSONObject(i);
-                long id = run.getLong("id");
-                if (installedRun > 0 && id <= installedRun) return null;
-                JSONArray artifacts = get(API + NIGHTLY_REPO + "/actions/runs/" + id
-                        + "/artifacts?per_page=100").getJSONArray("artifacts");
-                JSONObject newest = null;
-                for (int j = 0; j < artifacts.length(); j++) {
-                    JSONObject artifact = artifacts.getJSONObject(j);
-                    String name = artifact.getString("name");
-                    if (!artifact.optBoolean("expired", true)
-                            && name.startsWith("XiaomiEsimLPA-HyperOS4-") && name.contains("-nightly")
-                            && (newest == null || artifact.getString("created_at")
-                            .compareTo(newest.getString("created_at")) > 0)) newest = artifact;
-                }
-                if (newest != null) {
-                    if (installedRun == 0 && run.optString("head_sha").equals(installed.commit)) return null;
-                    String name = newest.getString("name");
-                    if (!name.endsWith(".zip")) name += ".zip";
-                    return new Download(name, "https://nightly.link/" + NIGHTLY_REPO
-                            + "/actions/artifacts/" + newest.getLong("id") + ".zip");
-                }
-            }
-            if (runs.length() < 100) throw new IOException("No available nightly module artifact");
-        }
-        throw new IOException("No nightly module found in the latest 500 runs");
+        return apk;
     }
 
     private static JSONObject get(String url) throws Exception {
@@ -136,6 +130,8 @@ public final class UpdateChecker {
         connection.setRequestProperty("User-Agent", "eSIM-Probe-UpdateChecker");
         try {
             int status = connection.getResponseCode();
+            // GitHub returns 404 when a repository has no published stable release.
+            if (status == 404) return null;
             if (status != 200) throw new IOException("GitHub HTTP " + status
                     + ((status == 403 || status == 429) ? " (rate limit or access denied)" : ""));
             try (InputStream in = connection.getInputStream()) {
