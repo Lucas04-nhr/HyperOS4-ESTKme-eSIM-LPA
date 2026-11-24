@@ -7,7 +7,7 @@
         <package android:name="com.android.phone"/>
         <package android:name="com.miui.euicc"/>
         <provider android:authorities="service-state;com.miui.euicc.provider"/>
-        <!-- Test tab: checks which apps handle standard activation and LPA: links -->
+        <!-- Device status page: checks which apps handle standard activation and LPA: links -->
         <intent><action android:name="android.telephony.euicc.action.START_EUICC_ACTIVATION"/></intent>
         <intent>
             <action android:name="android.intent.action.VIEW"/>
@@ -44,6 +44,9 @@
         </activity>
         <activity
             android:name="io.github.local.esimh4probe.AboutActivity"
+            android:exported="false"/>
+        <activity
+            android:name="io.github.local.esimh4probe.DeviceStatusActivity"
             android:exported="false"/>
         <activity
             android:name="io.github.local.esimh4probe.LpaBridgeActivity"

@@ -62,8 +62,9 @@
     <string name="info_build">Build</string>
     <string name="info_module">Module</string>
     <string name="info_lpa">Xiaomi LPA</string>
-    <string name="info_card_id">eSIM card ID</string>
     <string name="row_master">eSIM bridge</string>
+    <string name="row_device_status">Device &amp; eUICC status</string>
+    <string name="row_device_status_summary">Device info, LPA mount and eUICC service</string>
     <string name="row_master_on">On</string>
     <string name="row_master_off">Off</string>
     <string name="row_system_esim">System eSIM</string>
@@ -170,7 +171,6 @@
     <string name="snack_open_link_failed">No app can open this link</string>
 
     <!-- Test tab: mock carrier install -->
-    <string name="tester_refresh">Refresh status</string>
     <string name="tester_state_checking">Checking…</string>
     <string name="tester_state_ready">Ready to test</string>
     <string name="tester_state_not_ready">Not ready</string>

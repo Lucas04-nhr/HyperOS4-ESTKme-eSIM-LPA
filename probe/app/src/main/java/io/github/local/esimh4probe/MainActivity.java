@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -26,6 +25,7 @@ import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import io.github.local.esimh4ui.BottomBar;
 import io.github.local.esimh4ui.LanguageSetting;
+import io.github.local.esimh4ui.RefreshScrollView;
 import io.github.local.esimh4ui.Scaffold;
 import io.github.local.esimh4ui.StatusBanner;
 import io.github.local.esimh4ui.ThemedActivity;
@@ -62,6 +62,8 @@ public final class MainActivity extends ThemedActivity {
 
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean refreshing = new AtomicBoolean(false);
+    /** Callbacks waiting for the current dashboard refresh; touched on the UI thread only. */
+    private final List<Runnable> refreshDone = new ArrayList<>();
     private boolean bindingUi = false;
     private JSONObject lastReport = null;
 
@@ -97,10 +99,6 @@ public final class MainActivity extends ThemedActivity {
     private TextView tvBadgeEuicc;
     private LinearLayout btnManageEsim;
 
-    // Home: device info card
-    private TextView tvInfoLpa;
-    private TextView tvInfoCardId;
-
     // Settings
     private UiKit.SwitchRow rowMaster;
     private UiKit.ToggleSwitch switchMasterMode;
@@ -126,14 +124,21 @@ public final class MainActivity extends ThemedActivity {
         currentTab = Math.max(TAB_HOME, tabOf(savedPage));
 
         scaffold = new Scaffold(this, palette, getString(R.string.app_name), null, false);
-        scaffold.addPage(buildHomePage(), io.github.local.esimh4ui.R.id.ui_page_1, getString(R.string.app_name));
+        RefreshScrollView homeScroll = scaffold.addPage(
+                buildHomePage(), io.github.local.esimh4ui.R.id.ui_page_1, getString(R.string.app_name));
+        homeScroll.setOnRefreshListener(() -> refreshDashboard(() -> {
+            homeScroll.setRefreshing(false);
+            showToast(getString(R.string.snack_refreshed));
+        }));
         if (showTester) {
             testerPage = new TesterPage(this, palette);
-            scaffold.addPage(testerPage.build(), io.github.local.esimh4ui.R.id.ui_page_3, getString(R.string.tester_title));
-            // Refresh for the Test tab; shown only while that tab is selected.
-            scaffold.addAction(UiKit.createIconButton(
-                    this, palette, R.drawable.ic_refresh_24, getString(R.string.tester_refresh),
-                    testerPage::refreshStatus));
+            RefreshScrollView testerScroll = scaffold.addPage(
+                    testerPage.build(), io.github.local.esimh4ui.R.id.ui_page_3, getString(R.string.tester_title));
+            testerScroll.setOnRefreshListener(() -> {
+                testerPage.refreshStatus();
+                // The status is read at once; keep the ring visible briefly so the pull registers.
+                testerScroll.postDelayed(() -> testerScroll.setRefreshing(false), 400);
+            });
         }
         scaffold.addPage(buildSettingsPage(), io.github.local.esimh4ui.R.id.ui_page_2, getString(R.string.tab_settings));
 
@@ -212,7 +217,6 @@ public final class MainActivity extends ThemedActivity {
         int page = pageIds[tab];
         scaffold.setTitle(getString(page == PAGE_HOME ? R.string.app_name
                 : page == PAGE_TESTER ? R.string.tester_title : R.string.tab_settings));
-        scaffold.setActionsVisible(page == PAGE_TESTER);
         backToHome.setEnabled(tab != TAB_HOME);
     }
 
@@ -260,9 +264,6 @@ public final class MainActivity extends ThemedActivity {
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_health)));
         col.addView(buildSimCard());
 
-        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_device)));
-        col.addView(buildInfoCard());
-
         // Utility buttons
         LinearLayout footerRow = new LinearLayout(this);
         footerRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -296,10 +297,6 @@ public final class MainActivity extends ThemedActivity {
         lp.topMargin = UiKit.dp(this, 4);
         statusBanner.setLayoutParams(lp);
         statusBanner.showLoading(getString(R.string.status_loading));
-        statusBanner.setOnClickListener(v -> {
-            refreshDashboard();
-            showToast(getString(R.string.snack_refreshed));
-        });
         return statusBanner;
     }
 
@@ -408,19 +405,6 @@ public final class MainActivity extends ThemedActivity {
         return simCard;
     }
 
-    private View buildInfoCard() {
-        LinearLayout card = UiKit.createCard(this, palette);
-        UiKit.addInfoLine(this, palette, card, getString(R.string.info_device),
-                Build.MANUFACTURER + " " + Build.MODEL);
-        UiKit.addInfoLine(this, palette, card, getString(R.string.info_android),
-                getString(R.string.info_android_value, Build.VERSION.RELEASE, Build.VERSION.SDK_INT), true);
-        UiKit.addInfoLine(this, palette, card, getString(R.string.info_build), Build.DISPLAY, true);
-        UiKit.addInfoLine(this, palette, card, getString(R.string.info_module), ProbeInspector.MODULE_VERSION, true);
-        tvInfoLpa = UiKit.addInfoLine(this, palette, card, getString(R.string.info_lpa), "…", true);
-        tvInfoCardId = UiKit.addInfoLine(this, palette, card, getString(R.string.info_card_id), "…", true);
-        return card;
-    }
-
     private TextView addHealthTile(LinearLayout parentRow, String label, boolean isLeft) {
         LinearLayout tile = new LinearLayout(this);
         tile.setOrientation(LinearLayout.VERTICAL);
@@ -468,9 +452,14 @@ public final class MainActivity extends ThemedActivity {
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_bridge)));
         rowMaster = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_power_24,
-                getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 24f, 0);
+                getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 6f, 2);
         switchMasterMode = rowMaster.toggle;
         col.addView(rowMaster.card);
+        UiKit.NavRow rowDeviceStatus = new UiKit.NavRow(
+                this, palette, R.drawable.ic_sim_card_24, getString(R.string.row_device_status),
+                getString(R.string.row_device_status_summary),
+                6f, 24f, 0, () -> startActivity(new Intent(this, DeviceStatusActivity.class)));
+        col.addView(rowDeviceStatus.card);
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_core)));
         rowSystemEsim = new UiKit.SwitchRow(this, palette, R.drawable.ic_sync_alt_24,
@@ -919,6 +908,12 @@ public final class MainActivity extends ThemedActivity {
     // ---------------------------------------------------------------------------------------------
 
     private void refreshDashboard() {
+        refreshDashboard(null);
+    }
+
+    /** {@code onDone} runs on the UI thread once the running (or a new) refresh has finished. */
+    private void refreshDashboard(Runnable onDone) {
+        if (onDone != null) refreshDone.add(onDone);
         if (!refreshing.compareAndSet(false, true)) {
             return;
         }
@@ -941,6 +936,9 @@ public final class MainActivity extends ThemedActivity {
                     if (!isFinishing() && !isDestroyed()) {
                         setBusy(false);
                     }
+                    List<Runnable> done = new ArrayList<>(refreshDone);
+                    refreshDone.clear();
+                    for (Runnable r : done) r.run();
                 });
             }
         });
@@ -960,7 +958,6 @@ public final class MainActivity extends ThemedActivity {
             int cardType = r.optInt("cardType", -1);
             int esimSwitch = r.optInt("esimSwitch", -1);
             int sim2State = r.optInt("sim2SimState", TelephonyManager.SIM_STATE_UNKNOWN);
-            int defaultCardId = r.optInt("defaultCardId", -1);
             boolean hasActiveSub = r.optBoolean("sim2HasActiveSub", false);
             String carrierName = r.optString("sim2CarrierName", "");
             String lpaVer = r.has("lpaVersion") ? r.optString("lpaVersion") : getString(R.string.lpa_not_installed);
@@ -1025,11 +1022,7 @@ public final class MainActivity extends ThemedActivity {
 
             UiKit.setButtonEnabled(btnManageEsim, moduleActive && lpaPrivMounted && cardType != 0);
 
-            // 4. Device info
-            tvInfoLpa.setText(lpaVer);
-            tvInfoCardId.setText(defaultCardId >= 0 ? String.valueOf(defaultCardId) : "—");
-
-            // 5. Core switches
+            // 4. Core switches
             boolean canToggleEsim = moduleActive && lpaPrivMounted && phoneHook && cardType == 1;
             String subEsim;
             if (!moduleActive) {
@@ -1051,7 +1044,7 @@ public final class MainActivity extends ThemedActivity {
             rowRewriteText.setRowState(rewriteText, canUpdatePhonePrefs,
                     getString(rewriteText ? R.string.rewrite_sub_on : R.string.rewrite_sub_off));
 
-            // 6. Root / component switches
+            // 5. Root / component switches
             String subUmount;
             if (lpaUpdatedSys) {
                 subUmount = getString(R.string.umount_sub_active);

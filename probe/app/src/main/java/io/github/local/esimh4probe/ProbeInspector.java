@@ -48,6 +48,30 @@ public final class ProbeInspector {
 
     private ProbeInspector() {}
 
+    /** True when the Xiaomi LPA runs as a system app with the eUICC privileges (overlay mounted). */
+    static boolean isLpaPrivMounted(PackageManager pm) {
+        try {
+            ApplicationInfo appInfo = pm.getApplicationInfo(LPA_PKG, 0);
+            if (appInfo == null || (appInfo.flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
+                return false;
+            }
+            return pm.checkPermission(PERM_BIND_EUICC, LPA_PKG) == PackageManager.PERMISSION_GRANTED
+                    && pm.checkPermission(PERM_SE_PRIVILEGED, LPA_PKG) == PackageManager.PERMISSION_GRANTED;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /** Card ID of the default eUICC (hidden TelephonyManager API), or -1 when unavailable. */
+    static int defaultEuiccCardId(TelephonyManager tm) {
+        if (tm == null) return -1;
+        try {
+            return (int) TelephonyManager.class.getMethod("getCardIdForDefaultEuicc").invoke(tm);
+        } catch (Throwable ignored) {
+            return -1;
+        }
+    }
+
     static String getProp(String key, String def) {
         if (SYS_PROP_GET == null) return def;
         try {

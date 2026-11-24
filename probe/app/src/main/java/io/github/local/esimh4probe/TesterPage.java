@@ -6,8 +6,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.provider.Settings;
@@ -46,23 +44,10 @@ final class TesterPage {
 
     private static final String TAG = "EsimH4Tester";
     private static final String KEY_CARD_TYPE = "xiaomi_esim_h4_card_type";
-    private static final String KEY_ENABLE_ESIM = "is_enable_esim_for_user";
-    private static final String PERM_BIND_EUICC = "android.permission.BIND_EUICC_SERVICE";
-    private static final String PERM_SE_PRIVILEGED = "android.permission.SECURE_ELEMENT_PRIVILEGED_OPERATION";
     private static final String ACTION_DOWNLOAD_CB = "io.github.local.esimh4probe.ACTION_TESTER_DOWNLOAD_CB";
     private static final String DEFAULT_MOCK_CODE = "LPA:1$test.esim.local$MOCK-TEST-001";
     private static final int REQ_RESOLVE = 1001;
     private static final int REQ_ACTIVATE = 1002;
-    private static final java.lang.reflect.Method GET_DEFAULT_CARD_ID;
-
-    static {
-        java.lang.reflect.Method m = null;
-        try {
-            m = TelephonyManager.class.getMethod("getCardIdForDefaultEuicc");
-        } catch (Throwable ignored) {
-        }
-        GET_DEFAULT_CARD_ID = m;
-    }
 
     static boolean isEnabled(Context ctx) {
         return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_SHOW_TESTER, true);
@@ -75,13 +60,6 @@ final class TesterPage {
     private final Activity activity;
     private final UiKit.Palette palette;
     private StatusBanner banner;
-    private TextView stMount;
-    private TextView stFeature;
-    private TextView stEnabled;
-    private TextView stCardId;
-    private TextView stCard;
-    private TextView stLpaScheme;
-    private TextView stActivation;
     private EditText codeInput;
     private TextView logView;
     private final StringBuilder logBuffer = new StringBuilder();
@@ -165,22 +143,9 @@ final class TesterPage {
         blp.topMargin = UiKit.dp(ctx, 4);
         banner.setLayoutParams(blp);
         banner.showLoading(str(R.string.tester_state_checking));
-        banner.setOnClickListener(v -> refreshStatus());
         col.addView(banner);
 
-        // Card 1: live eUICC status, laid out like the home tab's device card
-        col.addView(UiKit.createSectionHeader(ctx, palette, str(R.string.tester_status_title)));
-        LinearLayout statusCard = UiKit.createCard(ctx, palette);
-        stMount = UiKit.addInfoLine(ctx, palette, statusCard, str(R.string.st_mount), "…");
-        stFeature = UiKit.addInfoLine(ctx, palette, statusCard, str(R.string.st_feature), "…");
-        stEnabled = UiKit.addInfoLine(ctx, palette, statusCard, str(R.string.st_enabled), "…");
-        stCardId = UiKit.addInfoLine(ctx, palette, statusCard, str(R.string.st_card_id), "…", true);
-        stCard = UiKit.addInfoLine(ctx, palette, statusCard, str(R.string.st_card), "…");
-        stLpaScheme = UiKit.addInfoLine(ctx, palette, statusCard, str(R.string.st_lpa_scheme), "…");
-        stActivation = UiKit.addInfoLine(ctx, palette, statusCard, str(R.string.st_activation), "…");
-        col.addView(statusCard);
-
-        // Card 2: mock carrier actions
+        // Card 1: mock carrier actions
         col.addView(UiKit.createSectionHeader(ctx, palette, str(R.string.tester_mock_title)));
         LinearLayout testCard = UiKit.createCard(ctx, palette);
 
@@ -225,7 +190,7 @@ final class TesterPage {
                 str(R.string.tester_test3), 44, this::startStandardActivationTest), 10);
         col.addView(testCard);
 
-        // Card 3: callback console
+        // Card 2: callback console
         // Header row: section title on the left, Clear button on the right, with room
         // above and below so the button does not touch the log card.
         LinearLayout logHdr = new LinearLayout(ctx);
@@ -308,79 +273,24 @@ final class TesterPage {
         return false;
     }
 
-    private boolean isLpaPrivMounted(PackageManager pm) {
-        try {
-            ApplicationInfo appInfo = pm.getApplicationInfo(ProbeInspector.LPA_PKG, 0);
-            if (appInfo == null || (appInfo.flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
-                return false;
-            }
-            return pm.checkPermission(PERM_BIND_EUICC, ProbeInspector.LPA_PKG) == PackageManager.PERMISSION_GRANTED
-                    && pm.checkPermission(PERM_SE_PRIVILEGED, ProbeInspector.LPA_PKG) == PackageManager.PERMISSION_GRANTED;
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    private String describeCardStatus(boolean lpaPrivMounted, TelephonyManager tm) {
-        int cardType = Settings.Secure.getInt(activity.getContentResolver(), KEY_CARD_TYPE, -1);
-        int esimSwitch = Settings.Secure.getInt(activity.getContentResolver(), KEY_ENABLE_ESIM, -1);
-        int sim2State = TelephonyManager.SIM_STATE_UNKNOWN;
-        if (tm != null) {
-            try {
-                sim2State = tm.getSimState(1);
-            } catch (Throwable ignored) {
-            }
-        }
-        if (cardType == 1) {
-            if (sim2State == TelephonyManager.SIM_STATE_READY || sim2State == 10) {
-                return str(R.string.card_esim_active);
-            }
-            return str(esimSwitch == 0 ? R.string.card_esim_switch_off : R.string.card_esim_empty);
-        }
-        if (cardType == 0) {
-            return str(sim2State == TelephonyManager.SIM_STATE_ABSENT ? R.string.card_absent : R.string.card_regular);
-        }
-        return str(lpaPrivMounted ? R.string.card_detecting : R.string.card_wait_mount);
-    }
-
-    /** Sets a status value; green when fine, red when not. */
-    private void setStatus(TextView tv, String text, boolean ok) {
-        tv.setText(text);
-        tv.setTextColor(ok ? (UiKit.isMiuix() ? palette.success : palette.onSurface) : palette.error);
-    }
-
+    /** Updates the readiness banner (pull to refresh calls this). */
     void refreshStatus() {
         if (banner == null) return;
         try {
-            PackageManager pm = activity.getPackageManager();
-            boolean lpaPrivMounted = isLpaPrivMounted(pm);
-            boolean hasFeature = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY_EUICC);
+            boolean lpaPrivMounted = ProbeInspector.isLpaPrivMounted(activity.getPackageManager());
             EuiccManager em = activity.getSystemService(EuiccManager.class);
             boolean enabled = em != null && em.isEnabled();
-            TelephonyManager tm = activity.getSystemService(TelephonyManager.class);
-            int defaultCardId = -2;
-            try {
-                if (tm != null && GET_DEFAULT_CARD_ID != null) {
-                    defaultCardId = (int) GET_DEFAULT_CARD_ID.invoke(tm);
-                }
-            } catch (Throwable ignored) {
-            }
-            boolean lpaSchemeOk = pm.resolveActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(DEFAULT_MOCK_CODE)), 0) != null;
-            boolean startActOk = pm.resolveActivity(new Intent(EuiccManager.ACTION_START_EUICC_ACTIVATION), 0) != null;
-            String cardStatus = describeCardStatus(lpaPrivMounted, tm);
+            int defaultCardId = ProbeInspector.defaultEuiccCardId(activity.getSystemService(TelephonyManager.class));
             int cardType = Settings.Secure.getInt(activity.getContentResolver(), KEY_CARD_TYPE, -1);
             String version = defaultCardId >= 0
                     ? ProbeInspector.MODULE_VERSION + " · cardId " + defaultCardId
                     : ProbeInspector.MODULE_VERSION;
             if (!lpaPrivMounted) {
-                banner.showError(str(R.string.tester_reason_mount), str(R.string.tester_state_not_ready),
-                        str(R.string.tester_refresh), this::refreshStatus);
+                banner.showError(str(R.string.tester_reason_mount), str(R.string.tester_state_not_ready), null, null);
             } else if (!enabled) {
-                banner.showError(str(R.string.tester_reason_euicc), str(R.string.tester_state_not_ready),
-                        str(R.string.tester_refresh), this::refreshStatus);
+                banner.showError(str(R.string.tester_reason_euicc), str(R.string.tester_state_not_ready), null, null);
             } else if (cardType != 1) {
-                banner.showError(str(R.string.tester_reason_card), str(R.string.tester_state_not_ready),
-                        str(R.string.tester_refresh), this::refreshStatus);
+                banner.showError(str(R.string.tester_reason_card), str(R.string.tester_state_not_ready), null, null);
             } else {
                 List<StatusBanner.Tag> tags = new ArrayList<>();
                 tags.add(new StatusBanner.Tag(str(R.string.tag_sim2_esim), true));
@@ -388,22 +298,15 @@ final class TesterPage {
                 tags.add(new StatusBanner.Tag("eUICC", false));
                 banner.showOk(str(R.string.tester_state_ready), version, tags);
             }
-
-            setStatus(stMount, str(lpaPrivMounted ? R.string.st_mount_ok : R.string.st_mount_bad), lpaPrivMounted);
-            setStatus(stFeature, str(hasFeature ? R.string.st_feature_yes : R.string.st_feature_no), hasFeature);
-            setStatus(stEnabled, str(enabled ? R.string.st_enabled_yes : R.string.st_enabled_no), enabled);
-            setStatus(stCardId, defaultCardId >= 0 ? String.valueOf(defaultCardId) : "—", defaultCardId >= 0);
-            setStatus(stCard, cardStatus, cardType == 1);
-            setStatus(stLpaScheme, str(lpaSchemeOk ? R.string.st_lpa_scheme_on : R.string.st_lpa_scheme_off), lpaSchemeOk);
-            setStatus(stActivation, str(startActOk ? R.string.st_activation_ok : R.string.st_activation_bad), startActOk);
         } catch (Throwable t) {
-            setStatus(stMount, activity.getString(R.string.st_error, String.valueOf(t.getMessage())), false);
+            banner.showError(activity.getString(R.string.st_error, String.valueOf(t.getMessage())),
+                    str(R.string.tester_state_not_ready), null, null);
         }
     }
 
     void startMockDownload() {
         try {
-            if (!isLpaPrivMounted(activity.getPackageManager())) {
+            if (!ProbeInspector.isLpaPrivMounted(activity.getPackageManager())) {
                 appendLog(str(R.string.log_err_mount));
                 return;
             }

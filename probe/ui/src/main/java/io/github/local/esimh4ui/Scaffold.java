@@ -214,8 +214,9 @@ public final class Scaffold {
     /**
      * Adds a scrolling page. A stable {@code scrollId} lets Android restore the scroll position.
      * In Miuix, {@code largeTitle} is shown at the top of the page and collapses into the bar.
+     * Pull-to-refresh is off until a listener is set on the returned page.
      */
-    public ScrollView addPage(View content, int scrollId, String largeTitle) {
+    public RefreshScrollView addPage(View content, int scrollId, String largeTitle) {
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         TextView big = null;
@@ -234,8 +235,9 @@ public final class Scaffold {
         column.addView(content, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        ScrollView scroll = new ScrollView(activity);
+        RefreshScrollView scroll = new RefreshScrollView(activity);
         scroll.setId(scrollId);
+        scroll.setIndicatorColor(palette.primary);
         scroll.setFillViewport(false);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setClipToPadding(false);

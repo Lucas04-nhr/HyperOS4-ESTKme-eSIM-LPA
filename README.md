@@ -148,6 +148,7 @@ work/esim-adapt/
 │   │       ├── M3Ui.java               # 原生 Material Design 3 动态取色与自定义胶囊开关组件库
 │   │       ├── MainActivity.java       # Material 3 控制中心面板
 │   │       ├── TesterPage.java         # 「测试」标签页：模拟运营商写卡验证
+│   │       ├── DeviceStatusActivity.java # 「设备与 eUICC 状态」二级页面
 │   │       ├── LpaBridgeActivity.java  # LPA:// 链接与扫码激活 Intent 桥接
 │   │       ├── Sim2Subscription.java   # 卡2订阅解析与空白卡兼容
 │   │       └── Sim2Control.java        # Root CLI 状态探测与同步工具
@@ -169,7 +170,7 @@ work/esim-adapt/
 ## 模拟测试框架与非破坏性验证
 
 主应用底部导航栏提供 **「测试」** 标签页（eSIM 模拟写卡测试，可在设置中随时显示或隐藏）：
-- 实时展示 **LPA 特权挂载**、`EUICC` 特性声明、`EuiccManager.isEnabled()`、`defaultCardId` 与 `LPA://` 接管状态；
+- 顶部横幅显示是否满足测试条件（LPA 特权挂载、`EuiccManager.isEnabled()`、卡槽 2 实体 eSIM），下拉即可刷新；详细的 **LPA 特权挂载**、`EUICC` 特性声明、`defaultCardId` 与 `LPA://` 接管状态见「设置 → 设备与 eUICC 状态」；
 - 默认使用安全模拟码 `LPA:1$test.esim.local$MOCK-TEST-001` 验证小米原生授权弹窗 `DownloadConfirmDialogActivity`、深色控制台回调与 `LPA://` 跳转，底层自动拦截测试码，**零写卡风险**。
 
 ---

@@ -62,8 +62,9 @@
     <string name="info_build">系统版本</string>
     <string name="info_module">模块版本</string>
     <string name="info_lpa">小米 LPA</string>
-    <string name="info_card_id">eSIM 卡槽 ID</string>
     <string name="row_master">eSIM 桥接</string>
+    <string name="row_device_status">设备与 eUICC 状态</string>
+    <string name="row_device_status_summary">设备信息、LPA 挂载与 eUICC 服务</string>
     <string name="row_master_on">已开启</string>
     <string name="row_master_off">已关闭</string>
     <string name="row_system_esim">系统 eSIM</string>
@@ -170,7 +171,6 @@
     <string name="snack_open_link_failed">没有可以打开此链接的应用</string>
 
     <!-- Test tab: mock carrier install -->
-    <string name="tester_refresh">刷新状态</string>
     <string name="tester_state_checking">正在检测…</string>
     <string name="tester_state_ready">可以测试</string>
     <string name="tester_state_not_ready">无法测试</string>
