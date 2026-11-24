@@ -32,7 +32,7 @@ fun setDeviceStatusContent(activity: DeviceStatusActivity) {
         val controller = remember {
             ThemeController(if (ThemeConfig.dynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System)
         }
-        MiuixTheme(controller = controller) {
+        io.github.local.esimh4ui.AppMiuixTheme(controller = controller) {
             var sections by remember { mutableStateOf(DeviceStatusActivity.read(activity)) }
             var refreshing by remember { mutableStateOf(false) }
             // onResume reads the values again (back from another app or the settings).

@@ -71,7 +71,7 @@ fun setLicensesContent(activity: LicensesActivity) {
         val controller = remember {
             ThemeController(if (ThemeConfig.dynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System)
         }
-        MiuixTheme(controller = controller) {
+        io.github.local.esimh4ui.AppMiuixTheme(controller = controller) {
             LicensesPage(activity)
         }
     }
@@ -182,7 +182,7 @@ private fun PageScaffold(
     Scaffold(
         containerColor = colors.surface,
         topBar = {
-            if (ThemeConfig.barGlass) {
+            if (ThemeConfig.useGlass()) {
                 GlassTopAppBar(
                     title = title,
                     backdrop = backdrop,

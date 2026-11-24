@@ -84,7 +84,7 @@ fun setThemeContent(activity: ThemeActivity, showLanguage: Boolean) {
         val controller = remember(dynamicColor) {
             ThemeController(if (dynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System)
         }
-        MiuixTheme(controller = controller) {
+        AppMiuixTheme(controller = controller) {
             ThemePage(
                 activity = activity,
                 showLanguage = showLanguage,
@@ -159,7 +159,7 @@ private fun ThemePage(
     Scaffold(
         containerColor = colors.surface,
         topBar = {
-            if (barGlass) {
+            if (barGlass && ThemeConfig.miuixVersion >= 3) {
                 // Glass bar: transparent at rest; once the page scrolls, the back button gets its
                 // glass pill and the band behind the bar fades in (a progressive blur if enabled).
                 GlassTopAppBar(
@@ -289,6 +289,47 @@ private fun ThemePage(
                                 ThemeConfig.setNightMode(activity, it)
                             },
                         )
+                        GlassDropdownPreference(
+                            title = stringResource(R.string.theme_miuix_version),
+                            items = listOf("OS2", "OS3", "OS4"),
+                            selectedIndex = ThemeConfig.miuixVersion - 2,
+                            backdrop = backdrop,
+                            onSelectedIndexChange = {
+                                ThemeConfig.setMiuixVersion(activity, it + 2)
+                                activity.recreate()
+                            },
+                        )
+                        SwitchPreference(
+                            title = stringResource(R.string.theme_amoled),
+                            summary = stringResource(R.string.theme_amoled_summary),
+                            checked = ThemeConfig.amoledBackground,
+                            onCheckedChange = {
+                                ThemeConfig.setAmoledBackground(activity, it)
+                                activity.recreate()
+                            },
+                        )
+                        GlassDropdownPreference(
+                            title = stringResource(R.string.theme_predictive_back),
+                            items = listOf(stringResource(R.string.theme_back_system), stringResource(R.string.theme_back_scale), stringResource(R.string.theme_back_slide)),
+                            selectedIndex = ThemeConfig.predictiveBack,
+                            backdrop = backdrop,
+                            onSelectedIndexChange = {
+                                ThemeConfig.setPredictiveBack(activity, it)
+                                activity.recreate()
+                            },
+                        )
+                        if (ThemeConfig.predictiveBack != 0) {
+                            GlassDropdownPreference(
+                                title = stringResource(R.string.theme_back_direction),
+                                items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
+                                selectedIndex = ThemeConfig.backExitDirection,
+                                backdrop = backdrop,
+                                onSelectedIndexChange = {
+                                    ThemeConfig.setBackExitDirection(activity, it)
+                                    activity.recreate()
+                                },
+                            )
+                        }
                         SwitchPreference(
                             title = stringResource(R.string.theme_dynamic_color),
                             summary = stringResource(R.string.theme_dynamic_color_summary_miuix),

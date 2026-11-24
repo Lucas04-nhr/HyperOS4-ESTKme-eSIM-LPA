@@ -47,4 +47,15 @@
     <string name="ptr_release">松开刷新</string>
     <string name="ptr_refreshing">正在刷新…</string>
     <string name="ptr_done">刷新成功</string>
+    <string name="theme_miuix_version">Miuix UI 版本</string>
+    <string name="theme_amoled">AMOLED 纯黑背景</string>
+    <string name="theme_amoled_summary">深色模式下使用纯黑页面背景</string>
+    <string name="theme_predictive_back">预测性返回动画</string>
+    <string name="theme_back_system">系统默认</string>
+    <string name="theme_back_scale">缩放</string>
+    <string name="theme_back_slide">滑动</string>
+    <string name="theme_back_direction">退出方向</string>
+    <string name="theme_back_follow">跟随手势</string>
+    <string name="theme_back_right">始终向右</string>
+    <string name="theme_back_left">始终向左</string>
 </resources>

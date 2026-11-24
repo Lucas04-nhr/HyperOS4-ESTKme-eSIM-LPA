@@ -47,4 +47,15 @@
     <string name="ptr_release">Release to refresh</string>
     <string name="ptr_refreshing">Refreshing…</string>
     <string name="ptr_done">Refreshed</string>
+    <string name="theme_miuix_version">Miuix UI Version</string>
+    <string name="theme_amoled">AMOLED Background</string>
+    <string name="theme_amoled_summary">Use a pure black page background in dark mode</string>
+    <string name="theme_predictive_back">Predictive back animation</string>
+    <string name="theme_back_system">System</string>
+    <string name="theme_back_scale">Scale</string>
+    <string name="theme_back_slide">Slide</string>
+    <string name="theme_back_direction">Exit direction</string>
+    <string name="theme_back_follow">Follow gesture</string>
+    <string name="theme_back_right">Always right</string>
+    <string name="theme_back_left">Always left</string>
 </resources>

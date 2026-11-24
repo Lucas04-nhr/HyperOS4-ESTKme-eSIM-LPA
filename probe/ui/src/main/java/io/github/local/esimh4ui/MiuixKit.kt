@@ -114,7 +114,7 @@ fun MiuixPage(
         // The top bar pads for the status bar itself; the caller passes the bottom space.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            if (ThemeConfig.barGlass) {
+            if (ThemeConfig.useGlass()) {
                 GlassTopAppBar(
                     title = title,
                     backdrop = backdrop,
@@ -446,7 +446,7 @@ class BarItem(val label: String, @DrawableRes val icon: Int)
 fun MiuixBottomBar(items: List<BarItem>, selected: Int, onSelect: (Int) -> Unit, backdrop: LayerBackdrop) {
     val colors = MiuixTheme.colorScheme
     when {
-        ThemeConfig.barFloating && ThemeConfig.liquidGlass -> {
+        ThemeConfig.barFloating && ThemeConfig.useLiquidGlass() -> {
             GlassNavigationBar(
                 items = items.map { GlassNavigationItem(icon = ImageVector.vectorResource(it.icon), label = it.label) },
                 selectedIndex = selected,
@@ -471,7 +471,7 @@ fun MiuixBottomBar(items: List<BarItem>, selected: Int, onSelect: (Int) -> Unit,
         }
         else -> {
             NavigationBar(
-                color = if (ThemeConfig.barGlass) colors.surface.copy(alpha = 0.87f) else colors.surface,
+                color = if (ThemeConfig.useGlass()) colors.surface.copy(alpha = 0.87f) else colors.surface,
             ) {
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(

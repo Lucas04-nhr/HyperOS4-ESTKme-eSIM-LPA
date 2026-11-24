@@ -65,6 +65,8 @@ private val PHONE_DARK = BgEffectPreset(
 
 /** Session-only controls for the About page's hidden texture panel. */
 internal class TextureSettings {
+    // Independent from the application's bar style. OS4 is a softer local effect preset.
+    var version by androidx.compose.runtime.mutableIntStateOf(3)
     var enabled by androidx.compose.runtime.mutableStateOf(true)
     var animated by androidx.compose.runtime.mutableStateOf(true)
     var fullScreen by androidx.compose.runtime.mutableStateOf(false)
@@ -73,6 +75,7 @@ internal class TextureSettings {
     var saturation by mutableFloatStateOf(1f)
 
     fun reset() {
+        version = 3
         enabled = true
         animated = true
         fullScreen = false
@@ -139,7 +142,8 @@ private class BgEffectPainter(preset: BgEffectPreset) {
     }
 
     fun applySettings(settings: TextureSettings) {
-        shader.setFloatUniform("uTextureNoise", settings.noise)
+        shader.setFloatUniform("uTextureNoise", settings.noise * if (settings.version == 4) 0.35f else 1f)
+        shader.setFloatUniform("uPointRadiusMulti", if (settings.version == 4) 1.25f else 1f)
         shader.setFloatUniform("uTextureBrightness", settings.brightness)
         shader.setFloatUniform("uTextureSaturation", settings.saturation)
     }
@@ -165,7 +169,16 @@ internal fun BgEffectBackground(
     settings: TextureSettings = remember { TextureSettings() },
     content: @Composable BoxScope.(iconBrush: (Size) -> Brush) -> Unit,
 ) {
-    val preset = if (isDark) PHONE_DARK else PHONE_LIGHT
+    val preset = remember(isDark, settings.version) {
+        val base = if (isDark) PHONE_DARK else PHONE_LIGHT
+        when (settings.version) {
+            2 -> BgEffectPreset(base.points, base.colors1, base.colors1, base.colors1,
+                base.colorInterpPeriod, base.lightOffset, base.saturateOffset, 0.15f)
+            4 -> BgEffectPreset(base.points, base.colors1, base.colors2, base.colors3,
+                base.colorInterpPeriod * 1.5f, base.lightOffset, base.saturateOffset * 0.75f, 0.12f)
+            else -> base
+        }
+    }
     val painter = remember(preset) { BgEffectPainter(preset) }
     val iconPainter = remember(preset) { BgEffectPainter(preset) }
     val colorStage = remember { Animatable(0f) }

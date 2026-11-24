@@ -97,7 +97,7 @@ fun setMainContent(activity: MainActivity, state: MainUiState) {
         val controller = remember {
             ThemeController(if (ThemeConfig.dynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System)
         }
-        MiuixTheme(controller = controller) {
+        io.github.local.esimh4ui.AppMiuixTheme(controller = controller) {
             MainContent(activity, state)
         }
     }
