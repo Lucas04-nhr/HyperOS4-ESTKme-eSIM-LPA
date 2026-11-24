@@ -2,7 +2,5 @@
 <!-- Light launcher icon colors from the system dynamic palette. -->
 <resources>
     <color name="ic_launcher_background">@android:color/system_accent2_100</color>
-    <color name="ic_launcher_card">@android:color/system_accent2_600</color>
-    <color name="ic_launcher_pad">@android:color/system_accent3_100</color>
-    <color name="ic_launcher_check">@android:color/system_accent3_700</color>
+    <color name="ic_launcher_foreground">@android:color/system_accent2_600</color>
 </resources>

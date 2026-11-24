@@ -4,15 +4,13 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Every color comes from the system palette and has a dark variant (values-night). -->
+    <!-- The themed (monochrome) shape in the system accent color; values-night has the dark variant. -->
     <path
-        android:fillColor="@color/ic_launcher_card"
-        android:pathData="M34,26 L58,26 L72,40 L72,76 C72,79.3 69.3,82 66,82 L34,82 C30.7,82 28,79.3 28,76 L28,32 C28,28.7 30.7,26 34,26 Z"/>
+        android:fillColor="@color/ic_launcher_foreground"
+        android:fillType="evenOdd"
+        android:pathData="M34,26 L58,26 L72,40 L72,76 C72,79.3 69.3,82 66,82 L34,82 C30.7,82 28,79.3 28,76 L28,32 C28,28.7 30.7,26 34,26 Z M40,47 C37.2,47 35,49.2 35,52 L35,69 C35,71.8 37.2,74 40,74 L60,74 C62.8,74 65,71.8 65,69 L65,52 C65,49.2 62.8,47 60,47 Z"/>
     <path
-        android:fillColor="@color/ic_launcher_pad"
-        android:pathData="M40,47 L60,47 C62.8,47 65,49.2 65,52 L65,69 C65,71.8 62.8,74 60,74 L40,74 C37.2,74 35,71.8 35,69 L35,52 C35,49.2 37.2,47 40,47 Z"/>
-    <path
-        android:strokeColor="@color/ic_launcher_check"
+        android:strokeColor="@color/ic_launcher_foreground"
         android:strokeWidth="3.6"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
