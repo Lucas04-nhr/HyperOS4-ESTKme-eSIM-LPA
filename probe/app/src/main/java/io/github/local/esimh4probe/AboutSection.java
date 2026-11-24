@@ -28,9 +28,13 @@ final class AboutSection {
         cardLp.topMargin = UiKit.dp(activity, 8);
         TextView versionView = UiKit.addInfoLine(activity, palette, card, activity.getString(R.string.about_version), "…", true);
         TextView commitView = UiKit.addInfoLine(activity, palette, card, activity.getString(R.string.about_commit), "—", true);
-        UiKit.addInfoLine(activity, palette, card, activity.getString(R.string.about_license),
-                activity.getString(R.string.about_license_value));
         col.addView(card, cardLp);
+
+        UiKit.NavRow licensesRow = new UiKit.NavRow(
+                activity, palette, R.drawable.ic_code_24, activity.getString(R.string.licenses_title), null,
+                24f, 24f, 0, () -> activity.startActivity(new Intent(activity, LicensesActivity.class)));
+        ((LinearLayout.LayoutParams) licensesRow.card.getLayoutParams()).topMargin = UiKit.dp(activity, 10);
+        col.addView(licensesRow.card);
 
         LinearLayout repoGroup = new LinearLayout(activity);
         repoGroup.setOrientation(LinearLayout.VERTICAL);

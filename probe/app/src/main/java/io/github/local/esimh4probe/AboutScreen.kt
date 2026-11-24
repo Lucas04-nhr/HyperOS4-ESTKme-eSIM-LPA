@@ -72,7 +72,7 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 /**
  * Shows the About page in the Miuix style, laid out like the About page of the Miuix example app:
  * the HyperOS background effect behind the app icon, name and version, then cards for the
- * repository, the license and build, and the authors. Scrolling fades the header and the effect
+ * repository, the licenses and build, and the authors. Scrolling fades the header and the effect
  * out and the bar title in. [AboutActivity] calls this; the Material 3 style uses [AboutSection].
  */
 fun setAboutContent(activity: AboutActivity, isDark: Boolean) {
@@ -190,9 +190,8 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                 item(key = "build") {
                     AboutCard {
                         ArrowPreference(
-                            title = stringResource(R.string.about_license),
-                            endActions = { EndText(stringResource(R.string.about_license_value)) },
-                            onClick = { open(data.licenseUrl()) },
+                            title = stringResource(R.string.licenses_title),
+                            onClick = { activity.startActivity(Intent(activity, LicensesActivity::class.java)) },
                         )
                         val commit = data.shortCommit()
                         if (commit != null) {

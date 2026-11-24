@@ -161,8 +161,12 @@
     <string name="section_authors">作者</string>
     <string name="about_version">版本</string>
     <string name="about_commit">提交</string>
-    <string name="about_license">授權條款</string>
     <string name="about_license_value">Apache License 2.0</string>
+    <string name="licenses_title">開放原始碼授權</string>
+    <string name="licenses_section_project">本專案</string>
+    <string name="licenses_section_libraries">相依函式庫</string>
+    <string name="licenses_open_web">開啟網頁</string>
+    <string name="licenses_no_text">此版本未包含 %1$s 的全文。</string>
     <string name="about_repo">軟體儲存庫</string>
     <string name="about_repo_fork">分叉</string>
     <string name="about_repo_original">原始儲存庫</string>

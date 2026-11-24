@@ -161,8 +161,12 @@
     <string name="section_authors">Authors</string>
     <string name="about_version">Version</string>
     <string name="about_commit">Commit</string>
-    <string name="about_license">License</string>
     <string name="about_license_value">Apache License 2.0</string>
+    <string name="licenses_title">Open source licenses</string>
+    <string name="licenses_section_project">This project</string>
+    <string name="licenses_section_libraries">Libraries</string>
+    <string name="licenses_open_web">Open web page</string>
+    <string name="licenses_no_text">This build does not include the full text of %1$s.</string>
     <string name="about_repo">Repository</string>
     <string name="about_repo_fork">Fork</string>
     <string name="about_repo_original">Original</string>

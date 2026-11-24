@@ -46,6 +46,9 @@
             android:name="io.github.local.esimh4probe.AboutActivity"
             android:exported="false"/>
         <activity
+            android:name="io.github.local.esimh4probe.LicensesActivity"
+            android:exported="false"/>
+        <activity
             android:name="io.github.local.esimh4probe.DeviceStatusActivity"
             android:exported="false"/>
         <activity

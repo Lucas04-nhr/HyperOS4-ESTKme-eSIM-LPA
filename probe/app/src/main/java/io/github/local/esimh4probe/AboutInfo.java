@@ -61,10 +61,6 @@ public final class AboutInfo {
         return repoUrl + "/commit/" + commit;
     }
 
-    public String licenseUrl() {
-        return repoUrl + "/blob/HEAD/LICENSE";
-    }
-
     /** "2026" or "2026–2027" */
     public String years() {
         return year > FIRST_YEAR ? FIRST_YEAR + "–" + year : String.valueOf(FIRST_YEAR);

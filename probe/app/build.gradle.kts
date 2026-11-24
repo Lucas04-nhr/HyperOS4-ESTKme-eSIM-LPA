@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     // The About page (AboutScreen.kt) is written in Compose
     alias(libs.plugins.compose.compiler)
+    // Open source licenses page: writes res/raw/aboutlibraries.json during the build
+    alias(libs.plugins.aboutlibraries.android)
 }
 
 // Signing comes from the SIGNING_* environment variables (CI) or from signing.* in
@@ -84,4 +86,5 @@ android {
 dependencies {
     implementation(project(":ui"))
     compileOnly(libs.libxposed.api)
+    implementation(libs.aboutlibraries.core)
 }
