@@ -513,7 +513,13 @@ public final class MainActivity extends ThemedActivity {
                 : io.github.local.esimh4ui.R.string.theme_style_material3));
         col.addView(rowTheme.card);
 
-        AboutSection.build(this, palette, IO_EXEC, col, this::showToast);
+        UiKit.NavRow rowAbout = new UiKit.NavRow(
+                this, palette, R.drawable.ic_info_24, getString(R.string.section_about), null,
+                24f, 24f, 0, () -> startActivity(new Intent(this, AboutActivity.class)));
+        rowAbout.setValue(AboutInfo.versionName(this));
+        LinearLayout.LayoutParams aboutLp = (LinearLayout.LayoutParams) rowAbout.card.getLayoutParams();
+        aboutLp.topMargin = UiKit.dp(this, 16);
+        col.addView(rowAbout.card);
         return col;
     }
 

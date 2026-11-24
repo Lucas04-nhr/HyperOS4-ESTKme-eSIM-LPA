@@ -20,16 +20,14 @@ trap 'rm -f "$people"' EXIT
 
 repo="$(gh api "repos/$GITHUB_REPOSITORY")"
 logins=("${fixed[@]}")
-counts="{}"
-while IFS=$'\t' read -r login count; do
-  counts="$(jq --arg l "${login,,}" --argjson c "$count" '. + {($l): $c}' <<< "$counts")"
+while read -r login; do
   skip=false
   for f in "${fixed[@]}"; do
     [ "${login,,}" = "${f,,}" ] && skip=true
   done
   $skip || logins+=("$login")
 done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/contributors?per_page=100" \
-  --jq '.[] | select(.type != "Bot") | [.login, .contributions] | @tsv')
+  --jq '.[] | select(.type != "Bot") | .login')
 
 for login in "${logins[@]}"; do
   if ! user="$(gh api "users/$login")"; then
@@ -44,8 +42,8 @@ for login in "${logins[@]}"; do
     rm -f "$out/$avatar"
     avatar=""
   fi
-  jq -c --arg avatar "$avatar" --argjson c "$(jq --arg l "${login,,}" '.[$l] // 0' <<< "$counts")" \
-    '{login, name: (.name // .login), url: .html_url, contributions: $c, avatar: $avatar}' \
+  jq -c --arg avatar "$avatar" \
+    '{login, name: (.name // .login), url: .html_url, avatar: $avatar}' \
     <<< "$user" >> "$people"
 done
 

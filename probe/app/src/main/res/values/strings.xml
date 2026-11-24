@@ -166,10 +166,6 @@
     <string name="about_repo_fork">Fork</string>
     <string name="about_repo_original">Original</string>
     <string name="about_upstream">Original repository</string>
-    <plurals name="about_commits">
-        <item quantity="one">%d commit</item>
-        <item quantity="other">%d commits</item>
-    </plurals>
     <string name="about_copyright">Copyright © %1$s jabe1122, Lucas04-nhr and contributors</string>
     <string name="snack_open_link_failed">No app can open this link</string>
 

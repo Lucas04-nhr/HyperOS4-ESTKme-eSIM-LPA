@@ -1,6 +1,10 @@
 import java.util.Properties
 
-plugins { alias(libs.plugins.android.application) }
+plugins {
+    alias(libs.plugins.android.application)
+    // The About page (AboutScreen.kt) is written in Compose
+    alias(libs.plugins.compose.compiler)
+}
 
 // Signing comes from the SIGNING_* environment variables (CI) or from signing.* in
 // probe/local.properties. Without either, the build falls back to the debug key.
@@ -63,6 +67,9 @@ android {
     // No x86 support: keeps x86 / x86_64 native libraries out of the universal APK too
     packaging {
         jniLibs.excludes += listOf("lib/x86/**", "lib/x86_64/**")
+    }
+    buildFeatures {
+        compose = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -166,9 +166,6 @@
     <string name="about_repo_fork">复刻</string>
     <string name="about_repo_original">原始仓库</string>
     <string name="about_upstream">原始仓库</string>
-    <plurals name="about_commits">
-        <item quantity="other">%d 次提交</item>
-    </plurals>
     <string name="about_copyright">Copyright © %1$s jabe1122、Lucas04-nhr 及贡献者</string>
     <string name="snack_open_link_failed">没有可以打开此链接的应用</string>
 

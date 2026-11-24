@@ -166,9 +166,6 @@
     <string name="about_repo_fork">分叉</string>
     <string name="about_repo_original">原始儲存庫</string>
     <string name="about_upstream">原始儲存庫</string>
-    <plurals name="about_commits">
-        <item quantity="other">%d 次提交</item>
-    </plurals>
     <string name="about_copyright">Copyright © %1$s jabe1122、Lucas04-nhr 及貢獻者</string>
     <string name="snack_open_link_failed">沒有可開啟此連結的應用程式</string>
 

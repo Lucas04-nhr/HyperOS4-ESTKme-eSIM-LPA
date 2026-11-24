@@ -43,6 +43,9 @@
             </intent-filter>
         </activity>
         <activity
+            android:name="io.github.local.esimh4probe.AboutActivity"
+            android:exported="false"/>
+        <activity
             android:name="io.github.local.esimh4probe.LpaBridgeActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
