@@ -12,13 +12,13 @@ import java.util.Locale;
  */
 public final class LanguageSetting {
     public static final int FOLLOW_SYSTEM = 0;
-    private static final String[] TAGS = {"", "en", "zh-Hans", "zh-Hant"};
+    private static final String[] TAGS = {"", "en", "zh-Hans", "zh-Hant", "ja"};
 
     private LanguageSetting() {}
 
     /** Option labels; languages are written in their own script so users can always find theirs. */
     public static String[] labels(Context ctx) {
-        return new String[]{ctx.getString(R.string.lang_system), "English", "简体中文", "繁體中文"};
+        return new String[]{ctx.getString(R.string.lang_system), "English", "简体中文", "繁體中文", "日本語"};
     }
 
     public static int current(Context ctx) {
@@ -28,6 +28,7 @@ public final class LanguageSetting {
         if (list == null || list.isEmpty()) return FOLLOW_SYSTEM;
         Locale l = list.get(0);
         if ("en".equals(l.getLanguage())) return 1;
+        if ("ja".equals(l.getLanguage())) return 4;
         if ("zh".equals(l.getLanguage())) {
             String script = l.getScript();
             String region = l.getCountry();
