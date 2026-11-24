@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Brush
@@ -148,7 +147,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
         modifier = Modifier.fillMaxSize(),
         alpha = { 1f - progress },
         settings = texture,
-    ) { iconBrush ->
+    ) { _ ->
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -187,7 +186,6 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                         isDark = isDark,
                         progress = { progress },
                         onClick = { activity.onHeaderTap() },
-                        iconBrush = iconBrush,
                     )
                 }
                 val data = info ?: return@LazyColumn
@@ -342,7 +340,7 @@ private fun TextureSetSheet(show: Boolean, settings: TextureSettings, onDismiss:
 
 /** App icon, name (with a gradient, like the Miuix example) and version; fades out on scroll. */
 @Composable
-private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, onClick: () -> Unit, iconBrush: (Size) -> Brush) {
+private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, onClick: () -> Unit) {
     val nameBrush = remember(isDark) {
         Brush.linearGradient(
             if (isDark) {
@@ -368,13 +366,13 @@ private fun Header(versionText: String, isDark: Boolean, progress: () -> Float, 
             imageVector = ImageVector.vectorResource(R.drawable.ic_launcher_monochrome),
             contentDescription = null,
             tint = MiuixTheme.colorScheme.onSurface,
-            modifier = Modifier.size(144.dp)
+            modifier = Modifier.size(160.dp)
                 .clickable(interactionSource = null, indication = null, onClick = onClick)
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
                     drawContent()
-                    // Share the background's palette, clock and controls, masked to the glyph.
-                    drawRect(iconBrush(size), blendMode = BlendMode.SrcIn)
+                    // Use the name's contrast-aware gradient, masked to the glyph.
+                    drawRect(nameBrush, blendMode = BlendMode.SrcIn)
                 },
         )
         BasicText(

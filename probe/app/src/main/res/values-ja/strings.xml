@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">eSIM Probe</string>
+    <string name="app_name">Hyper eSIM</string>
     <string name="xposed_description">Xiaomi HyperOS 4 で、SIM2 の取り外し可能な eSIM カード（ESTKme、Xiaobai、9eSIM、Xesim）をシステムの LPA に接続します。v0.6.1</string>
     <string name="tab_home">ホーム</string>
     <string name="tab_settings">設定</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">HYPEROS4实体ESIM桥接</string>
+    <string name="app_name">Hyper eSIM</string>
     <string name="xposed_description">在小米 HyperOS 4 上将卡槽 2 的可插拔 eSIM 卡（ESTKme、小白卡、9eSIM、Xesim）桥接到系统 LPA。v0.6.1</string>
     <string name="tab_home">首页</string>
     <string name="tab_settings">设置</string>

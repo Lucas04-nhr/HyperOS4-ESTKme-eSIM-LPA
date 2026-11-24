@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">eSIM Probe</string>
+    <string name="app_name">Hyper eSIM</string>
     <string name="xposed_description">Bridges removable eSIM cards (ESTKme, Xiaobai, 9eSIM, Xesim) in SIM2 to the system LPA on Xiaomi HyperOS 4. v0.6.1</string>
     <string name="tab_home">Home</string>
     <string name="tab_settings">Settings</string>
