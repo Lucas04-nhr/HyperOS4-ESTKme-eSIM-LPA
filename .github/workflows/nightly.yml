@@ -18,6 +18,10 @@ name: Nightly Build
 # - SERVERCHAN_SENDKEY (optional): a ServerChan3 send key (sctp...)
 
 on:
+  push:
+    branches:
+      - main
+      - feat/*
   schedule:
     - cron: "0 3 * * *" # 每天 3:00（哥本哈根时间）构建一次
       timezone: "Europe/Copenhagen"
