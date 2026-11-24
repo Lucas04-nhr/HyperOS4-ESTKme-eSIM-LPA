@@ -324,6 +324,7 @@ fun MiuixStatusCard(
     val bg = if (mode == StatusMode.OK) okBg else miuixCardColor()
     val haptic = LocalHapticFeedback.current
     MiuixCard(
+        modifier = Modifier.padding(top = 8.dp),
         insideMargin = PaddingValues(0.dp),
         color = bg,
         pressFeedbackType = PressFeedbackType.Tilt,

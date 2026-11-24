@@ -70,8 +70,10 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -83,7 +85,7 @@ import io.github.local.esimh4ui.R as UiR
  * The main screen in the Miuix style, written with the Miuix Compose components: home, the
  * optional Test tab and settings in a pager, with the Miuix bottom bar and, on each page, a
  * large-title top bar and Miuix's pull to refresh. [MainActivity] calls this and keeps the logic;
- * the Material 3 style uses its View pages. Dialogs (diagnostics, root, language) are the shared
+ * the Material 3 style uses its View pages. Dialogs (diagnostics, root) are the shared
  * View dialogs of [UiKit], which follow the Miuix style too.
  */
 fun setMainContent(activity: MainActivity, state: MainUiState) {
@@ -162,7 +164,7 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
                 when (tabs[index]) {
                     Tab.HOME -> HomePage(activity, state, bottom, onOpenSettings = { goTo(Tab.SETTINGS) })
                     Tab.TESTER -> TesterTab(activity, state, bottom)
-                    Tab.SETTINGS -> SettingsPage(activity, state, bottom)
+                    Tab.SETTINGS -> SettingsPage(activity, state, bottom, backdrop)
                 }
             }
         }
@@ -470,7 +472,8 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
 // -------------------------------------------------------------------------------------------------
 
 @Composable
-private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp) {
+private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp, backdrop: LayerBackdrop) {
+    var language by remember { mutableIntStateOf(LanguageSetting.current(activity)) }
     val model = state.model
     // A switch shows the new value while its change runs, and the old one again if it fails.
     val overrides = remember { mutableStateMapOf<String, Boolean>() }
@@ -543,12 +546,17 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp)
                     summary = stringResource(if (state.showTester) R.string.tester_sub_on else R.string.tester_sub_off),
                     startAction = { MiuixRowIcon(R.drawable.ic_science_24) },
                 )
-                ArrowPreference(
+                GlassDropdownPreference(
                     title = stringResource(UiR.string.lang_title),
+                    items = LanguageSetting.labels(activity).toList(),
+                    selectedIndex = language,
+                    backdrop = backdrop,
                     startAction = { MiuixRowIcon(UiR.drawable.ic_language_24) },
-                    endActions = { EndText(LanguageSetting.currentLabel(activity)) },
-                    // The shared picker dialog; the platform recreates the screen in the new language.
-                    onClick = { LanguageSetting.showPicker(activity, activity.paletteColors()) },
+                    onSelectedIndexChange = {
+                        // The platform recreates the activity in the new language.
+                        language = it
+                        LanguageSetting.apply(activity, it)
+                    },
                 )
                 ArrowPreference(
                     title = stringResource(UiR.string.theme_title),
