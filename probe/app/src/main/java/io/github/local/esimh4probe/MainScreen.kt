@@ -62,6 +62,11 @@ import io.github.local.esimh4ui.MiuixRowIcon
 import io.github.local.esimh4ui.MiuixStatusCard
 import io.github.local.esimh4ui.PageBackground
 import io.github.local.esimh4ui.StatusMode
+import io.github.local.esimh4ui.SettingsNavigation
+import io.github.local.esimh4ui.SettingsRoute
+import io.github.local.esimh4ui.rememberSettingsBackStack
+import io.github.local.esimh4ui.installerx.navigation.LocalNavigator
+import top.yukonga.miuix.kmp.nav.core.NavBackStack
 import io.github.local.esimh4ui.ThemeConfig
 import io.github.local.esimh4ui.UiKit
 import kotlinx.coroutines.delay
@@ -152,15 +157,17 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
         val index = tabs.indexOf(tab)
         if (index >= 0) scope.launch { pagerState.animateScrollToPage(index) }
     }
-    // Back on any tab but home returns to home.
-    BackHandler(enabled = current != Tab.HOME) { goTo(Tab.HOME) }
+    val settingsStack = rememberSettingsBackStack()
+    val settingsDetail = settingsStack.size > 1
+    // Nested destinations own back until their stack returns to the settings index.
+    BackHandler(enabled = current != Tab.HOME && !settingsDetail) { goTo(Tab.HOME) }
 
     // What the liquid glass bottom bar samples: the pages and the background.
     val backdrop = rememberLayerBackdrop()
     Scaffold(
         containerColor = colors.surface,
         bottomBar = {
-            MiuixBottomBar(
+            if (!settingsDetail) MiuixBottomBar(
                 items = tabs.map { BarItem(stringResource(it.label), it.icon) },
                 selected = pagerState.currentPage,
                 onSelect = { index ->
@@ -186,6 +193,7 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = 2,
+                userScrollEnabled = !settingsDetail,
                 key = { tabs[it] },
             ) { index ->
                 // The pages run under the bottom bar and keep its height free at the end.
@@ -193,7 +201,7 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
                 when (tabs[index]) {
                     Tab.HOME -> HomePage(activity, state, bottom, onOpenSettings = { goTo(Tab.SETTINGS) })
                     Tab.TESTER -> TesterTab(activity, state, bottom)
-                    Tab.SETTINGS -> SettingsPage(activity, state, bottom, backdrop)
+                    Tab.SETTINGS -> SettingsPage(activity, state, bottom, backdrop, settingsStack)
                 }
             }
         }
@@ -501,7 +509,7 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
 // -------------------------------------------------------------------------------------------------
 
 @Composable
-private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp, backdrop: LayerBackdrop) {
+private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp, backdrop: LayerBackdrop, backStack: NavBackStack) {
     var language by remember { mutableIntStateOf(LanguageSetting.current(activity)) }
     val model = state.model
     // A switch shows the new value while its change runs, and the old one again if it fails.
@@ -531,12 +539,41 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         )
     }
 
+    SettingsNavigation(backStack) { page ->
+    val navigator = LocalNavigator.current
+    val title = when (page) {
+        "bridge" -> R.string.section_bridge
+        "core" -> R.string.section_core
+        "system" -> R.string.section_root
+        "personalize" -> R.string.section_personalize
+        else -> R.string.tab_settings
+    }
     MiuixPage(
-        title = stringResource(R.string.tab_settings),
+        title = stringResource(title),
         bottomPadding = bottom,
-        drawBackground = false,
+        drawBackground = true,
+        onBack = if (page == "root") null else ({ navigator.pop() }),
         actions = { BusyIndicator(state.busy) },
     ) {
+        if (page == "root") {
+            item(key = "categories") {
+                MiuixCard {
+                    listOf(
+                        Triple("bridge", R.string.section_bridge, R.drawable.ic_power_24),
+                        Triple("core", R.string.section_core, R.drawable.ic_verified_user_24),
+                        Triple("system", R.string.section_root, R.drawable.ic_shield_24),
+                        Triple("personalize", R.string.section_personalize, UiR.drawable.ic_palette_24),
+                    ).forEach { (route, label, icon) ->
+                        ArrowPreference(
+                            title = stringResource(label),
+                            startAction = { MiuixRowIcon(icon) },
+                            onClick = { navigator.push(SettingsRoute(route)) },
+                        )
+                    }
+                }
+            }
+        }
+        if (page == "bridge") {
         item(key = "bridgeTitle") { SmallTitle(text = stringResource(R.string.section_bridge)) }
         item(key = "bridge") {
             MiuixCard {
@@ -549,6 +586,8 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                 )
             }
         }
+        }
+        if (page == "core") {
         item(key = "coreTitle") { SmallTitle(text = stringResource(R.string.section_core)) }
         item(key = "core") {
             MiuixCard {
@@ -558,6 +597,8 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                 SettingSwitch(MainActivity.SW_REWRITE_TEXT, model?.rewriteText, R.string.row_rewrite_text, R.drawable.ic_translate_24)
             }
         }
+        }
+        if (page == "system") {
         item(key = "rootTitle") { SmallTitle(text = stringResource(R.string.section_root)) }
         item(key = "root") {
             MiuixCard {
@@ -565,6 +606,8 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                 SettingSwitch(MainActivity.SW_ESTK_SE1, model?.estkSe1, R.string.row_estk_se1, R.drawable.ic_sync_alt_24)
             }
         }
+        }
+        if (page == "personalize") {
         item(key = "personalizeTitle") { SmallTitle(text = stringResource(R.string.section_personalize)) }
         item(key = "personalize") {
             MiuixCard {
@@ -596,6 +639,8 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                 )
             }
         }
+        }
+        if (page == "root") {
         item(key = "about") {
             MiuixCard {
                 ArrowPreference(
@@ -606,6 +651,8 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                 )
             }
         }
+    }
+    }
     }
 }
 

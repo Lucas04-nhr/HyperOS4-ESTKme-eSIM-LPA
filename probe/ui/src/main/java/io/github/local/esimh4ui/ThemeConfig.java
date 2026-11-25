@@ -38,7 +38,7 @@ public final class ThemeConfig {
     /** 0: follow gesture, 1: right, 2: left. */
     public static int backExitDirection = 0;
 
-    public static UiKit.Style style = UiKit.Style.MATERIAL3;
+    public static UiKit.Style style = UiKit.Style.MIUIX;
     public static int nightMode = NIGHT_FOLLOW_SYSTEM;
     /** Dynamic (Monet) color; stored per style: on by default for Material 3, off for Miuix. */
     public static boolean dynamicColor = true;
@@ -68,9 +68,9 @@ public final class ThemeConfig {
     public static void load(Context ctx) {
         if (loaded) return;
         SharedPreferences sp = prefs(ctx);
-        style = UiKit.Style.MIUIX.name().equals(sp.getString(KEY_STYLE, null))
-                ? UiKit.Style.MIUIX
-                : UiKit.Style.MATERIAL3;
+        style = UiKit.Style.MATERIAL3.name().equals(sp.getString(KEY_STYLE, null))
+                ? UiKit.Style.MATERIAL3
+                : UiKit.Style.MIUIX;
         nightMode = sp.getInt(KEY_NIGHT, NIGHT_FOLLOW_SYSTEM);
         dynamicColor = sp.getBoolean(KEY_DYNAMIC_PREFIX + style.name(), style == UiKit.Style.MATERIAL3);
         bgBlur = sp.getInt(KEY_BG_BLUR, 0);

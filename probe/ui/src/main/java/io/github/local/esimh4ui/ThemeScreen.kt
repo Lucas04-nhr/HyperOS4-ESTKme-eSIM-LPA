@@ -38,6 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
+import io.github.local.esimh4ui.installerx.navigation.LocalNavigator
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -147,11 +148,23 @@ private fun ThemePage(
         }
     }
 
-    // What the glass top bar and the glass popups sample: page color, background image, list.
+    val backStack = rememberSettingsBackStack()
+    SettingsNavigation(backStack) { page ->
+    val navigator = LocalNavigator.current
+    val navigateBack: () -> Unit = {
+        if (page == "root") activity.finish() else navigator.pop()
+    }
+    // Each destination owns its scroll state and backdrop.
     val backdrop = rememberLayerBackdrop()
     val scrollBehavior = MiuixScrollBehavior()
     val listState = rememberLazyListState()
-    val title = stringResource(R.string.theme_title)
+    val title = stringResource(when (page) {
+        "appearance" -> R.string.theme_section_appearance
+        "bars" -> R.string.theme_section_bottom_bar
+        "background" -> R.string.theme_section_background
+        "back" -> R.string.theme_predictive_back
+        else -> R.string.theme_title
+    })
     val back = stringResource(R.string.ui_back)
 
     val cardColor = if (hasBackground) colors.surfaceContainer.copy(alpha = cardAlpha / 100f) else colors.surfaceContainer
@@ -169,7 +182,7 @@ private fun ThemePage(
                     scrollBehavior = scrollBehavior,
                     progressiveBlur = progressiveBlur,
                     navigationIcon = {
-                        GlassIconButton(onClick = { activity.finish() }) {
+                        GlassIconButton(onClick = navigateBack) {
                             Icon(
                                 imageVector = MiuixIcons.Glass.ChevronBackward,
                                 contentDescription = back,
@@ -185,7 +198,7 @@ private fun ThemePage(
                     color = colors.surface,
                     scrollBehavior = scrollBehavior,
                     navigationIcon = {
-                        IconButton(onClick = { activity.finish() }) {
+                        IconButton(onClick = navigateBack) {
                             Icon(
                                 imageVector = MiuixIcons.Back,
                                 contentDescription = back,
@@ -238,6 +251,24 @@ private fun ThemePage(
                     bottom = innerPadding.calculateBottomPadding() + 12.dp,
                 ),
             ) {
+                if (page == "root") {
+                    item(key = "categories") {
+                        SettingsCard(cardColor) {
+                            listOf(
+                                "appearance" to R.string.theme_section_appearance,
+                                "bars" to R.string.theme_section_bottom_bar,
+                                "background" to R.string.theme_section_background,
+                                "back" to R.string.theme_predictive_back,
+                            ).forEach { (route, label) ->
+                                ArrowPreference(
+                                    title = stringResource(label),
+                                    onClick = { navigator.push(SettingsRoute(route)) },
+                                )
+                            }
+                        }
+                    }
+                }
+                if (page == "appearance") {
                 // Appearance
                 item(key = "appearanceTitle") { SmallTitle(text = stringResource(R.string.theme_section_appearance)) }
                 item(key = "appearance") {
@@ -308,6 +339,19 @@ private fun ThemePage(
                                 activity.recreate()
                             },
                         )
+                        SwitchPreference(
+                            title = stringResource(R.string.theme_dynamic_color),
+                            summary = stringResource(R.string.theme_dynamic_color_summary_miuix),
+                            checked = dynamicColor,
+                            startAction = { RowIcon(R.drawable.ic_dynamic_color_24) },
+                            onCheckedChange = onDynamicColorChange,
+                        )
+                    }
+                }
+                }
+                if (page == "back") {
+                    item(key = "back") {
+                        SettingsCard(cardColor) {
                         GlassDropdownPreference(
                             title = stringResource(R.string.theme_predictive_back),
                             items = listOf(stringResource(R.string.theme_back_system), stringResource(R.string.theme_back_scale), stringResource(R.string.theme_back_slide)),
@@ -330,16 +374,11 @@ private fun ThemePage(
                                 },
                             )
                         }
-                        SwitchPreference(
-                            title = stringResource(R.string.theme_dynamic_color),
-                            summary = stringResource(R.string.theme_dynamic_color_summary_miuix),
-                            checked = dynamicColor,
-                            startAction = { RowIcon(R.drawable.ic_dynamic_color_24) },
-                            onCheckedChange = onDynamicColorChange,
-                        )
                     }
                 }
+                }
 
+                if (page == "bars") {
                 // Top and bottom bars
                 item(key = "barsTitle") { SmallTitle(text = stringResource(R.string.theme_section_bottom_bar)) }
                 item(key = "bars") {
@@ -393,6 +432,8 @@ private fun ThemePage(
                     }
                 }
 
+                }
+                if (page == "background") {
                 // Background
                 item(key = "backgroundTitle") { SmallTitle(text = stringResource(R.string.theme_section_background)) }
                 item(key = "background") {
@@ -455,8 +496,10 @@ private fun ThemePage(
                 if (!hasBackground) {
                     item(key = "backgroundHint") { SmallTitle(text = stringResource(R.string.theme_bg_hint)) }
                 }
+                }
             }
         }
+    }
     }
 }
 
