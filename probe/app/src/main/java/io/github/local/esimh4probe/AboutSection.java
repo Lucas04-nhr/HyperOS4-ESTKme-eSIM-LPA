@@ -72,7 +72,7 @@ final class AboutSection {
         UiKit.SwitchRow startupRow = new UiKit.SwitchRow(activity, palette, R.drawable.ic_link_24,
                 activity.getString(R.string.update_startup), null, 6f, 24f, 0);
         startupRow.setRowState(UpdateChecker.checkAtStartup(activity), true, null);
-        startupRow.toggle.setOnCheckedChangeListener(enabled -> {
+        startupRow.toggle.setOnCheckedChangeListener((view, enabled) -> {
             UpdateChecker.setCheckAtStartup(activity, enabled);
             startupRow.refreshIconTint(enabled);
         });
