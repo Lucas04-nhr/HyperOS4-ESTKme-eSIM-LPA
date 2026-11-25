@@ -511,12 +511,6 @@ public final class MainActivity extends ThemedActivity {
                 this, palette, R.drawable.ic_power_24,
                 getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 24f, 0);
         col.addView(rowMaster.card);
-        UiKit.NavRow rowDeviceStatus = new UiKit.NavRow(
-                this, palette, R.drawable.ic_monitor_heart_24, getString(R.string.row_device_status),
-                getString(R.string.row_device_status_summary),
-                24f, 24f, 0, this::openDeviceStatus);
-        col.addView(rowDeviceStatus.card);
-
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_core)));
         rowSystemEsim = new UiKit.SwitchRow(this, palette, R.drawable.ic_sync_alt_24,
                 getString(R.string.row_system_esim), getString(R.string.row_system_esim_summary), 24f, 6f, 2);
@@ -576,6 +570,12 @@ public final class MainActivity extends ThemedActivity {
                 ? io.github.local.esimh4ui.R.string.theme_style_miuix
                 : io.github.local.esimh4ui.R.string.theme_style_material3));
         col.addView(rowTheme.card);
+
+        UiKit.NavRow rowDeviceStatus = new UiKit.NavRow(
+                this, palette, R.drawable.ic_monitor_heart_24, getString(R.string.row_device_status),
+                getString(R.string.row_device_status_summary),
+                24f, 24f, 0, this::openDeviceStatus);
+        col.addView(rowDeviceStatus.card);
 
         UiKit.NavRow rowAbout = new UiKit.NavRow(
                 this, palette, R.drawable.ic_info_24, getString(R.string.section_about), null,

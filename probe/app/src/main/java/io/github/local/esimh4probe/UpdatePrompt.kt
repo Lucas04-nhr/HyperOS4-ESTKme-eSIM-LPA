@@ -24,10 +24,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import io.github.local.esimh4ui.AppMiuixTheme
 import io.github.local.esimh4ui.UiKit
+import androidx.compose.ui.window.Dialog
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 fun show(activity: Activity, title: String, details: String, download: Runnable) {
     if (activity.isFinishing || activity.isDestroyed) return
@@ -55,6 +60,16 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
             movementMethod = LinkMovementMethod.getInstance()
             setPadding(paddingLeft, UiKit.dp(activity, 16f), paddingRight, UiKit.dp(activity, 24f))
         }
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+            val value = android.util.TypedValue()
+            activity.theme.resolveAttribute(android.R.attr.colorAccent, value, true)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(value.data)
+            val color = value.data
+            val luminance = (0.2126 * android.graphics.Color.red(color) +
+                0.7152 * android.graphics.Color.green(color) +
+                0.0722 * android.graphics.Color.blue(color)) / 255.0
+            setTextColor(if (luminance > 0.6) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+        }
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
             (layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
                 params.marginEnd = UiKit.dp(activity, 12f)
@@ -81,26 +96,32 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
             )
         }
         AppMiuixTheme(controller = controller) {
-            WindowBottomSheet(show = visible.value, title = title, onDismissRequest = dismiss) {
+            if (visible.value) {
+                Dialog(onDismissRequest = dismiss) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
+                    Text(text = title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
                     TextButton(text = label, onClick = { open() }, modifier = Modifier.fillMaxWidth())
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         TextButton(
-                            text = activity.getString(R.string.update_download),
-                            onClick = { dismiss(); download.run() },
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(
                             text = activity.getString(android.R.string.cancel),
                             onClick = dismiss,
                             modifier = Modifier.weight(1f),
                         )
+                        TextButton(
+                            text = activity.getString(R.string.update_download),
+                            onClick = { dismiss(); download.run() },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.textButtonColorsPrimary(),
+                        )
+                    }
+                }
                     }
                 }
             }

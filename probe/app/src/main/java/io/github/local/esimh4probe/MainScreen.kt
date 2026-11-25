@@ -584,17 +584,17 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
     ) {
         if (page == "root") {
             item(key = "master") {
-                MiuixCard {
+                MiuixCard(modifier = Modifier.padding(top = 8.dp)) {
                     SettingSwitch(MainActivity.SW_MASTER, model?.master, R.string.row_master, R.drawable.ic_power_24)
                 }
             }
             item(key = "categories") {
                 MiuixCard {
                     listOf(
-                        Triple("status", R.string.row_device_status, R.drawable.ic_monitor_heart_24),
                         Triple("core", R.string.section_core, R.drawable.ic_verified_user_24),
                         Triple("system", R.string.section_root, R.drawable.ic_shield_24),
                         Triple("personalize", R.string.section_personalize, UiR.drawable.ic_palette_24),
+                        Triple("status", R.string.row_device_status, R.drawable.ic_monitor_heart_24),
                     ).forEach { (route, label, icon) ->
                         ArrowPreference(
                             title = stringResource(label),
