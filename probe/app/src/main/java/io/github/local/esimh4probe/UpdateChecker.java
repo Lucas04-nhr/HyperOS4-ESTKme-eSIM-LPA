@@ -133,12 +133,13 @@ public final class UpdateChecker {
     }
 
     private static Download nightly(AboutInfo installed) throws Exception {
-        // Follow this repository's main branch; never mix fork and upstream run numbers.
+        // Run numbers are shared by all branches of this workflow. Include feature
+        // branch nightlies, but never mix fork and upstream run numbers.
         String repository = installed.repo;
         Pattern artifactName = Pattern.compile("^XiaomiEsimLPA-HyperOS4-v(.+)-nightly\\.(\\d+)\\.zip$");
         for (int page = 1; page <= 5; page++) {
             JSONObject response = get(API + repository
-                    + "/actions/workflows/nightly.yml/runs?branch=main&status=success&per_page=20&page=" + page);
+                    + "/actions/workflows/nightly.yml/runs?status=success&per_page=20&page=" + page);
             if (response == null) throw new IOException("Nightly workflow unavailable");
             JSONArray runs = response.getJSONArray("workflow_runs");
             for (int i = 0; i < runs.length(); i++) {
@@ -160,7 +161,8 @@ public final class UpdateChecker {
                     return update;
                 }
             }
-            if (runs.length() < 20) return null;
+            // An empty search is not evidence that the installed build is current.
+            if (runs.length() < 20) break;
         }
         throw new IOException("No downloadable nightly found in recent workflow runs");
     }
