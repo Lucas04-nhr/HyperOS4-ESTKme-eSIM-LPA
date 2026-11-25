@@ -64,8 +64,6 @@ import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
-import top.yukonga.miuix.kmp.glass.GlassNavigationBar
-import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -438,7 +436,7 @@ class BarItem(val label: String, @DrawableRes val icon: Int)
 
 /**
  * The bottom bar in the theme's style: the floating capsule (liquid glass when enabled, see
- * [GlassNavigationBar]) or the docked bar (see-through when frosted glass is on).
+ * [LiquidBottomBar]) or the docked bar (see-through when frosted glass is on).
  *
  * @param backdrop what the liquid glass bar samples: the pages, recorded with [layerBackdrop].
  */
@@ -447,15 +445,9 @@ fun MiuixBottomBar(items: List<BarItem>, selected: Int, onSelect: (Int) -> Unit,
     val colors = MiuixTheme.colorScheme
     when {
         ThemeConfig.barFloating && ThemeConfig.useLiquidGlass() -> {
-            GlassNavigationBar(
-                items = items.map { GlassNavigationItem(icon = ImageVector.vectorResource(it.icon), label = it.label) },
-                selectedIndex = selected,
-                onSelect = onSelect,
-                backdrop = backdrop,
-                // The glass bar fills the width by itself; keep the 28dp side margins of the
-                // View floating bar (BottomBar).
-                modifier = Modifier.padding(horizontal = 28.dp),
-            )
+            androidx.compose.runtime.key(items.size) {
+                LiquidBottomBar(items, selected, onSelect, backdrop)
+            }
         }
         ThemeConfig.barFloating -> {
             FloatingNavigationBar {

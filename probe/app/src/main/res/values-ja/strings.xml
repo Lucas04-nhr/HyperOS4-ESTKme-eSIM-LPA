@@ -24,9 +24,9 @@
     <string name="alert_hook">電話サービスのフックが応答していません。LSPosed で「%1$s」を有効にし、スコープに com.android.phone と com.miui.euicc を指定してから再起動してください。</string>
     <string name="section_health">状態</string>
     <string name="section_device">デバイス</string>
-    <string name="section_bridge">ブリッジ · root が必要</string>
-    <string name="section_core">機能 · root 不要</string>
-    <string name="section_root">システム · root が必要</string>
+    <string name="section_bridge">ブリッジ</string>
+    <string name="section_core">機能</string>
+    <string name="section_root">システム</string>
     <string name="section_personalize">カスタマイズ</string>
     <string name="sim2_title">SIM スロット 2</string>
     <string name="sim2_carrier">通信事業者: %1$s</string>

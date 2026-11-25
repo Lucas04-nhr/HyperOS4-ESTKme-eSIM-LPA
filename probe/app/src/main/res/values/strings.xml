@@ -24,9 +24,9 @@
     <string name="alert_hook">The telephony hook is not responding. In LSPosed, enable \"%1$s\" with the scopes com.android.phone and com.miui.euicc, then reboot.</string>
     <string name="section_health">Status</string>
     <string name="section_device">Device</string>
-    <string name="section_bridge">Bridge · root</string>
-    <string name="section_core">Features · no root needed</string>
-    <string name="section_root">System · root</string>
+    <string name="section_bridge">Bridge</string>
+    <string name="section_core">Features</string>
+    <string name="section_root">System</string>
     <string name="section_personalize">Personalization</string>
     <string name="sim2_title">SIM slot 2</string>
     <string name="sim2_carrier">Carrier: %1$s</string>

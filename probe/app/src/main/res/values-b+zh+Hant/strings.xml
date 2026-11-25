@@ -24,9 +24,9 @@
     <string name="alert_hook">電話框架 Hook 無回應。請在 LSPosed 中啟用「%1$s」，勾選 com.android.phone 和 com.miui.euicc 後重新開機。</string>
     <string name="section_health">狀態</string>
     <string name="section_device">裝置資訊</string>
-    <string name="section_bridge">橋接 · 需 Root</string>
-    <string name="section_core">功能 · 無需 Root</string>
-    <string name="section_root">系統 · 需 Root</string>
+    <string name="section_bridge">橋接</string>
+    <string name="section_core">功能</string>
+    <string name="section_root">系統</string>
     <string name="section_personalize">個人化</string>
     <string name="sim2_title">卡槽 2</string>
     <string name="sim2_carrier">電信業者：%1$s</string>
