@@ -119,8 +119,13 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
     val tabs = if (state.showTester) listOf(Tab.HOME, Tab.TESTER, Tab.SETTINGS) else listOf(Tab.HOME, Tab.SETTINGS)
-    val initialIndex = remember { tabs.indexOfFirst { it.pageId == state.initialPage }.coerceAtLeast(0) }
-    val pagerState = rememberPagerState(initialPage = initialIndex) { tabs.size }
+    // Replace the pager together with its tab list so stale indices and keyed-page
+    // measurements cannot survive a change in page count. Preserve the logical page.
+    val pagerState = androidx.compose.runtime.key(tabs) {
+        val initialIndex = tabs.indexOfFirst { it.pageId == state.currentPage }
+            .takeIf { it >= 0 } ?: tabs.indexOf(Tab.SETTINGS)
+        rememberPagerState(initialPage = initialIndex) { tabs.size }
+    }
     val current = tabs.getOrElse(pagerState.currentPage) { Tab.HOME }
     SideEffect { state.currentPage = current.pageId }
 
@@ -143,16 +148,6 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
             }
     }
 
-    // The Test tab appears or disappears from the settings page: stay there.
-    var lastTabs by remember { mutableStateOf(tabs) }
-    LaunchedEffect(tabs) {
-        if (tabs != lastTabs) {
-            val before = lastTabs.getOrNull(pagerState.currentPage) ?: Tab.SETTINGS
-            val target = tabs.indexOf(before).takeIf { it >= 0 } ?: tabs.indexOf(Tab.SETTINGS)
-            if (target != pagerState.currentPage) pagerState.scrollToPage(target)
-            lastTabs = tabs
-        }
-    }
     val goTo: (Tab) -> Unit = { tab ->
         val index = tabs.indexOf(tab)
         if (index >= 0) scope.launch { pagerState.animateScrollToPage(index) }
@@ -189,10 +184,11 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
         ) {
             // One background behind all pages, so it stays put while the pages are swiped.
             PageBackground()
+            androidx.compose.runtime.key(tabs) {
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
-                beyondViewportPageCount = 2,
+                beyondViewportPageCount = (tabs.size - 1).coerceAtMost(2),
                 userScrollEnabled = !settingsDetail,
                 key = { tabs[it] },
             ) { index ->
@@ -203,6 +199,7 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
                     Tab.TESTER -> TesterTab(activity, state, bottom)
                     Tab.SETTINGS -> SettingsPage(activity, state, bottom, backdrop, settingsStack)
                 }
+            }
             }
         }
     }
