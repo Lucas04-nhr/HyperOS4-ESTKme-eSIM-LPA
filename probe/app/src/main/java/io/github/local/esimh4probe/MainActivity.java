@@ -545,10 +545,6 @@ public final class MainActivity extends ThemedActivity {
                 }));
         ((LinearLayout.LayoutParams) channelRow.card.getLayoutParams()).topMargin = UiKit.dp(this, 10);
         col.addView(channelRow.card);
-        UiKit.NavRow checkRow = new UiKit.NavRow(
-                this, palette, R.drawable.ic_link_24, getString(R.string.update_check),
-                null, 6f, 6f, 2, () -> UpdateChecker.check(this));
-        col.addView(checkRow.card);
         UiKit.SwitchRow startupRow = new UiKit.SwitchRow(this, palette, R.drawable.ic_link_24,
                 getString(R.string.update_startup), null, 6f, 24f, 0);
         startupRow.setRowState(UpdateChecker.checkAtStartup(this), true, null);

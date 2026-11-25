@@ -47,6 +47,12 @@ final class AboutSection {
         TextView commitView = UiKit.addInfoLine(activity, palette, card, activity.getString(R.string.about_commit), "—", true);
         col.addView(card, cardLp);
 
+        UiKit.NavRow checkRow = new UiKit.NavRow(
+                activity, palette, R.drawable.ic_refresh_24, activity.getString(R.string.update_check),
+                null, 24f, 24f, 0, () -> UpdateChecker.check(activity));
+        ((LinearLayout.LayoutParams) checkRow.card.getLayoutParams()).topMargin = UiKit.dp(activity, 10);
+        col.addView(checkRow.card);
+
         UiKit.NavRow licensesRow = new UiKit.NavRow(
                 activity, palette, R.drawable.ic_code_24, activity.getString(R.string.licenses_title), null,
                 24f, 24f, 0, () -> activity.startActivity(new Intent(activity, LicensesActivity.class)));

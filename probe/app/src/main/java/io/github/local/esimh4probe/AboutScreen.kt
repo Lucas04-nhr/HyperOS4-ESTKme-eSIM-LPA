@@ -211,6 +211,14 @@ internal fun AboutPage(
                         onClick = { exportAction.onHeaderTap() },
                     )
                 }
+                item(key = "checkUpdate") {
+                    AboutCard {
+                        ArrowPreference(
+                            title = stringResource(R.string.update_check),
+                            onClick = { UpdateChecker.check(activity) },
+                        )
+                    }
+                }
                 val data = info ?: return@LazyColumn
                 // Match the demo: the details occupy at least one viewport so the header
                 // can scroll completely away even when there are only a few contributors.

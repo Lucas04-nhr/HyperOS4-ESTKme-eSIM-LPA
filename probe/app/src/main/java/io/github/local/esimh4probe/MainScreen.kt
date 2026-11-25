@@ -646,10 +646,6 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                         UpdateChecker.setNightly(activity, nightly)
                     },
                 )
-                ArrowPreference(
-                    title = stringResource(R.string.update_check),
-                    onClick = { UpdateChecker.check(activity) },
-                )
                 SwitchPreference(
                     title = stringResource(R.string.update_startup),
                     checked = startup,
