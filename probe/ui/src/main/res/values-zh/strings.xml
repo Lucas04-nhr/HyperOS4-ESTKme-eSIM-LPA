@@ -58,4 +58,7 @@
     <string name="theme_back_follow">跟随手势</string>
     <string name="theme_back_right">始终向右</string>
     <string name="theme_back_left">始终向左</string>
+    <string name="personalization_title">个性化</string>
+    <string name="personalization_general">基础设置</string>
+    <string name="personalization_navigation">返回交互</string>
 </resources>

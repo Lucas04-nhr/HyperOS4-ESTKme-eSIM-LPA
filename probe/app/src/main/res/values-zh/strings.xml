@@ -63,7 +63,7 @@
     <string name="info_module">模块版本</string>
     <string name="info_lpa">小米 LPA</string>
     <string name="row_master">eSIM 桥接</string>
-    <string name="row_device_status">设备与 eUICC 状态</string>
+    <string name="row_device_status">状态</string>
     <string name="row_device_status_summary">设备信息、LPA 挂载与 eUICC 服务</string>
     <string name="row_master_on">已开启</string>
     <string name="row_master_off">已关闭</string>

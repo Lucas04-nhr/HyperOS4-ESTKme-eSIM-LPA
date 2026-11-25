@@ -30,8 +30,8 @@ public final class ThemeActivity extends ThemedActivity {
             ThemeScreen.setThemeContent(this, getIntent().getBooleanExtra(EXTRA_SHOW_LANGUAGE, true));
             return;
         }
-        scaffold = new Scaffold(this, palette, getString(R.string.theme_title), null, true);
-        scaffold.addPage(buildContent(), R.id.ui_page_1, getString(R.string.theme_title));
+        scaffold = new Scaffold(this, palette, getString(R.string.personalization_title), null, true);
+        scaffold.addPage(buildContent(), R.id.ui_page_1, getString(R.string.personalization_title));
         setContentView(scaffold.root);
         UiKit.applyEdgeToEdge(this, palette);
     }
@@ -67,8 +67,8 @@ public final class ThemeActivity extends ThemedActivity {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
 
-        // Appearance
-        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_section_appearance)));
+        // General preferences
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.personalization_general)));
 
         if (getIntent().getBooleanExtra(EXTRA_SHOW_LANGUAGE, true)) {
             UiKit.NavRow rowLang = new UiKit.NavRow(
@@ -91,6 +91,7 @@ public final class ThemeActivity extends ThemedActivity {
                 }));
         col.addView(rowStyle.card);
 
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_section_appearance)));
         String[] nightModes = {
                 getString(R.string.theme_night_system),
                 getString(R.string.theme_night_light),
@@ -129,14 +130,6 @@ public final class ThemeActivity extends ThemedActivity {
             recreateSoon();
         });
         col.addView(rowAmoled.card);
-        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_system),
-                getString(R.string.theme_back_scale), getString(R.string.theme_back_slide)},
-                ThemeConfig.predictiveBack, index -> ThemeConfig.setPredictiveBack(this, index));
-        if (ThemeConfig.predictiveBack != 0) {
-            addChoice(col, R.string.theme_back_direction, new String[]{getString(R.string.theme_back_follow),
-                    getString(R.string.theme_back_right), getString(R.string.theme_back_left)},
-                    ThemeConfig.backExitDirection, index -> ThemeConfig.setBackExitDirection(this, index));
-        }
 
         // Top and bottom bars (Miuix only), as in SukiSU-Nova:
         // frosted glass + progressive blur for both bars, liquid glass for the floating bar.
@@ -269,6 +262,15 @@ public final class ThemeActivity extends ThemedActivity {
 
         if (!hasBg) {
             col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_bg_hint)));
+        }
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.personalization_navigation)));
+        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_system),
+                getString(R.string.theme_back_scale), getString(R.string.theme_back_slide)},
+                ThemeConfig.predictiveBack, index -> ThemeConfig.setPredictiveBack(this, index));
+        if (ThemeConfig.predictiveBack != 0) {
+            addChoice(col, R.string.theme_back_direction, new String[]{getString(R.string.theme_back_follow),
+                    getString(R.string.theme_back_right), getString(R.string.theme_back_left)},
+                    ThemeConfig.backExitDirection, index -> ThemeConfig.setBackExitDirection(this, index));
         }
         return col;
     }

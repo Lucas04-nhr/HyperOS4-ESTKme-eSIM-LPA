@@ -47,4 +47,7 @@
     <string name="ptr_release">離して更新</string>
     <string name="ptr_refreshing">更新中…</string>
     <string name="ptr_done">更新しました</string>
+    <string name="personalization_title">カスタマイズ</string>
+    <string name="personalization_general">基本設定</string>
+    <string name="personalization_navigation">戻る操作</string>
 </resources>

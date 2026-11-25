@@ -151,7 +151,7 @@ fun ThemePage(
     val backdrop = rememberLayerBackdrop()
     val scrollBehavior = MiuixScrollBehavior()
     val listState = rememberLazyListState()
-    val title = stringResource(R.string.theme_title)
+    val title = stringResource(R.string.personalization_title)
     val back = stringResource(R.string.ui_back)
 
     val cardColor = if (hasBackground) colors.surfaceContainer.copy(alpha = cardAlpha / 100f) else colors.surfaceContainer
@@ -238,9 +238,9 @@ fun ThemePage(
                     bottom = innerPadding.calculateBottomPadding() + 12.dp,
                 ),
             ) {
-                // Appearance
-                item(key = "appearanceTitle") { SmallTitle(text = stringResource(R.string.theme_section_appearance)) }
-                item(key = "appearance") {
+                // Language and interface style precede the visual customization groups.
+                item(key = "generalTitle") { SmallTitle(text = stringResource(R.string.personalization_general)) }
+                item(key = "general") {
                     SettingsCard(cardColor) {
                         if (showLanguage) {
                             GlassDropdownPreference(
@@ -263,7 +263,7 @@ fun ThemePage(
                                 stringResource(R.string.theme_style_miuix),
                                 stringResource(R.string.theme_style_material3),
                             ),
-                            selectedIndex = 1,
+                            selectedIndex = if (UiKit.isMiuix()) 0 else 1,
                             backdrop = backdrop,
                             startAction = { RowIcon(R.drawable.ic_style_24) },
                             onSelectedIndexChange = {
@@ -276,6 +276,11 @@ fun ThemePage(
                                 }
                             },
                         )
+                    }
+                }
+                item(key = "appearanceTitle") { SmallTitle(text = stringResource(R.string.theme_section_appearance)) }
+                item(key = "appearance") {
+                    SettingsCard(cardColor) {
                         GlassDropdownPreference(
                             title = stringResource(R.string.theme_night),
                             items = listOf(
@@ -322,34 +327,6 @@ fun ThemePage(
                         )
                     }
                 }
-                item(key = "backTitle") { SmallTitle(text = stringResource(R.string.theme_predictive_back)) }
-                item(key = "back") {
-                    SettingsCard(cardColor) {
-                        GlassDropdownPreference(
-                            title = stringResource(R.string.theme_predictive_back),
-                            items = listOf(stringResource(R.string.theme_back_system), stringResource(R.string.theme_back_scale), stringResource(R.string.theme_back_slide)),
-                            selectedIndex = ThemeConfig.predictiveBack,
-                            backdrop = backdrop,
-                            onSelectedIndexChange = {
-                                ThemeConfig.setPredictiveBack(activity, it)
-                                activity.recreate()
-                            },
-                        )
-                        if (ThemeConfig.predictiveBack != 0) {
-                            GlassDropdownPreference(
-                                title = stringResource(R.string.theme_back_direction),
-                                items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
-                                selectedIndex = ThemeConfig.backExitDirection,
-                                backdrop = backdrop,
-                                onSelectedIndexChange = {
-                                    ThemeConfig.setBackExitDirection(activity, it)
-                                    activity.recreate()
-                                },
-                            )
-                        }
-                    }
-                }
-
                 // Top and bottom bars
                 item(key = "barsTitle") { SmallTitle(text = stringResource(R.string.theme_section_bottom_bar)) }
                 item(key = "bars") {
@@ -464,6 +441,33 @@ fun ThemePage(
                 }
                 if (!hasBackground) {
                     item(key = "backgroundHint") { SmallTitle(text = stringResource(R.string.theme_bg_hint)) }
+                }
+                item(key = "backTitle") { SmallTitle(text = stringResource(R.string.personalization_navigation)) }
+                item(key = "back") {
+                    SettingsCard(cardColor) {
+                        GlassDropdownPreference(
+                            title = stringResource(R.string.theme_predictive_back),
+                            items = listOf(stringResource(R.string.theme_back_system), stringResource(R.string.theme_back_scale), stringResource(R.string.theme_back_slide)),
+                            selectedIndex = ThemeConfig.predictiveBack,
+                            backdrop = backdrop,
+                            onSelectedIndexChange = {
+                                ThemeConfig.setPredictiveBack(activity, it)
+                                activity.recreate()
+                            },
+                        )
+                        if (ThemeConfig.predictiveBack != 0) {
+                            GlassDropdownPreference(
+                                title = stringResource(R.string.theme_back_direction),
+                                items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
+                                selectedIndex = ThemeConfig.backExitDirection,
+                                backdrop = backdrop,
+                                onSelectedIndexChange = {
+                                    ThemeConfig.setBackExitDirection(activity, it)
+                                    activity.recreate()
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }

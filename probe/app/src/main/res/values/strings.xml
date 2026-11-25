@@ -63,7 +63,7 @@
     <string name="info_module">Module</string>
     <string name="info_lpa">Xiaomi LPA</string>
     <string name="row_master">eSIM bridge</string>
-    <string name="row_device_status">Device &amp; eUICC status</string>
+    <string name="row_device_status">Status</string>
     <string name="row_device_status_summary">Device info, LPA mount and eUICC service</string>
     <string name="row_master_on">On</string>
     <string name="row_master_off">Off</string>

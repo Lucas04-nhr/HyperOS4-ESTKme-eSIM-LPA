@@ -538,10 +538,10 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
 
     SettingsNavigation(backStack) { page ->
     val navigator = LocalNavigator.current
-    if (page == "theme") {
+    if (page == "personalize" || page == "theme") {
         io.github.local.esimh4ui.ThemePage(
             activity = activity,
-            showLanguage = false,
+            showLanguage = true,
             dynamicColor = ThemeConfig.dynamicColor,
             onDynamicColorChange = {
                 ThemeConfig.setDynamicColor(activity, it)
@@ -570,7 +570,6 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         return@SettingsNavigation
     }
     val title = when (page) {
-        "bridge" -> R.string.section_bridge
         "core" -> R.string.section_core
         "system" -> R.string.section_root
         "personalize" -> R.string.section_personalize
@@ -592,7 +591,7 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
             item(key = "categories") {
                 MiuixCard {
                     listOf(
-                        Triple("bridge", R.string.section_bridge, R.drawable.ic_power_24),
+                        Triple("status", R.string.row_device_status, R.drawable.ic_monitor_heart_24),
                         Triple("core", R.string.section_core, R.drawable.ic_verified_user_24),
                         Triple("system", R.string.section_root, R.drawable.ic_shield_24),
                         Triple("personalize", R.string.section_personalize, UiR.drawable.ic_palette_24),
@@ -600,27 +599,16 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                         ArrowPreference(
                             title = stringResource(label),
                             startAction = { MiuixRowIcon(icon) },
-                            onClick = { navigator.push(SettingsRoute(route)) },
+                            onClick = {
+                                if (route == "status") activity.openDeviceStatus()
+                                else navigator.push(SettingsRoute(route))
+                            },
                         )
                     }
                 }
             }
         }
-        if (page == "bridge") {
-        item(key = "bridgeTitle") { SmallTitle(text = stringResource(R.string.section_bridge)) }
-        item(key = "bridge") {
-            MiuixCard {
-                ArrowPreference(
-                    title = stringResource(R.string.row_device_status),
-                    summary = stringResource(R.string.row_device_status_summary),
-                    startAction = { MiuixRowIcon(R.drawable.ic_sim_card_24) },
-                    onClick = { activity.openDeviceStatus() },
-                )
-            }
-        }
-        }
         if (page == "core") {
-        item(key = "coreTitle") { SmallTitle(text = stringResource(R.string.section_core)) }
         item(key = "core") {
             MiuixCard {
                 SettingSwitch(MainActivity.SW_SYSTEM_ESIM, model?.systemEsim, R.string.row_system_esim, R.drawable.ic_sync_alt_24)
@@ -631,7 +619,6 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         }
         }
         if (page == "system") {
-        item(key = "rootTitle") { SmallTitle(text = stringResource(R.string.section_root)) }
         item(key = "root") {
             MiuixCard {
                 SwitchPreference(
@@ -649,8 +636,9 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
             MiuixCard {
                 var nightly by remember { mutableStateOf(UpdateChecker.isNightly(activity)) }
                 var startup by remember { mutableStateOf(UpdateChecker.checkAtStartup(activity)) }
-                top.yukonga.miuix.kmp.preference.WindowDropdownPreference(
+                GlassDropdownPreference(
                     title = stringResource(R.string.update_channel),
+                    backdrop = backdrop,
                     items = listOf("Stable", "Nightly"),
                     selectedIndex = if (nightly) 1 else 0,
                     onSelectedIndexChange = {
@@ -669,32 +657,6 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                         startup = it
                         UpdateChecker.setCheckAtStartup(activity, it)
                     },
-                )
-            }
-        }
-        }
-        if (page == "personalize") {
-        item(key = "personalizeTitle") { SmallTitle(text = stringResource(R.string.section_personalize)) }
-        item(key = "personalize") {
-            MiuixCard {
-                GlassDropdownPreference(
-                    title = stringResource(UiR.string.lang_title),
-                    items = LanguageSetting.labels(activity).toList(),
-                    selectedIndex = language,
-                    backdrop = backdrop,
-                    startAction = { MiuixRowIcon(UiR.drawable.ic_language_24) },
-                    onSelectedIndexChange = {
-                        // The platform recreates the activity in the new language.
-                        language = it
-                        LanguageSetting.apply(activity, it)
-                    },
-                )
-                ArrowPreference(
-                    title = stringResource(UiR.string.theme_title),
-                    summary = stringResource(R.string.row_theme_summary),
-                    startAction = { MiuixRowIcon(UiR.drawable.ic_palette_24) },
-                    endActions = { EndText(stringResource(UiR.string.theme_style_miuix)) },
-                    onClick = { navigator.push(SettingsRoute("theme")) },
                 )
             }
         }

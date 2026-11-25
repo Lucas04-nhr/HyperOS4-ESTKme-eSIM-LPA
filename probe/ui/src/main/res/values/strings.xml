@@ -58,4 +58,7 @@
     <string name="theme_back_follow">Follow gesture</string>
     <string name="theme_back_right">Always right</string>
     <string name="theme_back_left">Always left</string>
+    <string name="personalization_title">Personalization</string>
+    <string name="personalization_general">General</string>
+    <string name="personalization_navigation">Back navigation</string>
 </resources>

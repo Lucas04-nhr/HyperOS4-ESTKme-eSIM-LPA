@@ -511,9 +511,8 @@ public final class MainActivity extends ThemedActivity {
                 this, palette, R.drawable.ic_power_24,
                 getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 24f, 0);
         col.addView(rowMaster.card);
-        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_bridge)));
         UiKit.NavRow rowDeviceStatus = new UiKit.NavRow(
-                this, palette, R.drawable.ic_sim_card_24, getString(R.string.row_device_status),
+                this, palette, R.drawable.ic_monitor_heart_24, getString(R.string.row_device_status),
                 getString(R.string.row_device_status_summary),
                 24f, 24f, 0, this::openDeviceStatus);
         col.addView(rowDeviceStatus.card);
@@ -569,17 +568,10 @@ public final class MainActivity extends ThemedActivity {
                 getString(R.string.row_tester), getString(R.string.row_tester_summary), 24f, 24f, 0);
         col.addView(rowTesterApp.card);
 
-        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_personalize)));
-        UiKit.NavRow rowLanguage = new UiKit.NavRow(
-                this, palette, io.github.local.esimh4ui.R.drawable.ic_language_24,
-                getString(io.github.local.esimh4ui.R.string.lang_title), null,
-                24f, 6f, 2, () -> LanguageSetting.showPicker(this, palette));
-        rowLanguage.setValue(LanguageSetting.currentLabel(this));
-        col.addView(rowLanguage.card);
         UiKit.NavRow rowTheme = new UiKit.NavRow(
                 this, palette, io.github.local.esimh4ui.R.drawable.ic_palette_24,
-                getString(io.github.local.esimh4ui.R.string.theme_title), getString(R.string.row_theme_summary),
-                6f, 24f, 0, () -> openThemeSettings(false));
+                getString(R.string.section_personalize), getString(R.string.row_theme_summary),
+                24f, 24f, 0, () -> openThemeSettings(true));
         rowTheme.setValue(getString(UiKit.isMiuix()
                 ? io.github.local.esimh4ui.R.string.theme_style_miuix
                 : io.github.local.esimh4ui.R.string.theme_style_material3));
