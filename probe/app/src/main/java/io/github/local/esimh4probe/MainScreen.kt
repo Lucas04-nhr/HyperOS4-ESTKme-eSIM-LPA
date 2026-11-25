@@ -553,6 +553,11 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         actions = { BusyIndicator(state.busy) },
     ) {
         if (page == "root") {
+            item(key = "master") {
+                MiuixCard {
+                    SettingSwitch(MainActivity.SW_MASTER, model?.master, R.string.row_master, R.drawable.ic_power_24)
+                }
+            }
             item(key = "categories") {
                 MiuixCard {
                     listOf(
@@ -574,7 +579,6 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         item(key = "bridgeTitle") { SmallTitle(text = stringResource(R.string.section_bridge)) }
         item(key = "bridge") {
             MiuixCard {
-                SettingSwitch(MainActivity.SW_MASTER, model?.master, R.string.row_master, R.drawable.ic_power_24)
                 ArrowPreference(
                     title = stringResource(R.string.row_device_status),
                     summary = stringResource(R.string.row_device_status_summary),
@@ -601,6 +605,33 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
             MiuixCard {
                 SettingSwitch(MainActivity.SW_UMOUNT_GUARD, model?.umountGuard, R.string.row_umount_guard, R.drawable.ic_shield_24)
                 SettingSwitch(MainActivity.SW_ESTK_SE1, model?.estkSe1, R.string.row_estk_se1, R.drawable.ic_sync_alt_24)
+            }
+        }
+        item(key = "updates") {
+            MiuixCard {
+                var nightly by remember { mutableStateOf(UpdateChecker.isNightly(activity)) }
+                var startup by remember { mutableStateOf(UpdateChecker.checkAtStartup(activity)) }
+                top.yukonga.miuix.kmp.preference.WindowDropdownPreference(
+                    title = stringResource(R.string.update_channel),
+                    items = listOf("Stable", "Nightly"),
+                    selectedIndex = if (nightly) 1 else 0,
+                    onSelectedIndexChange = {
+                        nightly = it == 1
+                        UpdateChecker.setNightly(activity, nightly)
+                    },
+                )
+                ArrowPreference(
+                    title = stringResource(R.string.update_check),
+                    onClick = { UpdateChecker.check(activity) },
+                )
+                SwitchPreference(
+                    title = stringResource(R.string.update_startup),
+                    checked = startup,
+                    onCheckedChange = {
+                        startup = it
+                        UpdateChecker.setCheckAtStartup(activity, it)
+                    },
+                )
             }
         }
         }

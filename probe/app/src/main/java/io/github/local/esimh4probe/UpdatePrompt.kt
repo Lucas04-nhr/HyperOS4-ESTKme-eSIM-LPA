@@ -14,6 +14,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,7 +51,16 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
             .setPositiveButton(R.string.update_download) { _, _ -> download.run() }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
-        dialog.findViewById<TextView>(android.R.id.message)?.movementMethod = LinkMovementMethod.getInstance()
+        dialog.findViewById<TextView>(android.R.id.message)?.apply {
+            movementMethod = LinkMovementMethod.getInstance()
+            setPadding(paddingLeft, UiKit.dp(activity, 16), paddingRight, UiKit.dp(activity, 24))
+        }
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+            (layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                params.marginEnd = UiKit.dp(activity, 12)
+                layoutParams = params
+            }
+        }
         return
     }
     val parent = activity.window.decorView as ViewGroup
@@ -72,9 +82,15 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
         }
         AppMiuixTheme(controller = controller) {
             WindowBottomSheet(show = visible.value, title = title, onDismissRequest = dismiss) {
-                Column(Modifier.fillMaxWidth().padding(24.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
                     TextButton(text = label, onClick = { open() }, modifier = Modifier.fillMaxWidth())
-                    Row(Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         TextButton(
                             text = activity.getString(R.string.update_download),
                             onClick = { dismiss(); download.run() },

@@ -507,15 +507,15 @@ public final class MainActivity extends ThemedActivity {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
 
-        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_bridge)));
         rowMaster = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_power_24,
-                getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 6f, 2);
+                getString(R.string.row_master), getString(R.string.status_loading_summary), 24f, 24f, 0);
         col.addView(rowMaster.card);
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_bridge)));
         UiKit.NavRow rowDeviceStatus = new UiKit.NavRow(
                 this, palette, R.drawable.ic_sim_card_24, getString(R.string.row_device_status),
                 getString(R.string.row_device_status_summary),
-                6f, 24f, 0, this::openDeviceStatus);
+                24f, 24f, 0, this::openDeviceStatus);
         col.addView(rowDeviceStatus.card);
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_core)));
@@ -539,6 +539,31 @@ public final class MainActivity extends ThemedActivity {
         rowEstkSe1 = new UiKit.SwitchRow(this, palette, R.drawable.ic_sync_alt_24,
                 getString(R.string.row_estk_se1), getString(R.string.row_estk_se1_summary), 6f, 24f, 0);
         col.addView(rowEstkSe1.card);
+
+        UiKit.NavRow channelRow = new UiKit.NavRow(
+                this, palette, R.drawable.ic_link_24, getString(R.string.update_channel),
+                null, 24f, 6f, 2, null);
+        channelRow.setValue(UpdateChecker.isNightly(this) ? "Nightly" : "Stable");
+        channelRow.card.setOnClickListener(v -> UiKit.showChoiceDialog(this, palette,
+                getString(R.string.update_channel), new String[]{"Stable", "Nightly"},
+                UpdateChecker.isNightly(this) ? 1 : 0, index -> {
+                    UpdateChecker.setNightly(this, index == 1);
+                    channelRow.setValue(index == 1 ? "Nightly" : "Stable");
+                }));
+        ((LinearLayout.LayoutParams) channelRow.card.getLayoutParams()).topMargin = UiKit.dp(this, 10);
+        col.addView(channelRow.card);
+        UiKit.NavRow checkRow = new UiKit.NavRow(
+                this, palette, R.drawable.ic_link_24, getString(R.string.update_check),
+                null, 6f, 6f, 2, () -> UpdateChecker.check(this));
+        col.addView(checkRow.card);
+        UiKit.SwitchRow startupRow = new UiKit.SwitchRow(this, palette, R.drawable.ic_link_24,
+                getString(R.string.update_startup), null, 6f, 24f, 0);
+        startupRow.setRowState(UpdateChecker.checkAtStartup(this), true, null);
+        startupRow.toggle.setOnCheckedChangeListener((view, enabled) -> {
+            UpdateChecker.setCheckAtStartup(this, enabled);
+            startupRow.refreshIconTint(enabled);
+        });
+        col.addView(startupRow.card);
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_personalize)));
         rowTesterApp = new UiKit.SwitchRow(this, palette, R.drawable.ic_science_24,

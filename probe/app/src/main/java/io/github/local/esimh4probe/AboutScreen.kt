@@ -226,31 +226,6 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                                     )
                                 }
                             }
-                            AboutCard {
-                                var nightly by remember { mutableStateOf(UpdateChecker.isNightly(activity)) }
-                                var startup by remember { mutableStateOf(UpdateChecker.checkAtStartup(activity)) }
-                                top.yukonga.miuix.kmp.preference.WindowDropdownPreference(
-                                    title = stringResource(R.string.update_channel),
-                                    items = listOf("Stable", "Nightly"),
-                                    selectedIndex = if (nightly) 1 else 0,
-                                    onSelectedIndexChange = {
-                                        nightly = it == 1
-                                        UpdateChecker.setNightly(activity, nightly)
-                                    },
-                                )
-                                ArrowPreference(
-                                    title = stringResource(R.string.update_check),
-                                    onClick = { UpdateChecker.check(activity) },
-                                )
-                                SwitchPreference(
-                                    title = stringResource(R.string.update_startup),
-                                    checked = startup,
-                                    onCheckedChange = {
-                                        startup = it
-                                        UpdateChecker.setCheckAtStartup(activity, it)
-                                    },
-                                )
-                            }
                             SmallTitle(text = stringResource(R.string.section_authors))
                             AboutCard {
                                 for (person in data.people) {
