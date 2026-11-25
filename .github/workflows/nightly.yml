@@ -18,6 +18,28 @@ name: Nightly Build
 # - SERVERCHAN_SENDKEY (optional): a ServerChan3 send key (sctp...)
 
 on:
+  workflow_call:
+    inputs:
+      debug:
+        type: boolean
+        default: false
+      release:
+        description: Build stable artifacts with the project version code
+        type: boolean
+        default: false
+    secrets:
+      SIGNING_KEYSTORE_BASE64:
+        required: true
+      SIGNING_STORE_PASSWORD:
+        required: true
+      SIGNING_KEY_ALIAS:
+        required: true
+      SIGNING_KEY_PASSWORD:
+        required: true
+      SERVERCHAN_SENDKEY:
+        required: false
+  release:
+    types: [published]
   push:
     branches:
       - main
@@ -37,7 +59,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: nightly
+  group: build-${{ github.workflow }}-${{ github.ref }}-${{ inputs.release || github.event_name == 'release' }}
   cancel-in-progress: false
 
 env:
@@ -51,6 +73,7 @@ jobs:
     env:
       # Scheduled runs have no inputs, so they always build the release
       BUILD_TYPE: ${{ inputs.debug && 'debug' || 'release' }}
+      RELEASE_BUILD: ${{ inputs.release || github.event_name == 'release' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -76,6 +99,10 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Set nightly build number
+        if: steps.check.outputs.skip == 'false' && env.RELEASE_BUILD != 'true'
+        run: echo "BUILD_VERSION_CODE=$((600 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
 
       - name: Set up JDK 21
         if: steps.check.outputs.skip == 'false'
@@ -138,12 +165,15 @@ jobs:
           done
           echo "cert=$cert" >> "$GITHUB_OUTPUT"
 
-          version="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' probe/app/build.gradle.kts | head -n 1)"
+          metadata="probe/app/build/outputs/apk/$BUILD_TYPE/output-metadata.json"
+          version="$(jq -r '.elements[0].versionName' "$metadata")"
+          code="$(jq -r '.elements[0].versionCode' "$metadata")"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          # Debug builds are named -nightly-debug., so the new-commit check above skips them
+          # Debug and stable artifacts are excluded from nightly update checks.
           suffix="nightly"
           [ "$BUILD_TYPE" = "debug" ] && suffix="nightly-debug"
-          echo "name=v${version}-${suffix}.$(TZ=Europe/Copenhagen date +%Y%m%d).${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          [ "$RELEASE_BUILD" = "true" ] && suffix="stable"
+          echo "name=v${version}-${suffix}.${code}" >> "$GITHUB_OUTPUT"
 
       - name: Package module
         id: package
@@ -246,9 +276,9 @@ jobs:
             printf '| [%s](%s) | %s | `%s` |\n' "$(basename "$1")" "$2" "$(du -h "$1" | cut -f 1)" "$(sha256sum "$1" | cut -d ' ' -f 1)"
           }
           {
-            echo "## Nightly $NAME"
+            echo "## Build $NAME"
             echo
-            echo "Built from \`${GITHUB_REF_NAME}\` at \`${GITHUB_SHA:0:7}\`. This is an untested development build."
+            echo "Built from \`${GITHUB_REF_NAME}\` at \`${GITHUB_SHA:0:7}\`."
             echo
             echo "| File | Size | SHA-256 |"
             echo "| --- | --- | --- |"

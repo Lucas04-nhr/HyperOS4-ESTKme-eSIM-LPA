@@ -258,8 +258,12 @@
     <string name="texture_brightness">Brightness</string>
     <string name="texture_saturation">Saturation</string>
     <string name="texture_reset">Restore defaults</string>
-    <string name="update_stable">Check stable updates</string>
-    <string name="update_stable_summary">Official releases · Fork first, then upstream · Download available updates</string>
+    <string name="update_channel">Update Channel</string>
+    <string name="update_check">Check Update</string>
+    <string name="update_startup">Check update when startup</string>
+    <string name="update_available">Update Available: %1$s</string>
+    <string name="update_details">See details on %1$s</string>
+    <string name="update_download">Download</string>
     <string name="update_checking">Checking for updates…</string>
     <string name="update_current">No newer update is available</string>
     <string name="update_download_started">Added to system downloads: %1$s</string>

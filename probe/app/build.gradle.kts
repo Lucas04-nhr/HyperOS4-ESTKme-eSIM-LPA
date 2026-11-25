@@ -30,7 +30,7 @@ android {
         applicationId = "io.github.jabe1122.esimh4probe"
         minSdk = 33
         targetSdk = 35
-        versionCode = 601
+        versionCode = providers.environmentVariable("BUILD_VERSION_CODE").orNull?.toInt() ?: 601
         versionName = "0.6.1"
     }
     signingConfigs {

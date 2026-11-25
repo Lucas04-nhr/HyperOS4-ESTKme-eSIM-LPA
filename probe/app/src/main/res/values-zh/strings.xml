@@ -258,8 +258,12 @@
     <string name="texture_brightness">亮度</string>
     <string name="texture_saturation">饱和度</string>
     <string name="texture_reset">恢复默认值</string>
-    <string name="update_stable">检查稳定版更新</string>
-    <string name="update_stable_summary">正式 Release · 优先检查 fork，再检查原始仓库 · 有更新时直接下载</string>
+    <string name="update_channel">更新通道</string>
+    <string name="update_check">检查更新</string>
+    <string name="update_startup">启动时检查更新</string>
+    <string name="update_available">发现更新：%1$s</string>
+    <string name="update_details">在 %1$s 查看详情</string>
+    <string name="update_download">下载</string>
     <string name="update_checking">正在检查更新…</string>
     <string name="update_current">暂无更新的版本</string>
     <string name="update_download_started">已加入系统下载：%1$s</string>

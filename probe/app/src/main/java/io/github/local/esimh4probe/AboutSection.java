@@ -53,12 +53,30 @@ final class AboutSection {
         ((LinearLayout.LayoutParams) licensesRow.card.getLayoutParams()).topMargin = UiKit.dp(activity, 10);
         col.addView(licensesRow.card);
 
-        UiKit.NavRow stableRow = new UiKit.NavRow(
-                activity, palette, R.drawable.ic_link_24, activity.getString(R.string.update_stable),
-                activity.getString(R.string.update_stable_summary), 24f, 24f, 0,
-                () -> UpdateChecker.check(activity));
-        ((LinearLayout.LayoutParams) stableRow.card.getLayoutParams()).topMargin = UiKit.dp(activity, 10);
-        col.addView(stableRow.card);
+        UiKit.NavRow channelRow = new UiKit.NavRow(
+                activity, palette, R.drawable.ic_link_24, activity.getString(R.string.update_channel),
+                null, 24f, 6f, 2, null);
+        channelRow.setValue(UpdateChecker.isNightly(activity) ? "Nightly" : "Stable");
+        channelRow.card.setOnClickListener(v -> UiKit.showChoiceDialog(activity, palette,
+                activity.getString(R.string.update_channel), new String[]{"Stable", "Nightly"},
+                UpdateChecker.isNightly(activity) ? 1 : 0, index -> {
+                    UpdateChecker.setNightly(activity, index == 1);
+                    channelRow.setValue(index == 1 ? "Nightly" : "Stable");
+                }));
+        ((LinearLayout.LayoutParams) channelRow.card.getLayoutParams()).topMargin = UiKit.dp(activity, 10);
+        col.addView(channelRow.card);
+        UiKit.NavRow checkRow = new UiKit.NavRow(
+                activity, palette, R.drawable.ic_link_24, activity.getString(R.string.update_check),
+                null, 6f, 6f, 2, () -> UpdateChecker.check(activity));
+        col.addView(checkRow.card);
+        UiKit.SwitchRow startupRow = new UiKit.SwitchRow(activity, palette, R.drawable.ic_link_24,
+                activity.getString(R.string.update_startup), null, 6f, 24f, 0);
+        startupRow.setRowState(UpdateChecker.checkAtStartup(activity), true, null);
+        startupRow.toggle.setOnCheckedChangeListener(enabled -> {
+            UpdateChecker.setCheckAtStartup(activity, enabled);
+            startupRow.refreshIconTint(enabled);
+        });
+        col.addView(startupRow.card);
 
         LinearLayout repoGroup = new LinearLayout(activity);
         repoGroup.setOrientation(LinearLayout.VERTICAL);

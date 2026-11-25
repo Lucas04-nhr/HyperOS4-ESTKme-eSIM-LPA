@@ -1,6 +1,8 @@
 from pathlib import Path
 import argparse
 import hashlib
+import json
+import os
 import shutil
 import zipfile
 
@@ -21,6 +23,14 @@ if not COMPAT_APK.is_file():
     parser.error(f'{COMPAT_APK} not found. Run "gradle -p probe assemble{BUILD_TYPE.capitalize()}" first'
                  + ('' if ARGS.debug else ' with the signing key configured') + '.')
 
+metadata = json.loads((COMPAT_APK.parent / 'output-metadata.json').read_text())
+arm64 = next(item for item in metadata['elements']
+             if any(f['value'] == 'arm64-v8a' for f in item['filters']))
+VERSION_NAME = arm64['versionName']
+VERSION_CODE = int(arm64['versionCode'])
+if os.environ.get('BUILD_VERSION_CODE') and VERSION_CODE != int(os.environ['BUILD_VERSION_CODE']):
+    parser.error('APK version code does not match BUILD_VERSION_CODE')
+
 OUT.mkdir(parents=True, exist_ok=True)
 if MOD.exists():
     shutil.rmtree(MOD)
@@ -30,6 +40,8 @@ MOD.mkdir(parents=True, exist_ok=True)
 def put(rel_path: str, content: str) -> None:
     target = MOD / rel_path
     target.parent.mkdir(parents=True, exist_ok=True)
+    content = content.replace('@VERSION_NAME@', VERSION_NAME)
+    content = content.replace('@VERSION_CODE@', str(VERSION_CODE))
     target.write_text(content.replace('\r\n', '\n'), encoding='utf-8', newline='\n')
 
 
@@ -75,8 +87,8 @@ put('system/product/etc/permissions/privapp-permissions-euicc.xml', '''<?xml ver
 
 put('module.prop', '''id=XiaomiEsimLPAHyperOS4
 name=Xiaomi eSIM LPA - HyperOS 4
-version=v0.6.1
-versionCode=601
+version=v@VERSION_NAME@
+versionCode=@VERSION_CODE@
 author=Local HyperOS 4 eSIM Adaptation
 description=Removable eUICC (ESTKme / Xiaobai / 9eSIM / Xesim) in SIM2 on HyperOS 4. Native eSIM feature, Xiaomi LPA v4.1.0.1, Material 3 control switches, and SukiSU/KernelSU umount immunity.
 ''')
@@ -511,7 +523,7 @@ done
 mkdir -p /data/adb/service.d
 cp "$MODPATH/restore-guard.sh" /data/adb/service.d/xiaomi-esim-h4-restore.sh
 set_perm /data/adb/service.d/xiaomi-esim-h4-restore.sh 0 0 0755
-ui_print "- 版本 / Version: v0.6.1 (601)" 2>/dev/null || true
+ui_print "- 版本 / Version: v@VERSION_NAME@ (@VERSION_CODE@)" 2>/dev/null || true
 ui_print "- 适用范围 / Scope: HyperOS 4 (SDK 35+) / SIM2 可插拔实体 eSIM (ESTKme, 小白卡, 9eSIM, Xesim 等)" 2>/dev/null || true
 ui_print "- 重要提示 / Reminder: 请在 LSPosed 中确认已勾选启用 HYPEROS4实体ESIM桥接 (io.github.jabe1122.esimh4probe)！" 2>/dev/null || true
 ui_print "- SukiSU/KernelSU 提示: 推荐使用 Hybrid Mount 或 meta-overlayfs 元模块，内置内核 umount 自动免疫。" 2>/dev/null || true
@@ -723,7 +735,7 @@ MODDIR=${0%/*}
 . "$MODDIR/common.sh"
 read_mode
 read_umount_guard
-echo "version=v0.6.1"
+echo "version=v@VERSION_NAME@"
 echo "mode=$MODE"
 echo "umount_guard=$UMOUNT_GUARD"
 echo "build=$(getprop ro.build.version.incremental)"
@@ -766,7 +778,7 @@ lpa_target.parent.mkdir(parents=True, exist_ok=True)
 shutil.copy2(PREBUILT_LPA, lpa_target)
 shutil.copy2(COMPAT_APK, MOD / 'compat.apk')
 
-zip_path = OUT / 'XiaomiEsimLPA-HyperOS4-v0.6.1.zip'
+zip_path = OUT / f'XiaomiEsimLPA-HyperOS4-v{VERSION_NAME}.zip'
 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
     for p in sorted(MOD.rglob('*')):
         if p.is_file():

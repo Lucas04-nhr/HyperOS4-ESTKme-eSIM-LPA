@@ -1,5 +1,6 @@
 package io.github.local.esimh4probe;
 
+import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.net.Uri;
@@ -32,32 +33,57 @@ public final class UpdateChecker {
 
     private UpdateChecker() {}
 
-    public static void check(Context context) {
+    public static boolean isNightly(Context context) {
+        return context.getSharedPreferences("updates", Context.MODE_PRIVATE).getBoolean("nightly", false);
+    }
+
+    public static void setNightly(Context context, boolean nightly) {
+        context.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().putBoolean("nightly", nightly).apply();
+    }
+
+    public static boolean checkAtStartup(Context context) {
+        return context.getSharedPreferences("updates", Context.MODE_PRIVATE).getBoolean("startup", true);
+    }
+
+    public static void setCheckAtStartup(Context context, boolean enabled) {
+        context.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().putBoolean("startup", enabled).apply();
+    }
+
+    private static final AtomicBoolean STARTED = new AtomicBoolean();
+
+    public static void checkOnLaunch(Activity activity) {
+        if (checkAtStartup(activity) && STARTED.compareAndSet(false, true)) check(activity, true);
+    }
+
+    public static void check(Activity context) {
+        check(context, false);
+    }
+
+    private static void check(Activity context, boolean silent) {
         Context app = context.getApplicationContext();
         if (!BUSY.compareAndSet(false, true)) {
-            toast(app, app.getString(R.string.update_checking));
+            if (!silent) toast(app, app.getString(R.string.update_checking));
             return;
         }
-        toast(app, app.getString(R.string.update_checking));
+        if (!silent) toast(app, app.getString(R.string.update_checking));
+        boolean nightly = isNightly(app);
         new Thread(() -> {
             try {
-                Download update = stable(AboutInfo.load(app));
+                AboutInfo installed = AboutInfo.load(app);
+                Download update = nightly ? nightly(installed) : stable(installed);
                 if (update == null) {
-                    toast(app, app.getString(R.string.update_current));
+                    if (!silent) toast(app, app.getString(R.string.update_current));
                 } else {
-                    DownloadManager manager = app.getSystemService(DownloadManager.class);
-                    if (manager == null) throw new IOException("Download Manager unavailable");
-                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(update.url))
-                            .setTitle(update.name)
-                            .setMimeType(update.name.endsWith(".apk")
-                                    ? "application/vnd.android.package-archive" : "application/zip")
-                            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, update.name);
-                    manager.enqueue(request);
-                    toast(app, app.getString(R.string.update_download_started, update.name));
+                    MAIN.post(() -> {
+                        if (!context.isFinishing() && !context.isDestroyed()
+                                && (!silent || checkAtStartup(app)) && isNightly(app) == nightly) {
+                            UpdatePrompt.show(context, app.getString(R.string.update_available, update.version),
+                                    update.details, () -> download(app, update));
+                        }
+                    });
                 }
             } catch (Exception e) {
-                toast(app, app.getString(R.string.update_failed, e.getMessage()));
+                if (!silent) toast(app, app.getString(R.string.update_failed, e.getMessage()));
             } finally {
                 BUSY.set(false);
             }
@@ -72,7 +98,13 @@ public final class UpdateChecker {
                 if (release == null || release.optBoolean("draft") || release.optBoolean("prerelease")) continue;
                 if (!isNewer(release.getString("tag_name"), installed)) continue;
                 Download update = asset(release.getJSONArray("assets"));
-                if (update != null) return update;
+                if (update != null) {
+                    String tag = release.getString("tag_name");
+                    Matcher coded = Pattern.compile("^(\\d+)-[vV]?(\\d+(?:\\.\\d+)*)$").matcher(tag);
+                    update.version = coded.matches() ? coded.group(2) + "(" + coded.group(1) + ")" : tag;
+                    update.details = release.getString("html_url");
+                    return update;
+                }
                 throw new IOException("No compatible release asset in " + repository);
             } catch (Exception e) {
                 // Try upstream when the fork is unavailable, but do not report an
@@ -82,6 +114,55 @@ public final class UpdateChecker {
         }
         if (failure != null) throw failure;
         return null;
+    }
+
+    private static void download(Context app, Download update) {
+        try {
+            DownloadManager manager = app.getSystemService(DownloadManager.class);
+            if (manager == null) throw new IOException("Download Manager unavailable");
+            manager.enqueue(new DownloadManager.Request(Uri.parse(update.url))
+                    .setTitle(update.name)
+                    .setMimeType(update.name.endsWith(".apk")
+                            ? "application/vnd.android.package-archive" : "application/zip")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, update.name));
+            toast(app, app.getString(R.string.update_download_started, update.name));
+        } catch (Exception e) {
+            toast(app, app.getString(R.string.update_failed, e.getMessage()));
+        }
+    }
+
+    private static Download nightly(AboutInfo installed) throws Exception {
+        // Follow this repository's main branch; never mix fork and upstream run numbers.
+        String repository = installed.repo;
+        Pattern artifactName = Pattern.compile("^XiaomiEsimLPA-HyperOS4-v(.+)-nightly\\.(\\d+)\\.zip$");
+        for (int page = 1; page <= 5; page++) {
+            JSONObject response = get(API + repository
+                    + "/actions/workflows/nightly.yml/runs?branch=main&status=success&per_page=20&page=" + page);
+            if (response == null) throw new IOException("Nightly workflow unavailable");
+            JSONArray runs = response.getJSONArray("workflow_runs");
+            for (int i = 0; i < runs.length(); i++) {
+                JSONObject run = runs.getJSONObject(i);
+                long code = 600 + run.getLong("run_number");
+                JSONObject artifacts = get(API + repository + "/actions/runs/" + run.getLong("id") + "/artifacts?per_page=100");
+                if (artifacts == null) continue;
+                JSONArray items = artifacts.getJSONArray("artifacts");
+                for (int j = 0; j < items.length(); j++) {
+                    JSONObject item = items.getJSONObject(j);
+                    Matcher match = artifactName.matcher(item.getString("name"));
+                    if (item.optBoolean("expired") || !match.matches()
+                            || Long.parseLong(match.group(2)) != code) continue;
+                    if (code <= installed.versionCode) return null;
+                    Download update = new Download(item.getString("name"), "https://nightly.link/"
+                            + repository + "/actions/artifacts/" + item.getLong("id") + ".zip");
+                    update.version = match.group(1) + "(" + code + ")";
+                    update.details = run.getString("html_url");
+                    return update;
+                }
+            }
+            if (runs.length() < 20) return null;
+        }
+        throw new IOException("No downloadable nightly found in recent workflow runs");
     }
 
     private static boolean isNewer(String tag, AboutInfo installed) throws IOException {
@@ -149,6 +230,8 @@ public final class UpdateChecker {
     private static final class Download {
         final String name;
         final String url;
+        String version;
+        String details;
         Download(String name, String url) throws IOException {
             if (!url.startsWith("https://") || !name.matches("[A-Za-z0-9._+() -]+")) {
                 throw new IOException("Unsafe download URL or filename");

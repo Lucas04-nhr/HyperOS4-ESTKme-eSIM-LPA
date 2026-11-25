@@ -252,6 +252,7 @@ public final class MainActivity extends ThemedActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        UpdateChecker.checkOnLaunch(this);
         if (isThemeRecreating()) return;
         refreshDashboard();
         if (testerPage != null) testerPage.onResume();
