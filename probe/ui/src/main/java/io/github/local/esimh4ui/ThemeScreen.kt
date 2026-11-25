@@ -260,14 +260,17 @@ fun ThemePage(
                             title = stringResource(R.string.theme_style),
                             summary = stringResource(R.string.theme_style_summary),
                             items = listOf(
-                                stringResource(R.string.theme_style_material3),
                                 stringResource(R.string.theme_style_miuix),
+                                stringResource(R.string.theme_style_material3),
                             ),
                             selectedIndex = 1,
                             backdrop = backdrop,
                             startAction = { RowIcon(R.drawable.ic_style_24) },
                             onSelectedIndexChange = {
                                 if (it == 0) {
+                                    ThemeConfig.setStyle(activity, UiKit.Style.MIUIX)
+                                    activity.recreate()
+                                } else {
                                     ThemeConfig.setStyle(activity, UiKit.Style.MATERIAL3)
                                     activity.recreate()
                                 }

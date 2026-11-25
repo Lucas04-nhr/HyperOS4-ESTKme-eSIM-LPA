@@ -565,14 +565,15 @@ public final class MainActivity extends ThemedActivity {
         });
         col.addView(startupRow.card);
 
-        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_personalize)));
         rowTesterApp = new UiKit.SwitchRow(this, palette, R.drawable.ic_science_24,
-                getString(R.string.row_tester), getString(R.string.row_tester_summary), 24f, 6f, 2);
+                getString(R.string.row_tester), getString(R.string.row_tester_summary), 24f, 24f, 0);
         col.addView(rowTesterApp.card);
+
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.section_personalize)));
         UiKit.NavRow rowLanguage = new UiKit.NavRow(
                 this, palette, io.github.local.esimh4ui.R.drawable.ic_language_24,
                 getString(io.github.local.esimh4ui.R.string.lang_title), null,
-                6f, 6f, 2, () -> LanguageSetting.showPicker(this, palette));
+                24f, 6f, 2, () -> LanguageSetting.showPicker(this, palette));
         rowLanguage.setValue(LanguageSetting.currentLabel(this));
         col.addView(rowLanguage.card);
         UiKit.NavRow rowTheme = new UiKit.NavRow(

@@ -6,7 +6,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,11 +21,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -62,8 +58,8 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
  * Shows the open source licenses page in the Miuix style, laid out like the Miuix example app's
  * third party licenses page: one card per library ("1.13.0, Apache-2.0"), under the same top bar
  * as the theme page.
- * Tapping a library opens its web page; tapping this project shows its license text on the same
- * page, and back returns to the list.
+ * Tapping a library opens its web page; this project's license text is a separate Compose
+ * destination, with predictive back returning to the list.
  * [LicensesActivity] calls this; the Material 3 style uses its View page.
  */
 fun setLicensesContent(activity: LicensesActivity) {
@@ -72,24 +68,35 @@ fun setLicensesContent(activity: LicensesActivity) {
             ThemeController(if (ThemeConfig.dynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System)
         }
         io.github.local.esimh4ui.AppMiuixTheme(controller = controller) {
-            LicensesPage(activity)
+            val stack = io.github.local.esimh4ui.rememberSettingsBackStack()
+            io.github.local.esimh4ui.SettingsNavigation(stack) { page ->
+                val navigator = io.github.local.esimh4ui.installerx.navigation.LocalNavigator.current
+                LicensesPage(
+                    activity = activity,
+                    showProject = page == "projectLicense",
+                    onBack = { if (page == "root") activity.finish() else navigator.pop() },
+                    onOpenProject = { navigator.push(io.github.local.esimh4ui.SettingsRoute("projectLicense")) },
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun LicensesPage(activity: LicensesActivity) {
+internal fun LicensesPage(
+    activity: android.app.Activity,
+    showProject: Boolean,
+    onBack: () -> Unit,
+    onOpenProject: () -> Unit,
+) {
     val data by produceState<LicenseData?>(null) {
         value = withContext(Dispatchers.IO) { LicenseData.load(activity) }
     }
-    // True while this project's license text is shown
-    var showProject by rememberSaveable { mutableStateOf(false) }
-    // Kept here, so returning from the license text shows the list where it was
+    // Each navigation entry retains its own scroll state.
     val listState = rememberLazyListState()
     val textState = rememberLazyListState()
     val loaded = data
     val entry = if (showProject) loaded?.project else null
-    BackHandler(enabled = entry != null) { showProject = false }
 
     val openFailed = stringResource(R.string.snack_open_link_failed)
     val open: (String) -> Unit = { url ->
@@ -102,9 +109,10 @@ private fun LicensesPage(activity: LicensesActivity) {
 
     PageScaffold(
         title = entry?.title ?: stringResource(R.string.licenses_title),
-        onBack = { if (entry != null) showProject = false else activity.finish() },
-        listState = if (entry != null) textState else listState,
+        onBack = onBack,
+        listState = if (showProject) textState else listState,
     ) { padding, scrollModifier ->
+        if (showProject && entry == null) return@PageScaffold
         if (entry != null) {
             LazyColumn(state = textState, modifier = scrollModifier, contentPadding = padding) {
                 item(key = "license") {
@@ -139,7 +147,7 @@ private fun LicensesPage(activity: LicensesActivity) {
                         ArrowPreference(
                             title = list.project.title,
                             summary = list.project.summary,
-                            onClick = { showProject = true },
+                            onClick = onOpenProject,
                         )
                     }
                 }

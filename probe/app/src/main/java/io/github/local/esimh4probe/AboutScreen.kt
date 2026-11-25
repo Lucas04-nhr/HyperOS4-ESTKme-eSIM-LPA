@@ -96,13 +96,36 @@ fun setAboutContent(activity: AboutActivity, isDark: Boolean) {
             ThemeController(if (ThemeConfig.dynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System)
         }
         io.github.local.esimh4ui.AppMiuixTheme(controller = controller) {
-            AboutPage(activity, isDark)
+            val stack = io.github.local.esimh4ui.rememberSettingsBackStack()
+            io.github.local.esimh4ui.SettingsNavigation(stack) { page ->
+                val navigator = io.github.local.esimh4ui.installerx.navigation.LocalNavigator.current
+                when (page) {
+                    "licenses", "projectLicense" -> LicensesPage(
+                        activity = activity,
+                        showProject = page == "projectLicense",
+                        onBack = { navigator.pop() },
+                        onOpenProject = { navigator.push(io.github.local.esimh4ui.SettingsRoute("projectLicense")) },
+                    )
+                    else -> AboutPage(
+                        activity = activity,
+                        isDark = isDark,
+                        onBack = { activity.finish() },
+                        onOpenLicenses = { navigator.push(io.github.local.esimh4ui.SettingsRoute("licenses")) },
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
+internal fun AboutPage(
+    activity: android.app.Activity,
+    isDark: Boolean,
+    onBack: () -> Unit,
+    onOpenLicenses: () -> Unit,
+) {
+    val exportAction = remember(activity) { AboutLogExport(activity) }
     val colors = MiuixTheme.colorScheme
     val info by produceState<AboutInfo?>(null) {
         value = withContext(Dispatchers.IO) { AboutInfo.load(activity) }
@@ -157,7 +180,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                     titleColor = colors.onSurface.copy(alpha = titleAlpha),
                     scrollBehavior = scrollBehavior,
                     navigationIcon = {
-                        IconButton(onClick = { activity.finish() }) {
+                        IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = MiuixIcons.Back,
                                 contentDescription = stringResource(io.github.local.esimh4ui.R.string.ui_back),
@@ -185,7 +208,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                         versionText = info?.let { "v" + it.versionText() } ?: "",
                         isDark = isDark,
                         progress = { progress },
-                        onClick = { activity.onHeaderTap() },
+                        onClick = { exportAction.onHeaderTap() },
                     )
                 }
                 val data = info ?: return@LazyColumn
@@ -215,7 +238,7 @@ private fun AboutPage(activity: AboutActivity, isDark: Boolean) {
                             AboutCard {
                                 ArrowPreference(
                                     title = stringResource(R.string.licenses_title),
-                                    onClick = { activity.startActivity(Intent(activity, LicensesActivity::class.java)) },
+                                    onClick = onOpenLicenses,
                                 )
                                 val commit = data.shortCommit()
                                 if (commit != null) {

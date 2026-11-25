@@ -551,6 +551,24 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         )
         return@SettingsNavigation
     }
+    if (page == "about") {
+        AboutPage(
+            activity = activity,
+            isDark = androidx.compose.foundation.isSystemInDarkTheme(),
+            onBack = { navigator.pop() },
+            onOpenLicenses = { navigator.push(SettingsRoute("licenses")) },
+        )
+        return@SettingsNavigation
+    }
+    if (page == "licenses" || page == "projectLicense") {
+        LicensesPage(
+            activity = activity,
+            showProject = page == "projectLicense",
+            onBack = { navigator.pop() },
+            onOpenProject = { navigator.push(SettingsRoute("projectLicense")) },
+        )
+        return@SettingsNavigation
+    }
     val title = when (page) {
         "bridge" -> R.string.section_bridge
         "core" -> R.string.section_core
@@ -616,6 +634,13 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         item(key = "rootTitle") { SmallTitle(text = stringResource(R.string.section_root)) }
         item(key = "root") {
             MiuixCard {
+                SwitchPreference(
+                    checked = state.showTester,
+                    onCheckedChange = { activity.setTesterTabShown(it) },
+                    title = stringResource(R.string.row_tester),
+                    summary = stringResource(if (state.showTester) R.string.tester_sub_on else R.string.tester_sub_off),
+                    startAction = { MiuixRowIcon(R.drawable.ic_science_24) },
+                )
                 SettingSwitch(MainActivity.SW_UMOUNT_GUARD, model?.umountGuard, R.string.row_umount_guard, R.drawable.ic_shield_24)
                 SettingSwitch(MainActivity.SW_ESTK_SE1, model?.estkSe1, R.string.row_estk_se1, R.drawable.ic_sync_alt_24)
             }
@@ -652,13 +677,6 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         item(key = "personalizeTitle") { SmallTitle(text = stringResource(R.string.section_personalize)) }
         item(key = "personalize") {
             MiuixCard {
-                SwitchPreference(
-                    checked = state.showTester,
-                    onCheckedChange = { activity.setTesterTabShown(it) },
-                    title = stringResource(R.string.row_tester),
-                    summary = stringResource(if (state.showTester) R.string.tester_sub_on else R.string.tester_sub_off),
-                    startAction = { MiuixRowIcon(R.drawable.ic_science_24) },
-                )
                 GlassDropdownPreference(
                     title = stringResource(UiR.string.lang_title),
                     items = LanguageSetting.labels(activity).toList(),
@@ -688,7 +706,7 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                     title = stringResource(R.string.section_about),
                     startAction = { MiuixRowIcon(R.drawable.ic_info_24) },
                     endActions = { EndText(AboutInfo.versionName(activity)) },
-                    onClick = { activity.openAbout() },
+                    onClick = { navigator.push(SettingsRoute("about")) },
                 )
             }
         }
