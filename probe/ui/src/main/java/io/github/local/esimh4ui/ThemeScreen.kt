@@ -99,11 +99,12 @@ fun setThemeContent(activity: ThemeActivity, showLanguage: Boolean) {
 }
 
 @Composable
-private fun ThemePage(
-    activity: ThemeActivity,
+fun ThemePage(
+    activity: ThemedActivity,
     showLanguage: Boolean,
     dynamicColor: Boolean,
     onDynamicColorChange: (Boolean) -> Unit,
+    navigateBack: () -> Unit = { activity.finish() },
 ) {
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
@@ -147,7 +148,6 @@ private fun ThemePage(
         }
     }
 
-    val navigateBack: () -> Unit = { activity.finish() }
     val backdrop = rememberLayerBackdrop()
     val scrollBehavior = MiuixScrollBehavior()
     val listState = rememberLazyListState()
@@ -294,6 +294,7 @@ private fun ThemePage(
                             items = listOf("OS2", "OS3", "OS4"),
                             selectedIndex = ThemeConfig.miuixVersion - 2,
                             backdrop = backdrop,
+                            startAction = { RowIcon(R.drawable.ic_style_24) },
                             onSelectedIndexChange = {
                                 ThemeConfig.setMiuixVersion(activity, it + 2)
                                 activity.recreate()
@@ -303,6 +304,7 @@ private fun ThemePage(
                             title = stringResource(R.string.theme_amoled),
                             summary = stringResource(R.string.theme_amoled_summary),
                             checked = ThemeConfig.amoledBackground,
+                            startAction = { RowIcon(R.drawable.ic_dark_mode_24) },
                             onCheckedChange = {
                                 ThemeConfig.setAmoledBackground(activity, it)
                                 activity.recreate()

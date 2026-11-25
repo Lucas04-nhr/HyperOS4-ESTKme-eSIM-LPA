@@ -53,11 +53,11 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
             .show()
         dialog.findViewById<TextView>(android.R.id.message)?.apply {
             movementMethod = LinkMovementMethod.getInstance()
-            setPadding(paddingLeft, UiKit.dp(activity, 16), paddingRight, UiKit.dp(activity, 24))
+            setPadding(paddingLeft, UiKit.dp(activity, 16f), paddingRight, UiKit.dp(activity, 24f))
         }
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
             (layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
-                params.marginEnd = UiKit.dp(activity, 12)
+                params.marginEnd = UiKit.dp(activity, 12f)
                 layoutParams = params
             }
         }

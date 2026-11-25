@@ -538,6 +538,19 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
 
     SettingsNavigation(backStack) { page ->
     val navigator = LocalNavigator.current
+    if (page == "theme") {
+        io.github.local.esimh4ui.ThemePage(
+            activity = activity,
+            showLanguage = false,
+            dynamicColor = ThemeConfig.dynamicColor,
+            onDynamicColorChange = {
+                ThemeConfig.setDynamicColor(activity, it)
+                activity.recreate()
+            },
+            navigateBack = { navigator.pop() },
+        )
+        return@SettingsNavigation
+    }
     val title = when (page) {
         "bridge" -> R.string.section_bridge
         "core" -> R.string.section_core
@@ -663,7 +676,7 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                     summary = stringResource(R.string.row_theme_summary),
                     startAction = { MiuixRowIcon(UiR.drawable.ic_palette_24) },
                     endActions = { EndText(stringResource(UiR.string.theme_style_miuix)) },
-                    onClick = { activity.openTheme() },
+                    onClick = { navigator.push(SettingsRoute("theme")) },
                 )
             }
         }

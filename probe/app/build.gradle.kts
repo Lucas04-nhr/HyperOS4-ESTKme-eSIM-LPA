@@ -28,8 +28,8 @@ android {
     }
     defaultConfig {
         applicationId = "io.github.jabe1122.esimh4probe"
-        minSdk = 33
-        targetSdk = 35
+        minSdk = 35
+        targetSdk = 37
         versionCode = providers.environmentVariable("BUILD_VERSION_CODE").orNull?.toInt() ?: 601
         versionName = "0.6.1"
     }

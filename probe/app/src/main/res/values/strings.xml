@@ -162,7 +162,7 @@
     <string name="about_version">Version</string>
     <string name="about_commit">Commit</string>
     <string name="about_license_value">Apache License 2.0</string>
-    <string name="licenses_title">Open source licenses</string>
+    <string name="licenses_title">Open Source Licenses</string>
     <string name="licenses_section_project">This project</string>
     <string name="licenses_section_libraries">Libraries</string>
     <string name="licenses_open_web">Open web page</string>
@@ -260,7 +260,7 @@
     <string name="texture_reset">Restore defaults</string>
     <string name="update_channel">Update Channel</string>
     <string name="update_check">Check Update</string>
-    <string name="update_startup">Check update when startup</string>
+    <string name="update_startup">Check For Updates At Startup</string>
     <string name="update_available">Update Available: %1$s</string>
     <string name="update_details">See details on %1$s</string>
     <string name="update_download">Download</string>
