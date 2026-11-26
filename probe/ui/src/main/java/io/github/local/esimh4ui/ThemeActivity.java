@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.view.View;
 import android.widget.LinearLayout;
 
 /**
@@ -146,15 +147,19 @@ public final class ThemeActivity extends ThemedActivity {
         UiKit.SwitchRow rowProgressive = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_blur_24,
                 getString(R.string.theme_progressive_blur), "", 6f, 6f, 2);
-        setDependentRow(rowProgressive, ThemeConfig.progressiveBlur, miuix, ThemeConfig.barGlass,
-                R.string.theme_progressive_blur_summary, R.string.theme_needs_glass);
+        rowProgressive.setRowState(ThemeConfig.progressiveBlur, true,
+                getString(R.string.theme_progressive_blur_summary));
+        rowProgressive.card.setVisibility(miuix && ThemeConfig.miuixVersion == 4 && ThemeConfig.barGlass
+                ? View.VISIBLE : View.GONE);
         rowProgressive.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setProgressiveBlur(this, checked));
         col.addView(rowProgressive.card);
 
         rowGlass.toggle.setOnCheckedChangeListener((sw, checked) -> {
             ThemeConfig.setBarGlass(this, checked);
-            setDependentRow(rowProgressive, ThemeConfig.progressiveBlur, true, checked,
-                    R.string.theme_progressive_blur_summary, R.string.theme_needs_glass);
+            android.transition.TransitionManager.beginDelayedTransition(col,
+                    new android.transition.AutoTransition().setDuration(250));
+            rowProgressive.card.setVisibility(miuix && ThemeConfig.miuixVersion == 4 && checked
+                    ? View.VISIBLE : View.GONE);
         });
 
         UiKit.SwitchRow rowFloating = new UiKit.SwitchRow(

@@ -358,15 +358,14 @@ fun ThemePage(
                 item(key = "bars") {
                     SettingsCard(cardColor) {
                         Crossfade(
-                            targetState = Pair(miuixVersion == 4, barGlass),
+                            targetState = miuixVersion == 4,
                             animationSpec = tween(250),
                             label = "glassAvailability",
-                        ) { (supportsGlass, glassEnabled) ->
-                            Column {
+                        ) { supportsGlass ->
                         SwitchPreference(
                             title = stringResource(R.string.theme_bar_glass),
                             summary = stringResource(R.string.theme_bar_glass_summary),
-                            checked = glassEnabled && supportsGlass,
+                            checked = barGlass && supportsGlass,
                             enabled = supportsGlass,
                             startAction = { RowIcon(R.drawable.ic_bottom_bar_24) },
                             onCheckedChange = {
@@ -374,20 +373,22 @@ fun ThemePage(
                                 barGlass = it
                             },
                         )
+                        }
+                        AnimatedVisibility(
+                            visible = barGlass && miuixVersion == 4,
+                            enter = expandVertically(tween(250)) + fadeIn(tween(250)),
+                            exit = shrinkVertically(tween(250)) + fadeOut(tween(200)),
+                        ) {
                         SwitchPreference(
                             title = stringResource(R.string.theme_progressive_blur),
-                            summary = stringResource(
-                                if (glassEnabled) R.string.theme_progressive_blur_summary else R.string.theme_needs_glass,
-                            ),
-                            checked = progressiveBlur && glassEnabled && supportsGlass,
-                            enabled = glassEnabled && supportsGlass,
+                            summary = stringResource(R.string.theme_progressive_blur_summary),
+                            checked = progressiveBlur,
                             startAction = { RowIcon(R.drawable.ic_blur_24) },
                             onCheckedChange = {
                                 ThemeConfig.setProgressiveBlur(activity, it)
                                 progressiveBlur = it
                             },
                         )
-                            }
                         }
                         SwitchPreference(
                             title = stringResource(R.string.theme_bar_floating),
