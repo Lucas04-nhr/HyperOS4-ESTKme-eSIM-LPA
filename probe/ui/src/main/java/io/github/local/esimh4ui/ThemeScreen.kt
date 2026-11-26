@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,8 +47,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
@@ -117,7 +116,6 @@ fun ThemePage(
 ) {
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
     var appearanceTapCount by rememberSaveable { mutableIntStateOf(0) }
 
     var miuixVersion by remember { mutableIntStateOf(ThemeConfig.miuixVersion) }
@@ -258,8 +256,10 @@ fun ThemePage(
                 item(key = "appearanceTitle") {
                     SmallTitle(
                         text = stringResource(R.string.theme_section_appearance),
-                        modifier = Modifier.clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) {
                             if (appearanceTapCount < 7) appearanceTapCount++
                         },
                     )

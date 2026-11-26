@@ -20,14 +20,10 @@ public final class ThemeActivity extends ThemedActivity {
     private Scaffold scaffold;
     private UiKit.NavRow rowNight;
     private boolean composePage;
-    private int appearanceTapCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (savedInstanceState != null) {
-            appearanceTapCount = savedInstanceState.getInt("appearance_tap_count", 0);
-        }
         if (UiKit.isMiuix()) {
             composePage = true;
             UiKit.applyEdgeToEdge(this, palette);
@@ -45,12 +41,6 @@ public final class ThemeActivity extends ThemedActivity {
         // The Compose page reads the settings as state; rebuilding it on return from the image
         // picker would also drop an import that is still running.
         return !composePage;
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        outState.putInt("appearance_tap_count", appearanceTapCount);
-        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -93,17 +83,7 @@ public final class ThemeActivity extends ThemedActivity {
                 this, palette, getString(R.string.theme_style), styles, miuix ? 1 : 0, index -> {
                     ThemeConfig.setStyle(this, index == 1 ? UiKit.Style.MIUIX : UiKit.Style.MATERIAL3);
                 }));
-        rowStyle.card.setVisibility(appearanceTapCount >= 7
-                ? android.view.View.VISIBLE : android.view.View.GONE);
         col.addView(rowStyle.card);
-        appearanceTitle.setOnClickListener(v -> {
-            v.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
-            if (appearanceTapCount < 7 && ++appearanceTapCount == 7) {
-                android.transition.TransitionManager.beginDelayedTransition(
-                        col, new android.transition.AutoTransition().setDuration(250));
-                rowStyle.card.setVisibility(android.view.View.VISIBLE);
-            }
-        });
         String[] nightModes = {
                 getString(R.string.theme_night_system),
                 getString(R.string.theme_night_light),
