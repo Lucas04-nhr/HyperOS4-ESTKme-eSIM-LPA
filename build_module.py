@@ -193,8 +193,31 @@ strip_lpa_updates() {
 }
 
 sync_lpa_umount_guard() {
-  if ! { [ -f "$LPA_OVERLAY_APK" ] && [ -f "$LPA_PRIV_XML" ] && is_lpa_system_pkg; }; then
-    logmsg "Cannot sync LPA: privileged system mount is not visible or SYSTEM flag is missing."
+  # App-launched root shells may inherit an unmounted namespace. Check the
+  # package manager's filesystem view before rejecting a valid system mount.
+  guard_overlay_apk="$LPA_OVERLAY_APK"
+  guard_priv_xml="$LPA_PRIV_XML"
+  if ! { [ -f "$guard_overlay_apk" ] && [ -f "$guard_priv_xml" ]; }; then
+    system_server_pid=$(pidof system_server 2>/dev/null)
+    case "$system_server_pid" in
+      ''|*[!0-9]*)
+        logmsg "Cannot sync LPA: cannot identify the system_server mount namespace."
+        return 1
+        ;;
+    esac
+    guard_overlay_apk="/proc/$system_server_pid/root$LPA_OVERLAY_APK"
+    guard_priv_xml="/proc/$system_server_pid/root$LPA_PRIV_XML"
+  fi
+  if [ ! -f "$guard_overlay_apk" ]; then
+    logmsg "Cannot sync LPA: privileged APK is not accessible at $guard_overlay_apk."
+    return 1
+  fi
+  if [ ! -f "$guard_priv_xml" ]; then
+    logmsg "Cannot sync LPA: privilege XML is not accessible at $guard_priv_xml."
+    return 1
+  fi
+  if ! is_lpa_system_pkg; then
+    logmsg "Cannot sync LPA: package manager does not report com.miui.euicc as a SYSTEM app."
     return 1
   fi
   mkdir -p "$STATE"
@@ -216,7 +239,7 @@ sync_lpa_umount_guard() {
     return 0
   fi
   src_apk="$MODDIR/system/product/priv-app/MIUIEsimLPA/MIUIEsimLPA.apk"
-  [ -f "$src_apk" ] || src_apk="$LPA_OVERLAY_APK"
+  [ -f "$src_apk" ] || src_apk="$guard_overlay_apk"
   [ -f "$src_apk" ] || { logmsg "LPA source APK is missing."; return 1; }
   apk_sha=$(sha256sum "$src_apk" 2>/dev/null | cut -d ' ' -f 1)
   if is_lpa_updated_system_pkg && [ -n "$apk_sha" ] && [ "$(cat "$STATE/lpa.sha256" 2>/dev/null)" = "$apk_sha" ]; then
