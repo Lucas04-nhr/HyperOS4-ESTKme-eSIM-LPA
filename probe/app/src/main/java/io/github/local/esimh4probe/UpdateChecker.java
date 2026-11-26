@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.net.Uri;
 import androidx.core.content.FileProvider;
 import java.io.File;
-import java.io.FileOutputStream;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
@@ -32,7 +31,7 @@ public final class UpdateChecker {
     };
     private static final Pattern VERSION = Pattern.compile("^[vV]?(\\d+(?:\\.\\d+)*)(?:\\+[A-Za-z0-9.-]+)?$");
     private static final AtomicBoolean BUSY = new AtomicBoolean();
-    private static final AtomicBoolean DOWNLOADING = new AtomicBoolean();
+    static final AtomicBoolean DOWNLOADING = new AtomicBoolean();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     private UpdateChecker() {}
@@ -137,7 +136,7 @@ public final class UpdateChecker {
                         if (!context.isFinishing() && !context.isDestroyed()
                                 && (!silent || checkAtStartup(app)) && isNightly(app) == nightly) {
                             UpdatePrompt.show(context, app.getString(R.string.update_available, update.version),
-                                    update.details, () -> download(app, update));
+                                    update.details, () -> download(context, update));
                         }
                     });
                 }
@@ -175,7 +174,7 @@ public final class UpdateChecker {
         return null;
     }
 
-    private static File updateCache(Context app) throws IOException {
+    static File updateCache(Context app) throws IOException {
         File cache = app.getExternalCacheDir();
         if (cache == null) throw new IOException("External cache unavailable");
         return new File(cache, "updates");
@@ -200,7 +199,13 @@ public final class UpdateChecker {
         }
     }
 
-    private static void download(Context app, Download update) {
+    private static void download(Activity activity, Download update) {
+        Context app = activity.getApplicationContext();
+        if (autoInstall(app) && !app.getSystemService(android.app.NotificationManager.class).areNotificationsEnabled()) {
+            activity.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 4101);
+            toast(app, app.getString(R.string.update_notification_required));
+            return;
+        }
         if (!autoInstall(app)) {
             try {
                 android.app.DownloadManager manager = app.getSystemService(android.app.DownloadManager.class);
@@ -226,85 +231,24 @@ public final class UpdateChecker {
             toast(app, app.getString(R.string.update_download_started));
             return;
         }
-        toast(app, app.getString(R.string.update_download_started));
-        new Thread(() -> {
-            File partial = null;
-            HttpURLConnection connection = null;
-            try {
-                if (update.sha256 == null || !update.sha256.matches("(?i)sha256:[0-9a-f]{64}")) {
-                    throw new IOException("Missing or invalid published SHA-256 digest");
-                }
-                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-                File directory = updateCache(app);
-                if (!directory.isDirectory() && !directory.mkdirs()) {
-                    throw new IOException("Could not create update cache");
-                }
-                // Unique names keep previously shared packages readable until the next launch.
-                partial = File.createTempFile("download-", ".part", directory);
-                connection = (HttpURLConnection) new URL(update.url).openConnection();
-                connection.setConnectTimeout(15000);
-                connection.setReadTimeout(30000);
-                connection.setRequestProperty("User-Agent", "eSIM-Probe-UpdateChecker");
-                int status = connection.getResponseCode();
-                if (status != HttpURLConnection.HTTP_OK) throw new IOException("Download HTTP " + status);
-                long expected = connection.getContentLengthLong();
-                long received = 0;
-                try (InputStream in = connection.getInputStream();
-                     FileOutputStream out = new FileOutputStream(partial)) {
-                    byte[] buffer = new byte[65536];
-                    int count;
-                    while ((count = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, count);
-                        digest.update(buffer, 0, count);
-                        received += count;
-                    }
-                }
-                if (received == 0 || (expected >= 0 && received != expected)) {
-                    throw new IOException("Incomplete update download");
-                }
-                byte[] expectedDigest = new byte[32];
-                String hex = update.sha256.substring(7);
-                for (int i = 0; i < expectedDigest.length; i++) {
-                    expectedDigest[i] = (byte) Integer.parseInt(hex.substring(i * 2, i * 2 + 2), 16);
-                }
-                if (!java.security.MessageDigest.isEqual(expectedDigest, digest.digest())) {
-                    throw new IOException("Update SHA-256 mismatch; installation blocked");
-                }
-                File downloaded = new File(directory, partial.getName() + "-" + update.name);
-                if (!partial.renameTo(downloaded)) throw new IOException("Could not finish update download");
-                MAIN.post(() -> {
-                    try {
-                        if (autoInstall(app)) {
-                            install(app, downloaded, managerPackage);
-                        } else {
-                            toast(app, app.getString(R.string.update_download_saved, downloaded.getAbsolutePath()));
-                        }
-                    } catch (Exception e) {
-                        toast(app, app.getString(R.string.update_failed, e.getMessage()));
-                    } finally {
-                        DOWNLOADING.set(false);
-                    }
-                });
-            } catch (Exception e) {
-                toast(app, app.getString(R.string.update_failed, e.getMessage()));
-                DOWNLOADING.set(false);
-            } finally {
-                if (connection != null) connection.disconnect();
-                if (partial != null && partial.exists() && !partial.delete()) {
-                    android.util.Log.w("EsimH4-Updates", "Could not delete partial update");
-                }
-            }
-        }, "EsimH4-Download").start();
+        try {
+            app.startForegroundService(new Intent(app, UpdateDownloadService.class)
+                    .putExtra("url", update.url).putExtra("name", update.name)
+                    .putExtra("sha256", update.sha256).putExtra("manager", managerPackage));
+        } catch (Exception e) {
+            DOWNLOADING.set(false);
+            toast(app, app.getString(R.string.update_failed, e.getMessage()));
+        }
     }
 
-    private static void install(Context app, File file, String managerPackage) {
+    static Intent installIntent(Context app, File file, String managerPackage) {
         Uri uri = FileProvider.getUriForFile(app, app.getPackageName() + ".fileprovider", file);
         Intent intent = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, "application/zip")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setClipData(ClipData.newRawUri("Update", uri));
         intent.setPackage(managerPackage);
-        app.startActivity(intent);
+        return intent;
     }
 
     private static Download nightly(AboutInfo installed) throws Exception {

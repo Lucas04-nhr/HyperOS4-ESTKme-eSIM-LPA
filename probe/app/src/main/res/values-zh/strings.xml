@@ -270,6 +270,13 @@
     <string name="update_startup">启动时检查更新</string>
     <string name="update_available">发现更新：%1$s</string>
     <string name="update_details">在 %1$s 查看详情</string>
+    <string name="update_notification_channel">更新下载</string>
+    <string name="update_pause">暂停</string>
+    <string name="update_resume">继续</string>
+    <string name="update_paused">下载已暂停</string>
+    <string name="update_cancelled">下载已取消</string>
+    <string name="update_ready">更新已就绪，点按安装</string>
+    <string name="update_notification_required">请在系统设置中允许通知，然后重新检查更新，以使用下载控制并安装。</string>
     <string name="update_download">下载</string>
     <string name="update_install">安装</string>
     <string name="update_checking">正在检查更新…</string>

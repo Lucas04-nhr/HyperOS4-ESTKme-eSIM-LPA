@@ -270,6 +270,13 @@
     <string name="update_startup">Check for Updates at Startup</string>
     <string name="update_available">Update Available: %1$s</string>
     <string name="update_details">See details on %1$s</string>
+    <string name="update_notification_channel">Update downloads</string>
+    <string name="update_pause">Pause</string>
+    <string name="update_resume">Resume</string>
+    <string name="update_paused">Download paused</string>
+    <string name="update_cancelled">Download cancelled</string>
+    <string name="update_ready">Update ready — tap to install</string>
+    <string name="update_notification_required">Allow notifications in system settings, then check for updates again to install with download controls.</string>
     <string name="update_download">Download</string>
     <string name="update_install">Install</string>
     <string name="update_checking">Checking for updates…</string>
