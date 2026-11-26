@@ -33,6 +33,7 @@ public final class ThemeConfig {
     private static final String BG_FILE = "app_background.jpg";
     public static int miuixVersion = 4;
     public static boolean amoledBackground = false;
+    public static boolean showTexture = false;
     /** 0: system, 1: scale, 2: slide. */
     public static int predictiveBack = 0;
     /** 0: follow gesture, 1: right, 2: left. */
@@ -82,6 +83,7 @@ public final class ThemeConfig {
         progressiveBlur = sp.getBoolean(KEY_PROGRESSIVE, true);
         miuixVersion = Math.max(2, Math.min(4, sp.getInt("miuix_version", 4)));
         amoledBackground = sp.getBoolean("amoled_background", false);
+        showTexture = sp.getBoolean("show_texture", false);
         predictiveBack = Math.max(0, Math.min(2, sp.getInt("predictive_back", 0)));
         backExitDirection = Math.max(0, Math.min(2, sp.getInt("back_exit_direction", 0)));
         loaded = true;
@@ -99,6 +101,12 @@ public final class ThemeConfig {
 
     public static boolean useLiquidGlass() {
         return miuixVersion >= 4 && liquidGlass;
+    }
+
+    public static void setShowTexture(Context ctx, boolean value) {
+        showTexture = value;
+        prefs(ctx).edit().putBoolean("show_texture", value).apply();
+        version++;
     }
 
     public static void setAmoledBackground(Context ctx, boolean value) {

@@ -119,6 +119,7 @@ fun ThemePage(
     var bgDim by remember { mutableFloatStateOf(ThemeConfig.bgDim.toFloat()) }
     var cardAlpha by remember { mutableFloatStateOf(ThemeConfig.cardAlpha.toFloat()) }
     var importing by remember { mutableStateOf(false) }
+    var showTexture by remember { mutableStateOf(ThemeConfig.showTexture) }
 
     // Bumped after the image is replaced or removed, so it is decoded again.
     var backgroundVersion by remember { mutableIntStateOf(0) }
@@ -380,10 +381,49 @@ fun ThemePage(
                     }
                 }
 
+                item(key = "backTitle") { SmallTitle(text = stringResource(R.string.personalization_navigation)) }
+                item(key = "back") {
+                    SettingsCard(cardColor) {
+                        GlassDropdownPreference(
+                            title = stringResource(R.string.theme_predictive_back),
+                            items = listOf(stringResource(R.string.theme_back_system), stringResource(R.string.theme_back_scale), stringResource(R.string.theme_back_slide)),
+                            selectedIndex = ThemeConfig.predictiveBack,
+                            backdrop = backdrop,
+                            onSelectedIndexChange = {
+                                ThemeConfig.setPredictiveBack(activity, it)
+                                activity.recreate()
+                            },
+                        )
+                        if (ThemeConfig.predictiveBack != 0) {
+                            GlassDropdownPreference(
+                                title = stringResource(R.string.theme_back_direction),
+                                items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
+                                selectedIndex = ThemeConfig.backExitDirection,
+                                backdrop = backdrop,
+                                onSelectedIndexChange = {
+                                    ThemeConfig.setBackExitDirection(activity, it)
+                                    activity.recreate()
+                                },
+                            )
+                        }
+                    }
+                }
+
                 // Background
                 item(key = "backgroundTitle") { SmallTitle(text = stringResource(R.string.theme_section_background)) }
                 item(key = "background") {
                     SettingsCard(cardColor) {
+                        if (showTexture) {
+                            SwitchPreference(
+                                title = stringResource(R.string.theme_show_texture),
+                                checked = showTexture,
+                                startAction = { RowIcon(R.drawable.ic_style_24) },
+                                onCheckedChange = {
+                                    ThemeConfig.setShowTexture(activity, it)
+                                    showTexture = it
+                                },
+                            )
+                        }
                         ArrowPreference(
                             title = stringResource(if (hasBackground) R.string.theme_bg_image_replace else R.string.theme_bg_image),
                             summary = stringResource(R.string.theme_bg_image_summary),
@@ -437,36 +477,6 @@ fun ThemePage(
                             onValueChange = { cardAlpha = it },
                             onValueChangeFinished = { ThemeConfig.setCardAlpha(activity, cardAlpha.roundToInt()) },
                         )
-                    }
-                }
-                if (!hasBackground) {
-                    item(key = "backgroundHint") { SmallTitle(text = stringResource(R.string.theme_bg_hint)) }
-                }
-                item(key = "backTitle") { SmallTitle(text = stringResource(R.string.personalization_navigation)) }
-                item(key = "back") {
-                    SettingsCard(cardColor) {
-                        GlassDropdownPreference(
-                            title = stringResource(R.string.theme_predictive_back),
-                            items = listOf(stringResource(R.string.theme_back_system), stringResource(R.string.theme_back_scale), stringResource(R.string.theme_back_slide)),
-                            selectedIndex = ThemeConfig.predictiveBack,
-                            backdrop = backdrop,
-                            onSelectedIndexChange = {
-                                ThemeConfig.setPredictiveBack(activity, it)
-                                activity.recreate()
-                            },
-                        )
-                        if (ThemeConfig.predictiveBack != 0) {
-                            GlassDropdownPreference(
-                                title = stringResource(R.string.theme_back_direction),
-                                items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
-                                selectedIndex = ThemeConfig.backExitDirection,
-                                backdrop = backdrop,
-                                onSelectedIndexChange = {
-                                    ThemeConfig.setBackExitDirection(activity, it)
-                                    activity.recreate()
-                                },
-                            )
-                        }
                     }
                 }
             }

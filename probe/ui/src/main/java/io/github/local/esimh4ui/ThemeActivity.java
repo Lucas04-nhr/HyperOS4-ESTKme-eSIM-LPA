@@ -178,14 +178,34 @@ public final class ThemeActivity extends ThemedActivity {
                     R.string.theme_liquid_glass_summary, R.string.theme_liquid_glass_needs_floating);
         });
 
+        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.personalization_navigation)));
+        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_system),
+                getString(R.string.theme_back_scale), getString(R.string.theme_back_slide)},
+                ThemeConfig.predictiveBack, index -> ThemeConfig.setPredictiveBack(this, index));
+        if (ThemeConfig.predictiveBack != 0) {
+            addChoice(col, R.string.theme_back_direction, new String[]{getString(R.string.theme_back_follow),
+                    getString(R.string.theme_back_right), getString(R.string.theme_back_left)},
+                    ThemeConfig.backExitDirection, index -> ThemeConfig.setBackExitDirection(this, index));
+        }
+
         // Background
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_section_background)));
         boolean hasBg = palette.hasBackground;
+        if (ThemeConfig.showTexture) {
+            UiKit.SwitchRow rowTexture = new UiKit.SwitchRow(this, palette, R.drawable.ic_style_24,
+                    getString(R.string.theme_show_texture), "", 24f, 6f, 2);
+            rowTexture.setRowState(true, true, "");
+            rowTexture.toggle.setOnCheckedChangeListener((sw, checked) -> {
+                ThemeConfig.setShowTexture(this, checked);
+                recreateSoon();
+            });
+            col.addView(rowTexture.card);
+        }
 
         UiKit.NavRow rowImage = new UiKit.NavRow(
                 this, palette, R.drawable.ic_image_24,
                 getString(R.string.theme_bg_image), getString(R.string.theme_bg_image_summary),
-                24f, 6f, 2, null);
+                ThemeConfig.showTexture ? 6f : 24f, 6f, 2, null);
         rowImage.setValue(getString(hasBg ? R.string.theme_bg_image_set : R.string.theme_bg_image_unset));
         rowImage.card.setOnClickListener(v -> {
             if (!hasBg) {
@@ -260,18 +280,6 @@ public final class ThemeActivity extends ThemedActivity {
         });
         col.addView(rowCard.card);
 
-        if (!hasBg) {
-            col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_bg_hint)));
-        }
-        col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.personalization_navigation)));
-        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_system),
-                getString(R.string.theme_back_scale), getString(R.string.theme_back_slide)},
-                ThemeConfig.predictiveBack, index -> ThemeConfig.setPredictiveBack(this, index));
-        if (ThemeConfig.predictiveBack != 0) {
-            addChoice(col, R.string.theme_back_direction, new String[]{getString(R.string.theme_back_follow),
-                    getString(R.string.theme_back_right), getString(R.string.theme_back_left)},
-                    ThemeConfig.backExitDirection, index -> ThemeConfig.setBackExitDirection(this, index));
-        }
         return col;
     }
 

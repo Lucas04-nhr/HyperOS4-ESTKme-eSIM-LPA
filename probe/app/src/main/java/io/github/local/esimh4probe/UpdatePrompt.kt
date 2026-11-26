@@ -14,6 +14,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,10 +51,16 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
     val label = activity.getString(R.string.update_details, "GitHub")
     if (!UiKit.isMiuix()) {
         val message = SpannableString(label)
-        val start = label.indexOf("GitHub")
         message.setSpan(object : ClickableSpan() {
             override fun onClick(widget: View) { open() }
-        }, start, start + 6, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            override fun updateDrawState(ds: android.text.TextPaint) {
+                super.updateDrawState(ds)
+                ds.color = if ((activity.resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES) 0xFF8AB4F8.toInt() else 0xFF1565C0.toInt()
+                ds.isUnderlineText = true
+            }
+        }, 0, label.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         val dialog = AlertDialog.Builder(activity)
             .setTitle(title)
             .setMessage(message)
@@ -58,6 +69,8 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
             .show()
         dialog.findViewById<TextView>(android.R.id.message)?.apply {
             movementMethod = LinkMovementMethod.getInstance()
+            gravity = android.view.Gravity.LEFT
+            textAlignment = View.TEXT_ALIGNMENT_GRAVITY
             setPadding(paddingLeft, UiKit.dp(activity, 16f), paddingRight, UiKit.dp(activity, 24f))
         }
         dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
@@ -104,7 +117,13 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
                     Text(text = title, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                    TextButton(text = label, onClick = { open() }, modifier = Modifier.fillMaxWidth())
+                    Text(
+                        text = label,
+                        color = if (isSystemInDarkTheme()) Color(0xFF8AB4F8) else Color(0xFF1565C0),
+                        textDecoration = TextDecoration.Underline,
+                        textAlign = TextAlign.Left,
+                        modifier = Modifier.clickable { open() },
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),

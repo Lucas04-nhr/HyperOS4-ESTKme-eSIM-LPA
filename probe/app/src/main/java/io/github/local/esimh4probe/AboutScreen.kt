@@ -134,6 +134,7 @@ internal fun AboutPage(
     val scrollBehavior = MiuixScrollBehavior()
     val texture = remember { TextureSettings() }
     var showTextureSet by remember { mutableStateOf(false) }
+    var textureUnlocked by remember { mutableStateOf(ThemeConfig.showTexture) }
     var copyrightTaps by remember { mutableIntStateOf(0) }
     var lastCopyrightTap by remember { mutableLongStateOf(0L) }
 
@@ -217,6 +218,12 @@ internal fun AboutPage(
                             title = stringResource(R.string.update_check),
                             onClick = { UpdateChecker.check(activity) },
                         )
+                        if (textureUnlocked) {
+                            ArrowPreference(
+                                title = stringResource(R.string.texture_set_title),
+                                onClick = { showTextureSet = true },
+                            )
+                        }
                     }
                 }
                 val data = info ?: return@LazyColumn
@@ -273,11 +280,17 @@ internal fun AboutPage(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable(interactionSource = null, indication = null) {
+                                        if (ThemeConfig.showTexture) {
+                                            Toast.makeText(activity, io.github.local.esimh4ui.R.string.theme_texture_no_need, Toast.LENGTH_SHORT).show()
+                                            return@clickable
+                                        }
                                         val now = SystemClock.elapsedRealtime()
                                         copyrightTaps = if (now - lastCopyrightTap <= 1500L) copyrightTaps + 1 else 1
                                         lastCopyrightTap = now
                                         if (copyrightTaps >= 7) {
                                             copyrightTaps = 0
+                                            ThemeConfig.setShowTexture(activity, true)
+                                            textureUnlocked = true
                                             showTextureSet = true
                                         }
                                     }
