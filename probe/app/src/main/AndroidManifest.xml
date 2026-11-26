@@ -37,6 +37,7 @@
             android:resource="@array/xposed_scope"/>
         <activity
             android:name="io.github.local.esimh4probe.MainActivity"
+            android:theme="@style/Theme.EsimH4.Launch"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

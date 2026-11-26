@@ -81,8 +81,8 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
  * this in the Miuix style; the Material 3 style still uses the View page.
  *
  * The page reads the settings as state, so it follows every change without being recreated.
- * Only switching to Material 3 recreates it, and the platform recreates it when the effective
- * dark mode or the language changes.
+ * Language and interface style changes restart the UI task through the launcher splash.
+ * The platform recreates it when the effective dark mode changes.
  */
 fun setThemeContent(activity: ThemeActivity, showLanguage: Boolean) {
     activity.setContent {
@@ -264,7 +264,7 @@ fun ThemePage(
                                 backdrop = backdrop,
                                 startAction = { RowIcon(R.drawable.ic_language_24) },
                                 onSelectedIndexChange = {
-                                    // The platform recreates the activity in the new language.
+                                    // Replace the UI task after applying the new locale.
                                     language = it
                                     LanguageSetting.apply(activity, it)
                                 },
@@ -283,10 +283,8 @@ fun ThemePage(
                             onSelectedIndexChange = {
                                 if (it == 0) {
                                     ThemeConfig.setStyle(activity, UiKit.Style.MIUIX)
-                                    activity.recreate()
                                 } else {
                                     ThemeConfig.setStyle(activity, UiKit.Style.MATERIAL3)
-                                    activity.recreate()
                                 }
                             },
                         )
@@ -316,7 +314,7 @@ fun ThemePage(
                             items = listOf("OS2", "OS3", "OS4"),
                             selectedIndex = miuixVersion - 2,
                             backdrop = backdrop,
-                            startAction = { RowIcon(R.drawable.ic_style_24) },
+                            startAction = { RowIcon(R.drawable.ic_layers_24) },
                             onSelectedIndexChange = {
                                 ThemeConfig.setMiuixVersion(activity, it + 2)
                                 miuixVersion = ThemeConfig.miuixVersion

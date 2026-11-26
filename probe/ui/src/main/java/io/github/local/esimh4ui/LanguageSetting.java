@@ -43,13 +43,15 @@ public final class LanguageSetting {
         return labels(ctx)[current(ctx)];
     }
 
-    /** Applies the choice; the system recreates visible activities with the new language. */
+    /** Applies the locale, then replaces the UI task through the launcher splash. */
     public static void apply(Context ctx, int index) {
+        if (index < 0 || index >= TAGS.length || index == current(ctx)) return;
         LocaleManager lm = ctx.getSystemService(LocaleManager.class);
         if (lm == null) return;
         lm.setApplicationLocales(index == FOLLOW_SYSTEM
                 ? LocaleList.getEmptyLocaleList()
                 : LocaleList.forLanguageTags(TAGS[index]));
+        AppRestart.restart(ctx);
     }
 
     public static void showPicker(Activity activity, UiKit.Palette p) {

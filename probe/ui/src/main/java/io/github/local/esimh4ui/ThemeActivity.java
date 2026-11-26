@@ -51,7 +51,9 @@ public final class ThemeActivity extends ThemedActivity {
 
     private void addChoice(LinearLayout col, int title, String[] choices, int selected,
                            java.util.function.IntConsumer onSelected) {
-        UiKit.NavRow row = new UiKit.NavRow(this, palette, R.drawable.ic_style_24,
+        int icon = title == R.string.theme_miuix_version
+                ? R.drawable.ic_layers_24 : R.drawable.ic_style_24;
+        UiKit.NavRow row = new UiKit.NavRow(this, palette, icon,
                 getString(title), null, 6f, 6f, 2, null);
         row.setValue(choices[selected]);
         row.card.setOnClickListener(v -> UiKit.showChoiceDialog(this, palette, getString(title),
@@ -87,7 +89,6 @@ public final class ThemeActivity extends ThemedActivity {
         rowStyle.card.setOnClickListener(v -> UiKit.showChoiceDialog(
                 this, palette, getString(R.string.theme_style), styles, miuix ? 1 : 0, index -> {
                     ThemeConfig.setStyle(this, index == 1 ? UiKit.Style.MIUIX : UiKit.Style.MATERIAL3);
-                    recreate();
                 }));
         col.addView(rowStyle.card);
 

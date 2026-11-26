@@ -141,10 +141,12 @@ public final class ThemeConfig {
     }
 
     public static void setStyle(Context ctx, UiKit.Style value) {
+        if (style == value) return;
         style = value;
         dynamicColor = prefs(ctx).getBoolean(KEY_DYNAMIC_PREFIX + value.name(), value == UiKit.Style.MATERIAL3);
         prefs(ctx).edit().putString(KEY_STYLE, value.name()).apply();
         version++;
+        AppRestart.restart(ctx);
     }
 
     public static void setNightMode(Context ctx, int mode) {

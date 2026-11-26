@@ -9,6 +9,9 @@
     <string name="theme_style_summary">Material 3 または Miuix</string>
     <string name="theme_style_material3">Material 3</string>
     <string name="theme_style_miuix">Miuix</string>
+    <string name="theme_miuix_version">UI バージョン</string>
+    <string name="theme_amoled">AMOLED ブラック背景</string>
+    <string name="theme_amoled_summary">ダークモードで背景を完全な黒にします</string>
     <string name="theme_night">ダークモード</string>
     <string name="theme_night_system">システム設定に従う</string>
     <string name="theme_night_light">ライト</string>
