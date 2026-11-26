@@ -53,7 +53,9 @@ public final class ThemeActivity extends ThemedActivity {
     private void addChoice(LinearLayout col, int title, String[] choices, int selected,
                            java.util.function.IntConsumer onSelected) {
         int icon = title == R.string.theme_miuix_version
-                ? R.drawable.ic_layers_24 : R.drawable.ic_style_24;
+                ? R.drawable.ic_layers_24
+                : title == R.string.theme_predictive_back || title == R.string.theme_back_direction
+                        ? R.drawable.ic_arrow_back_24 : R.drawable.ic_style_24;
         UiKit.NavRow row = new UiKit.NavRow(this, palette, icon,
                 getString(title), null, 6f, 6f, 2, null);
         row.setValue(choices[selected]);
@@ -134,6 +136,7 @@ public final class ThemeActivity extends ThemedActivity {
 
         // Top and bottom bars (Miuix only), as in SukiSU-Nova:
         // frosted glass + progressive blur for both bars, liquid glass for the floating bar.
+        if (ThemeConfig.miuixVersion > 2) {
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.theme_section_bottom_bar)));
         String miuixOnly = getString(R.string.theme_miuix_only);
 
@@ -142,6 +145,7 @@ public final class ThemeActivity extends ThemedActivity {
                 getString(R.string.theme_bar_glass), "", 24f, 6f, 2);
         rowGlass.setRowState(ThemeConfig.barGlass, miuix && ThemeConfig.miuixVersion == 4,
                 miuix ? getString(R.string.theme_bar_glass_summary) : miuixOnly);
+        rowGlass.card.setVisibility(ThemeConfig.miuixVersion == 4 ? View.VISIBLE : View.GONE);
         col.addView(rowGlass.card);
 
         UiKit.SwitchRow rowProgressive = new UiKit.SwitchRow(
@@ -172,26 +176,35 @@ public final class ThemeActivity extends ThemedActivity {
         UiKit.SwitchRow rowLiquid = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_liquid_glass_24,
                 getString(R.string.theme_liquid_glass), "", 6f, 24f, 0);
-        setDependentRow(rowLiquid, ThemeConfig.liquidGlass, miuix, ThemeConfig.barFloating,
-                R.string.theme_liquid_glass_summary, R.string.theme_liquid_glass_needs_floating);
+        rowLiquid.setRowState(ThemeConfig.liquidGlass, miuix,
+                getString(R.string.theme_liquid_glass_summary));
+        rowLiquid.card.setVisibility(ThemeConfig.miuixVersion == 4 && ThemeConfig.barFloating
+                ? View.VISIBLE : View.GONE);
         rowLiquid.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setLiquidGlass(this, checked));
         if (ThemeConfig.miuixVersion == 4) col.addView(rowLiquid.card);
 
         rowFloating.toggle.setOnCheckedChangeListener((sw, checked) -> {
             ThemeConfig.setBarFloating(this, checked);
-            setDependentRow(rowLiquid, ThemeConfig.liquidGlass, true, checked,
-                    R.string.theme_liquid_glass_summary, R.string.theme_liquid_glass_needs_floating);
+            android.transition.TransitionManager.beginDelayedTransition(col,
+                    new android.transition.AutoTransition().setDuration(250));
+            rowLiquid.card.setVisibility(ThemeConfig.miuixVersion == 4 && checked
+                    ? View.VISIBLE : View.GONE);
         });
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.personalization_navigation)));
-        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_aosp),
-                getString(R.string.theme_back_scale), getString(R.string.theme_back_classic),
-                getString(R.string.theme_back_none), getString(R.string.theme_back_miuix)},
-                ThemeConfig.predictiveBack, index -> ThemeConfig.setPredictiveBack(this, index));
+        java.util.List<Integer> backStyles = java.util.Arrays.asList(ThemeConfig.BACK_NONE,
+                ThemeConfig.BACK_AOSP, ThemeConfig.BACK_MIUIX, ThemeConfig.BACK_CLASSIC, ThemeConfig.BACK_SCALE);
+        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_none),
+                getString(R.string.theme_back_aosp), getString(R.string.theme_back_miuix),
+                getString(R.string.theme_back_classic), getString(R.string.theme_back_scale)},
+                backStyles.indexOf(ThemeConfig.predictiveBack),
+                index -> ThemeConfig.setPredictiveBack(this, backStyles.get(index)));
         if (ThemeConfig.predictiveBack == ThemeConfig.BACK_SCALE) {
             addChoice(col, R.string.theme_back_direction, new String[]{getString(R.string.theme_back_follow),
                     getString(R.string.theme_back_right), getString(R.string.theme_back_left)},
                     ThemeConfig.backExitDirection, index -> ThemeConfig.setBackExitDirection(this, index));
+        }
+
         }
 
         // Background
@@ -233,7 +246,7 @@ public final class ThemeActivity extends ThemedActivity {
         UiKit.SliderRow rowBlur = new UiKit.SliderRow(
                 this, palette, R.drawable.ic_blur_24, getString(R.string.theme_bg_blur),
                 0, 25, ThemeConfig.bgBlur, " dp", 6f, 6f, 2);
-        rowBlur.setEnabled(hasBg);
+        rowBlur.card.setVisibility(hasBg ? View.VISIBLE : View.GONE);
         rowBlur.slider.setListener(new UiKit.Slider.Listener() {
             @Override
             public void onValueChanged(int value, boolean fromUser) {
@@ -251,7 +264,7 @@ public final class ThemeActivity extends ThemedActivity {
         UiKit.SliderRow rowDim = new UiKit.SliderRow(
                 this, palette, R.drawable.ic_brightness_24, getString(R.string.theme_bg_dim),
                 0, 80, ThemeConfig.bgDim, "%", 6f, 6f, 2);
-        rowDim.setEnabled(hasBg);
+        rowDim.card.setVisibility(hasBg ? View.VISIBLE : View.GONE);
         rowDim.slider.setListener(new UiKit.Slider.Listener() {
             @Override
             public void onValueChanged(int value, boolean fromUser) {
@@ -269,7 +282,7 @@ public final class ThemeActivity extends ThemedActivity {
         UiKit.SliderRow rowCard = new UiKit.SliderRow(
                 this, palette, R.drawable.ic_opacity_24, getString(R.string.theme_card_alpha),
                 40, 100, ThemeConfig.cardAlpha, "%", 6f, 24f, 0);
-        rowCard.setEnabled(hasBg);
+        rowCard.card.setVisibility(hasBg ? View.VISIBLE : View.GONE);
         rowCard.slider.setListener(new UiKit.Slider.Listener() {
             @Override
             public void onValueChanged(int value, boolean fromUser) {
@@ -287,14 +300,6 @@ public final class ThemeActivity extends ThemedActivity {
         col.addView(rowCard.card);
 
         return col;
-    }
-
-    /** Row that only works in Miuix and when its parent option is on; shows why otherwise. */
-    private void setDependentRow(UiKit.SwitchRow row, boolean value, boolean miuix, boolean parentOn,
-                                 int summaryRes, int needsParentRes) {
-        row.setRowState(value && parentOn, miuix && parentOn, getString(!miuix
-                ? R.string.theme_miuix_only
-                : parentOn ? summaryRes : needsParentRes));
     }
 
     /** Lets the switch animation finish before the page is rebuilt with the new colors. */

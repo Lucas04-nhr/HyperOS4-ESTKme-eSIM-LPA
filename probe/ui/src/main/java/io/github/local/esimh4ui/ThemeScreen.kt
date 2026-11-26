@@ -132,6 +132,8 @@ fun ThemePage(
     var showTexture by remember { mutableStateOf(ThemeConfig.showTexture) }
     var predictiveBack by remember { mutableIntStateOf(ThemeConfig.predictiveBack) }
     var backExitDirection by remember { mutableIntStateOf(ThemeConfig.backExitDirection) }
+    val backStyles = listOf(ThemeConfig.BACK_NONE, ThemeConfig.BACK_AOSP, ThemeConfig.BACK_MIUIX,
+        ThemeConfig.BACK_CLASSIC, ThemeConfig.BACK_SCALE)
 
     // Bumped after the image is replaced or removed, so it is decoded again.
     var backgroundVersion by remember { mutableIntStateOf(0) }
@@ -332,6 +334,8 @@ fun ThemePage(
                                 barGlass = ThemeConfig.barGlass
                                 progressiveBlur = ThemeConfig.progressiveBlur
                                 liquidGlass = ThemeConfig.liquidGlass
+                                barFloating = ThemeConfig.barFloating
+                                predictiveBack = ThemeConfig.predictiveBack
                             },
                         )
                         SwitchPreference(
@@ -354,31 +358,24 @@ fun ThemePage(
                     }
                 }
                 // Top and bottom bars
-                item(key = "barsTitle") { SmallTitle(text = stringResource(R.string.theme_section_bottom_bar)) }
                 item(key = "bars") {
+                    SettingsVisibility(visible = miuixVersion > 2) {
+                    Column {
+                    SmallTitle(text = stringResource(R.string.theme_section_bottom_bar))
                     SettingsCard(cardColor) {
-                        Crossfade(
-                            targetState = miuixVersion == 4,
-                            animationSpec = tween(250),
-                            label = "glassAvailability",
-                        ) { supportsGlass ->
+                        SettingsVisibility(visible = miuixVersion == 4) {
                         SwitchPreference(
                             title = stringResource(R.string.theme_bar_glass),
                             summary = stringResource(R.string.theme_bar_glass_summary),
-                            checked = barGlass && supportsGlass,
-                            enabled = supportsGlass,
+                            checked = barGlass,
                             startAction = { RowIcon(R.drawable.ic_bottom_bar_24) },
                             onCheckedChange = {
                                 ThemeConfig.setBarGlass(activity, it)
-                                barGlass = it
+                                barGlass = ThemeConfig.barGlass
                             },
                         )
                         }
-                        AnimatedVisibility(
-                            visible = barGlass && miuixVersion == 4,
-                            enter = expandVertically(tween(250)) + fadeIn(tween(250)),
-                            exit = shrinkVertically(tween(250)) + fadeOut(tween(200)),
-                        ) {
+                        SettingsVisibility(visible = barGlass && miuixVersion == 4) {
                         SwitchPreference(
                             title = stringResource(R.string.theme_progressive_blur),
                             summary = stringResource(R.string.theme_progressive_blur_summary),
@@ -386,7 +383,7 @@ fun ThemePage(
                             startAction = { RowIcon(R.drawable.ic_blur_24) },
                             onCheckedChange = {
                                 ThemeConfig.setProgressiveBlur(activity, it)
-                                progressiveBlur = it
+                                progressiveBlur = ThemeConfig.progressiveBlur
                             },
                         )
                         }
@@ -397,64 +394,63 @@ fun ThemePage(
                             startAction = { RowIcon(R.drawable.ic_floating_bar_24) },
                             onCheckedChange = {
                                 ThemeConfig.setBarFloating(activity, it)
-                                barFloating = it
+                                barFloating = ThemeConfig.barFloating
                             },
                         )
-                        AnimatedVisibility(
-                            visible = miuixVersion == 4,
-                            enter = expandVertically(tween(250)) + fadeIn(tween(250)),
-                            exit = shrinkVertically(tween(250)) + fadeOut(tween(200)),
-                        ) {
-                            Crossfade(targetState = barFloating, animationSpec = tween(250), label = "liquidAvailability") { floating ->
+                        SettingsVisibility(visible = miuixVersion == 4 && barFloating) {
                             SwitchPreference(
                                 title = stringResource(R.string.theme_liquid_glass),
-                                summary = stringResource(
-                                    if (floating) R.string.theme_liquid_glass_summary else R.string.theme_liquid_glass_needs_floating,
-                                ),
-                                checked = liquidGlass && floating,
-                                enabled = floating,
+                                summary = stringResource(R.string.theme_liquid_glass_summary),
+                                checked = liquidGlass,
                                 startAction = { RowIcon(R.drawable.ic_liquid_glass_24) },
                                 onCheckedChange = {
                                     ThemeConfig.setLiquidGlass(activity, it)
-                                    liquidGlass = it
+                                    liquidGlass = ThemeConfig.liquidGlass
                                 },
                             )
-                            }
                         }
+                    }
+                    }
                     }
                 }
 
-                item(key = "backTitle") { SmallTitle(text = stringResource(R.string.personalization_navigation)) }
                 item(key = "back") {
+                    SettingsVisibility(visible = miuixVersion > 2) {
+                    Column {
+                    SmallTitle(text = stringResource(R.string.personalization_navigation))
                     SettingsCard(cardColor) {
                         VersionedDropdownPreference(
                             title = stringResource(R.string.theme_predictive_back),
                             items = listOf(
-                                stringResource(R.string.theme_back_aosp),
-                                stringResource(R.string.theme_back_scale),
-                                stringResource(R.string.theme_back_classic),
                                 stringResource(R.string.theme_back_none),
+                                stringResource(R.string.theme_back_aosp),
                                 stringResource(R.string.theme_back_miuix),
+                                stringResource(R.string.theme_back_classic),
+                                stringResource(R.string.theme_back_scale),
                             ),
-                            selectedIndex = predictiveBack,
+                            selectedIndex = backStyles.indexOf(predictiveBack),
                             backdrop = backdrop,
+                            startAction = { RowIcon(R.drawable.ic_arrow_back_24) },
                             onSelectedIndexChange = {
-                                ThemeConfig.setPredictiveBack(activity, it)
-                                predictiveBack = it
+                                ThemeConfig.setPredictiveBack(activity, backStyles[it])
+                                predictiveBack = ThemeConfig.predictiveBack
                             },
                         )
-                        AnimatedVisibility(visible = predictiveBack == ThemeConfig.BACK_SCALE) {
+                        SettingsVisibility(visible = predictiveBack == ThemeConfig.BACK_SCALE) {
                             VersionedDropdownPreference(
                                 title = stringResource(R.string.theme_back_direction),
                                 items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
                                 selectedIndex = backExitDirection,
                                 backdrop = backdrop,
+                                startAction = { RowIcon(R.drawable.ic_arrow_back_24) },
                                 onSelectedIndexChange = {
                                     ThemeConfig.setBackExitDirection(activity, it)
                                     backExitDirection = it
                                 },
                             )
                         }
+                    }
+                    }
                     }
                 }
 
@@ -485,7 +481,7 @@ fun ThemePage(
                             },
                             onClick = pickImage,
                         )
-                        AnimatedVisibility(visible = hasBackground) {
+                        SettingsVisibility(visible = hasBackground) {
                             ArrowPreference(
                                 title = stringResource(R.string.theme_bg_image_remove),
                                 enabled = !importing,
@@ -495,7 +491,7 @@ fun ThemePage(
                                 },
                             )
                         }
-                        Crossfade(targetState = hasBackground, animationSpec = tween(250), label = "backgroundControls") { available ->
+                        SettingsVisibility(visible = hasBackground) {
                             Column {
                         SliderPreference(
                             title = stringResource(R.string.theme_bg_blur),
@@ -503,7 +499,6 @@ fun ThemePage(
                             valueText = "${bgBlur.roundToInt()} dp",
                             valueRange = 0f..25f,
                             steps = 24,
-                            enabled = available,
                             startAction = { RowIcon(R.drawable.ic_blur_24) },
                             onValueChange = { bgBlur = it },
                             onValueChangeFinished = { ThemeConfig.setBgBlur(activity, bgBlur.roundToInt()) },
@@ -514,7 +509,6 @@ fun ThemePage(
                             valueText = "${bgDim.roundToInt()}%",
                             valueRange = 0f..80f,
                             steps = 79,
-                            enabled = available,
                             startAction = { RowIcon(R.drawable.ic_brightness_24) },
                             onValueChange = { bgDim = it },
                             onValueChangeFinished = { ThemeConfig.setBgDim(activity, bgDim.roundToInt()) },
@@ -525,7 +519,6 @@ fun ThemePage(
                             valueText = "${cardAlpha.roundToInt()}%",
                             valueRange = 40f..100f,
                             steps = 59,
-                            enabled = available,
                             startAction = { RowIcon(R.drawable.ic_opacity_24) },
                             onValueChange = { cardAlpha = it },
                             onValueChangeFinished = { ThemeConfig.setCardAlpha(activity, cardAlpha.roundToInt()) },
@@ -536,6 +529,18 @@ fun ThemePage(
                 }
             }
         }
+    }
+}
+
+/** Keep dependent rows and section headings in the same visibility transition. */
+@Composable
+private fun SettingsVisibility(visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = expandVertically(tween(250)) + fadeIn(tween(250)),
+        exit = shrinkVertically(tween(250)) + fadeOut(tween(200)),
+    ) {
+        content()
     }
 }
 

@@ -83,12 +83,10 @@ public final class ThemeConfig {
         bgBlur = sp.getInt(KEY_BG_BLUR, 0);
         bgDim = sp.getInt(KEY_BG_DIM, 20);
         cardAlpha = sp.getInt(KEY_CARD_ALPHA, 85);
-        barFloating = sp.getBoolean(KEY_BAR_FLOATING, false);
         miuixVersion = Math.max(2, Math.min(4, sp.getInt("miuix_version", 4)));
-        loadGlassPreferences(sp);
+        loadVersionPreferences(sp);
         amoledBackground = sp.getBoolean("amoled_background", false);
         showTexture = sp.getBoolean("show_texture", false);
-        predictiveBack = Math.max(BACK_AOSP, Math.min(BACK_MIUIX, sp.getInt("predictive_back", BACK_AOSP)));
         backExitDirection = Math.max(0, Math.min(2, sp.getInt("back_exit_direction", 0)));
         loaded = true;
     }
@@ -96,12 +94,15 @@ public final class ThemeConfig {
     public static void setMiuixVersion(Context ctx, int value) {
         miuixVersion = Math.max(2, Math.min(4, value));
         prefs(ctx).edit().putInt("miuix_version", miuixVersion).apply();
-        loadGlassPreferences(prefs(ctx));
+        loadVersionPreferences(prefs(ctx));
         version++;
     }
 
-    private static void loadGlassPreferences(SharedPreferences sp) {
-        // Keep OS4 preferences, but never enable glass effects in OS2/OS3.
+    private static void loadVersionPreferences(SharedPreferences sp) {
+        // Preserve user preferences while enforcing the selected UI version's capabilities.
+        barFloating = miuixVersion > 2 && sp.getBoolean(KEY_BAR_FLOATING, false);
+        predictiveBack = miuixVersion == 2 ? BACK_NONE
+                : Math.max(BACK_AOSP, Math.min(BACK_MIUIX, sp.getInt("predictive_back", BACK_AOSP)));
         boolean supported = miuixVersion == 4;
         barGlass = supported && sp.getBoolean(KEY_BAR_GLASS, true);
         liquidGlass = supported && sp.getBoolean(KEY_LIQUID_GLASS, false);
@@ -129,8 +130,9 @@ public final class ThemeConfig {
     }
 
     public static void setPredictiveBack(Context ctx, int value) {
-        predictiveBack = Math.max(BACK_AOSP, Math.min(BACK_MIUIX, value));
-        prefs(ctx).edit().putInt("predictive_back", predictiveBack).apply();
+        int preference = Math.max(BACK_AOSP, Math.min(BACK_MIUIX, value));
+        predictiveBack = miuixVersion == 2 ? BACK_NONE : preference;
+        prefs(ctx).edit().putInt("predictive_back", preference).apply();
         version++;
     }
 
@@ -200,7 +202,7 @@ public final class ThemeConfig {
     }
 
     public static void setBarFloating(Context ctx, boolean value) {
-        barFloating = value;
+        barFloating = miuixVersion > 2 && value;
         prefs(ctx).edit().putBoolean(KEY_BAR_FLOATING, value).apply();
         version++;
     }

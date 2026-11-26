@@ -54,4 +54,14 @@
     <string name="personalization_title">カスタマイズ</string>
     <string name="personalization_general">基本設定</string>
     <string name="personalization_navigation">戻る操作</string>
+    <string name="theme_predictive_back">予測型「戻る」アニメーション</string>
+    <string name="theme_back_none">なし</string>
+    <string name="theme_back_aosp">AOSP</string>
+    <string name="theme_back_miuix">Miuix</string>
+    <string name="theme_back_classic">クラシック</string>
+    <string name="theme_back_scale">スケール</string>
+    <string name="theme_back_direction">終了方向</string>
+    <string name="theme_back_follow">ジェスチャーに従う</string>
+    <string name="theme_back_right">常に右へ</string>
+    <string name="theme_back_left">常に左へ</string>
 </resources>
