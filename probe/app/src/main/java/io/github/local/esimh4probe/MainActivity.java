@@ -936,7 +936,16 @@ public final class MainActivity extends ThemedActivity {
                 setBusy(false);
                 done.accept(success);
                 if (!success) {
-                    showRootPermissionDialog();
+                    if (args.length > 0 && SW_UMOUNT_GUARD.equals(args[0])
+                            && finalOut.contains("RESULT=ERROR")) {
+                        showToast(getString(R.string.snack_component_failed,
+                                getString(R.string.row_umount_guard)));
+                        showInfoDialog(getString(R.string.row_umount_guard),
+                                finalOut.replace("RESULT=ERROR", "").trim());
+                        refreshDashboard();
+                    } else {
+                        showRootPermissionDialog();
+                    }
                 } else {
                     callback.onSuccess(finalOut);
                 }

@@ -156,11 +156,11 @@ is_lpa_system_pkg() {
   if pm list packages -s com.miui.euicc 2>/dev/null | grep -qx 'package:com.miui.euicc'; then
     return 0
   fi
-  dumpsys package com.miui.euicc 2>/dev/null | grep -Eq '(pkgFlags|flags)=\[[^]]*(^| )SYSTEM( |$|\])'
+  dumpsys package com.miui.euicc 2>/dev/null | grep -Eq '(pkgFlags|flags)=\[([[:space:]]|[^]]*[[:space:]])?SYSTEM([[:space:]]|\])'
 }
 
 is_lpa_updated_system_pkg() {
-  dumpsys package com.miui.euicc 2>/dev/null | grep -Eq '(pkgFlags|flags)=\[[^]]*(^| )UPDATED_SYSTEM_APP( |$|\])'
+  dumpsys package com.miui.euicc 2>/dev/null | grep -Eq '(pkgFlags|flags)=\[([[:space:]]|[^]]*[[:space:]])?UPDATED_SYSTEM_APP([[:space:]]|\])'
 }
 
 is_lpa_unprivileged_user_pkg() {
@@ -171,7 +171,7 @@ is_lpa_unprivileged_user_pkg() {
   pkg_dump=$(dumpsys package com.miui.euicc 2>/dev/null)
   [ -n "$pkg_dump" ] || return 1
   echo "$pkg_dump" | grep -Eq '(pkgFlags|flags)=\[' || return 1
-  echo "$pkg_dump" | grep -Eq '(pkgFlags|flags)=\[[^]]*(^| )SYSTEM( |$|\])' && return 1
+  echo "$pkg_dump" | grep -Eq '(pkgFlags|flags)=\[([[:space:]]|[^]]*[[:space:]])?SYSTEM([[:space:]]|\])' && return 1
   return 0
 }
 
@@ -193,36 +193,57 @@ strip_lpa_updates() {
 }
 
 sync_lpa_umount_guard() {
-  [ -f "$LPA_OVERLAY_APK" ] && [ -f "$LPA_PRIV_XML" ] && is_lpa_system_pkg || return 0
+  if ! { [ -f "$LPA_OVERLAY_APK" ] && [ -f "$LPA_PRIV_XML" ] && is_lpa_system_pkg; }; then
+    logmsg "Cannot sync LPA: privileged system mount is not visible or SYSTEM flag is missing."
+    return 1
+  fi
   mkdir -p "$STATE"
   chmod 700 "$STATE"
   read_umount_guard
   if [ "$UMOUNT_GUARD" = off ]; then
     if is_lpa_updated_system_pkg; then
       logmsg "Stripping UPDATED_SYSTEM_APP layer for com.miui.euicc (umount_guard=off)."
-      pm uninstall-system-updates com.miui.euicc >/dev/null 2>&1 || true
+      if ! pm uninstall-system-updates com.miui.euicc 2>&1; then
+        logmsg "Failed to remove the LPA update layer."
+        return 1
+      fi
+      if is_lpa_updated_system_pkg; then
+        logmsg "LPA still has an UPDATED_SYSTEM_APP layer after removal."
+        return 1
+      fi
       rm -f "$STATE/lpa.sha256"
     fi
     return 0
   fi
   src_apk="$MODDIR/system/product/priv-app/MIUIEsimLPA/MIUIEsimLPA.apk"
   [ -f "$src_apk" ] || src_apk="$LPA_OVERLAY_APK"
-  [ -f "$src_apk" ] || return 0
+  [ -f "$src_apk" ] || { logmsg "LPA source APK is missing."; return 1; }
   apk_sha=$(sha256sum "$src_apk" 2>/dev/null | cut -d ' ' -f 1)
   if is_lpa_updated_system_pkg && [ -n "$apk_sha" ] && [ "$(cat "$STATE/lpa.sha256" 2>/dev/null)" = "$apk_sha" ]; then
     return 0
   fi
   staged="/data/local/tmp/.esim_h4_com.miui.euicc.apk"
   rm -f "$staged"
-  if cp "$src_apk" "$staged" 2>/dev/null; then
-    chmod 0644 "$staged"
-    restorecon "$staged" >/dev/null 2>&1 || true
-    if pm install -r "$staged" >/dev/null 2>&1; then
-      [ -n "$apk_sha" ] && echo "$apk_sha" > "$STATE/lpa.sha256"
-      logmsg "Synced com.miui.euicc UPDATED_SYSTEM_APP layer (SukiSU/KernelSU umount immunity active)."
-    fi
+  if ! cp "$src_apk" "$staged" 2>&1; then
     rm -f "$staged"
+    logmsg "Failed to stage the LPA APK."
+    return 1
   fi
+  chmod 0644 "$staged"
+  restorecon "$staged" >/dev/null 2>&1 || true
+  if ! pm install -r "$staged" 2>&1; then
+    rm -f "$staged"
+    logmsg "Failed to install the LPA update layer."
+    return 1
+  fi
+  rm -f "$staged"
+  if ! is_lpa_updated_system_pkg; then
+    logmsg "LPA installation completed without an UPDATED_SYSTEM_APP layer."
+    return 1
+  fi
+  [ -n "$apk_sha" ] && echo "$apk_sha" > "$STATE/lpa.sha256"
+  logmsg "Synced com.miui.euicc UPDATED_SYSTEM_APP layer (SukiSU/KernelSU umount immunity active)."
+  return 0
 }
 
 check_lpa_mount_ok() {
@@ -640,12 +661,22 @@ case "$1" in
     set_mode_off
     ;;
   umount_guard)
-    if [ "$2" = off ]; then
-      echo UMOUNT_GUARD=off > "$STATE/umount_guard"
-    else
-      echo UMOUNT_GUARD=on > "$STATE/umount_guard"
+    case "$2" in
+      on|off) ;;
+      *) echo "RESULT=ERROR"; echo "Invalid umount guard value."; exit 1 ;;
+    esac
+    read_umount_guard
+    previous_guard=$UMOUNT_GUARD
+    if ! echo "UMOUNT_GUARD=$2" > "$STATE/umount_guard"; then
+      echo "RESULT=ERROR"
+      echo "Failed to save the umount guard setting."
+      exit 1
     fi
-    sync_lpa_umount_guard
+    if ! sync_lpa_umount_guard; then
+      echo "UMOUNT_GUARD=$previous_guard" > "$STATE/umount_guard"
+      echo "RESULT=ERROR"
+      exit 1
+    fi
     echo "RESULT=OK"
     ;;
   isdr_se)
@@ -704,7 +735,7 @@ if [ ! -d "$MODDIR" ] || [ -f "$MODDIR/disable" ] || [ -f "$MODDIR/remove" ]; th
       *) echo "$value" | grep -Eq '^-?[0-9]+$' && settings put global euicc_provisioned "$value" ;;
     esac
   fi
-  if dumpsys package com.miui.euicc 2>/dev/null | grep -Eq '(pkgFlags|flags)=\[[^]]*(^| )UPDATED_SYSTEM_APP( |$|\])'; then
+  if dumpsys package com.miui.euicc 2>/dev/null | grep -Eq '(pkgFlags|flags)=\[([[:space:]]|[^]]*[[:space:]])?UPDATED_SYSTEM_APP([[:space:]]|\])'; then
     pm uninstall-system-updates com.miui.euicc >/dev/null 2>&1 || true
   fi
   if pm list packages -3 com.miui.euicc 2>/dev/null | grep -qx 'package:com.miui.euicc'; then
