@@ -301,8 +301,8 @@ public final class UpdateChecker {
         Uri uri = FileProvider.getUriForFile(app, app.getPackageName() + ".fileprovider", file);
         Intent intent = new Intent(Intent.ACTION_VIEW)
                 .setDataAndType(uri, "application/zip")
-                .setClipData(ClipData.newRawUri("Update", uri))
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setClipData(ClipData.newRawUri("Update", uri));
         intent.setPackage(managerPackage);
         app.startActivity(intent);
     }
