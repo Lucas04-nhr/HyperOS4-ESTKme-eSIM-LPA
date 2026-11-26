@@ -82,7 +82,7 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
+import io.github.local.esimh4ui.VersionedDropdownPreference
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -636,7 +636,7 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
             MiuixCard {
                 var nightly by remember { mutableStateOf(UpdateChecker.isNightly(activity)) }
                 var startup by remember { mutableStateOf(UpdateChecker.checkAtStartup(activity)) }
-                GlassDropdownPreference(
+                VersionedDropdownPreference(
                     title = stringResource(R.string.update_channel),
                     backdrop = backdrop,
                     items = listOf("Stable", "Nightly"),

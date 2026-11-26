@@ -53,7 +53,6 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -244,7 +243,7 @@ fun ThemePage(
                 item(key = "general") {
                     SettingsCard(cardColor) {
                         if (showLanguage) {
-                            GlassDropdownPreference(
+                            VersionedDropdownPreference(
                                 title = stringResource(R.string.lang_title),
                                 items = LanguageSetting.labels(activity).toList(),
                                 selectedIndex = language,
@@ -257,7 +256,7 @@ fun ThemePage(
                                 },
                             )
                         }
-                        GlassDropdownPreference(
+                        VersionedDropdownPreference(
                             title = stringResource(R.string.theme_style),
                             summary = stringResource(R.string.theme_style_summary),
                             items = listOf(
@@ -282,7 +281,7 @@ fun ThemePage(
                 item(key = "appearanceTitle") { SmallTitle(text = stringResource(R.string.theme_section_appearance)) }
                 item(key = "appearance") {
                     SettingsCard(cardColor) {
-                        GlassDropdownPreference(
+                        VersionedDropdownPreference(
                             title = stringResource(R.string.theme_night),
                             items = listOf(
                                 stringResource(R.string.theme_night_system),
@@ -298,7 +297,7 @@ fun ThemePage(
                                 ThemeConfig.setNightMode(activity, it)
                             },
                         )
-                        GlassDropdownPreference(
+                        VersionedDropdownPreference(
                             title = stringResource(R.string.theme_miuix_version),
                             items = listOf("OS2", "OS3", "OS4"),
                             selectedIndex = ThemeConfig.miuixVersion - 2,
@@ -387,7 +386,7 @@ fun ThemePage(
                 item(key = "backTitle") { SmallTitle(text = stringResource(R.string.personalization_navigation)) }
                 item(key = "back") {
                     SettingsCard(cardColor) {
-                        GlassDropdownPreference(
+                        VersionedDropdownPreference(
                             title = stringResource(R.string.theme_predictive_back),
                             items = listOf(
                                 stringResource(R.string.theme_back_aosp),
@@ -404,7 +403,7 @@ fun ThemePage(
                             },
                         )
                         if (ThemeConfig.predictiveBack == ThemeConfig.BACK_SCALE) {
-                            GlassDropdownPreference(
+                            VersionedDropdownPreference(
                                 title = stringResource(R.string.theme_back_direction),
                                 items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
                                 selectedIndex = ThemeConfig.backExitDirection,
