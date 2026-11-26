@@ -499,7 +499,7 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
                 TextButton(
                     text = stringResource(R.string.tester_hide_log),
                     onClick = { tester.hideLog() },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, top = 10.dp),
                 )
                 }
             }
