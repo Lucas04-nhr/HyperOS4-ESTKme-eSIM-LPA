@@ -2,6 +2,8 @@
 
 package io.github.local.esimh4ui
 
+import androidx.compose.animation.animateContentSize
+
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -250,7 +252,8 @@ fun MiuixCard(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
-            .padding(bottom = 12.dp),
+            .padding(bottom = 12.dp)
+            .animateContentSize(),
         insideMargin = insideMargin,
         colors = CardDefaults.defaultColors(color = color),
         pressFeedbackType = pressFeedbackType,

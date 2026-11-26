@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -128,6 +129,8 @@ fun ThemePage(
     var cardAlpha by remember { mutableFloatStateOf(ThemeConfig.cardAlpha.toFloat()) }
     var importing by remember { mutableStateOf(false) }
     var showTexture by remember { mutableStateOf(ThemeConfig.showTexture) }
+    var predictiveBack by remember { mutableIntStateOf(ThemeConfig.predictiveBack) }
+    var backExitDirection by remember { mutableIntStateOf(ThemeConfig.backExitDirection) }
 
     // Bumped after the image is replaced or removed, so it is decoded again.
     var backgroundVersion by remember { mutableIntStateOf(0) }
@@ -168,7 +171,8 @@ fun ThemePage(
     Scaffold(
         containerColor = colors.surface,
         topBar = {
-            if (barGlass && miuixVersion == 4) {
+            Crossfade(targetState = barGlass && miuixVersion == 4, animationSpec = tween(250), label = "themeTopBar") { glass ->
+            if (glass) {
                 // Glass bar: transparent at rest; once the page scrolls, the back button gets its
                 // glass pill and the band behind the bar fades in (a progressive blur if enabled).
                 GlassTopAppBar(
@@ -203,6 +207,7 @@ fun ThemePage(
                         }
                     },
                 )
+            }
             }
         },
     ) { innerPadding ->
@@ -390,19 +395,21 @@ fun ThemePage(
                             enter = expandVertically(tween(250)) + fadeIn(tween(250)),
                             exit = shrinkVertically(tween(250)) + fadeOut(tween(200)),
                         ) {
+                            Crossfade(targetState = barFloating, animationSpec = tween(250), label = "liquidAvailability") { floating ->
                             SwitchPreference(
                                 title = stringResource(R.string.theme_liquid_glass),
                                 summary = stringResource(
-                                    if (barFloating) R.string.theme_liquid_glass_summary else R.string.theme_liquid_glass_needs_floating,
+                                    if (floating) R.string.theme_liquid_glass_summary else R.string.theme_liquid_glass_needs_floating,
                                 ),
-                                checked = liquidGlass && barFloating,
-                                enabled = barFloating,
+                                checked = liquidGlass && floating,
+                                enabled = floating,
                                 startAction = { RowIcon(R.drawable.ic_liquid_glass_24) },
                                 onCheckedChange = {
                                     ThemeConfig.setLiquidGlass(activity, it)
                                     liquidGlass = it
                                 },
                             )
+                            }
                         }
                     }
                 }
@@ -419,22 +426,22 @@ fun ThemePage(
                                 stringResource(R.string.theme_back_none),
                                 stringResource(R.string.theme_back_miuix),
                             ),
-                            selectedIndex = ThemeConfig.predictiveBack,
+                            selectedIndex = predictiveBack,
                             backdrop = backdrop,
                             onSelectedIndexChange = {
                                 ThemeConfig.setPredictiveBack(activity, it)
-                                activity.recreate()
+                                predictiveBack = it
                             },
                         )
-                        if (ThemeConfig.predictiveBack == ThemeConfig.BACK_SCALE) {
+                        AnimatedVisibility(visible = predictiveBack == ThemeConfig.BACK_SCALE) {
                             VersionedDropdownPreference(
                                 title = stringResource(R.string.theme_back_direction),
                                 items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
-                                selectedIndex = ThemeConfig.backExitDirection,
+                                selectedIndex = backExitDirection,
                                 backdrop = backdrop,
                                 onSelectedIndexChange = {
                                     ThemeConfig.setBackExitDirection(activity, it)
-                                    activity.recreate()
+                                    backExitDirection = it
                                 },
                             )
                         }
@@ -445,7 +452,7 @@ fun ThemePage(
                 item(key = "backgroundTitle") { SmallTitle(text = stringResource(R.string.theme_section_background)) }
                 item(key = "background") {
                     SettingsCard(cardColor) {
-                        if (showTexture) {
+                        AnimatedVisibility(visible = showTexture) {
                             SwitchPreference(
                                 title = stringResource(R.string.theme_show_texture),
                                 checked = showTexture,
@@ -462,11 +469,13 @@ fun ThemePage(
                             enabled = !importing,
                             startAction = { RowIcon(R.drawable.ic_image_24) },
                             endActions = {
-                                if (importing) InfiniteProgressIndicator(color = colors.primary)
+                                AnimatedVisibility(visible = importing) {
+                                    InfiniteProgressIndicator(color = colors.primary)
+                                }
                             },
                             onClick = pickImage,
                         )
-                        if (hasBackground) {
+                        AnimatedVisibility(visible = hasBackground) {
                             ArrowPreference(
                                 title = stringResource(R.string.theme_bg_image_remove),
                                 enabled = !importing,
@@ -476,13 +485,15 @@ fun ThemePage(
                                 },
                             )
                         }
+                        Crossfade(targetState = hasBackground, animationSpec = tween(250), label = "backgroundControls") { available ->
+                            Column {
                         SliderPreference(
                             title = stringResource(R.string.theme_bg_blur),
                             value = bgBlur,
                             valueText = "${bgBlur.roundToInt()} dp",
                             valueRange = 0f..25f,
                             steps = 24,
-                            enabled = hasBackground,
+                            enabled = available,
                             startAction = { RowIcon(R.drawable.ic_blur_24) },
                             onValueChange = { bgBlur = it },
                             onValueChangeFinished = { ThemeConfig.setBgBlur(activity, bgBlur.roundToInt()) },
@@ -493,7 +504,7 @@ fun ThemePage(
                             valueText = "${bgDim.roundToInt()}%",
                             valueRange = 0f..80f,
                             steps = 79,
-                            enabled = hasBackground,
+                            enabled = available,
                             startAction = { RowIcon(R.drawable.ic_brightness_24) },
                             onValueChange = { bgDim = it },
                             onValueChangeFinished = { ThemeConfig.setBgDim(activity, bgDim.roundToInt()) },
@@ -504,11 +515,13 @@ fun ThemePage(
                             valueText = "${cardAlpha.roundToInt()}%",
                             valueRange = 40f..100f,
                             steps = 59,
-                            enabled = hasBackground,
+                            enabled = available,
                             startAction = { RowIcon(R.drawable.ic_opacity_24) },
                             onValueChange = { cardAlpha = it },
                             onValueChangeFinished = { ThemeConfig.setCardAlpha(activity, cardAlpha.roundToInt()) },
                         )
+                            }
+                        }
                     }
                 }
             }
@@ -523,7 +536,8 @@ private fun SettingsCard(color: Color, content: @Composable ColumnScope.() -> Un
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
-            .padding(bottom = 12.dp),
+            .padding(bottom = 12.dp)
+            .animateContentSize(),
         colors = CardDefaults.defaultColors(color = color),
         content = content,
     )

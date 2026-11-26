@@ -503,9 +503,29 @@ public final class UiKit {
         return box;
     }
 
+    private static void animateAlpha(View view, float alpha) {
+        view.animate().cancel();
+        if (view.isLaidOut()) {
+            view.animate().alpha(alpha).setDuration(220).start();
+        } else {
+            view.setAlpha(alpha);
+        }
+    }
+
+    public static void setAnimatedVisibility(View view, int visibility) {
+        if (view.getVisibility() == visibility) return;
+        if (view.getParent() instanceof android.view.ViewGroup
+                && ((android.view.ViewGroup) view.getParent()).isLaidOut()) {
+            android.transition.TransitionManager.beginDelayedTransition(
+                    (android.view.ViewGroup) view.getParent(),
+                    new android.transition.AutoTransition().setDuration(220));
+        }
+        view.setVisibility(visibility);
+    }
+
     public static void setButtonEnabled(View btn, boolean enabled) {
         btn.setEnabled(enabled);
-        btn.setAlpha(enabled ? 1.0f : 0.42f);
+        animateAlpha(btn, enabled ? 1.0f : 0.42f);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -639,9 +659,9 @@ public final class UiKit {
             toggle.setChecked(checked, false);
             toggle.setEnabled(enabled);
             setSubtitle(subtitle);
-            titleView.setAlpha(enabled ? 1.0f : 0.62f);
-            subtitleView.setAlpha(enabled ? 1.0f : 0.58f);
-            iconWrap.setAlpha(enabled ? 1.0f : 0.55f);
+            animateAlpha(titleView, enabled ? 1.0f : 0.62f);
+            animateAlpha(subtitleView, enabled ? 1.0f : 0.58f);
+            animateAlpha(iconWrap, enabled ? 1.0f : 0.55f);
             refreshIconTint(checked && enabled);
         }
     }
@@ -724,7 +744,7 @@ public final class UiKit {
 
         public void setEnabled(boolean enabled) {
             card.setEnabled(enabled);
-            card.setAlpha(enabled ? 1f : 0.55f);
+            animateAlpha(card, enabled ? 1f : 0.55f);
         }
     }
 
@@ -783,7 +803,7 @@ public final class UiKit {
 
         public void setEnabled(boolean enabled) {
             slider.setEnabled(enabled);
-            card.setAlpha(enabled ? 1f : 0.55f);
+            animateAlpha(card, enabled ? 1f : 0.55f);
             titleView.setEnabled(enabled);
         }
     }

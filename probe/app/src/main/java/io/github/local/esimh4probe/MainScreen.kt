@@ -2,6 +2,9 @@
 
 package io.github.local.esimh4probe
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
@@ -208,7 +211,7 @@ private fun MainContent(activity: MainActivity, state: MainUiState) {
 /** The small spinner in the top bar while a probe or an action runs. */
 @Composable
 private fun RowScope.BusyIndicator(show: Boolean) {
-    if (show) {
+    AnimatedVisibility(visible = show) {
         InfiniteProgressIndicator(
             modifier = Modifier.padding(end = 16.dp),
             color = MiuixTheme.colorScheme.primary,
@@ -242,6 +245,7 @@ private fun HomePage(activity: MainActivity, state: MainUiState, bottom: Dp, onO
         actions = { BusyIndicator(state.busy && !refreshing) },
     ) {
         item(key = "status") {
+            AnimatedContent(targetState = model, contentKey = { it?.bannerOk }, label = "homeStatus") { model ->
             if (model == null) {
                 MiuixStatusCard(palette, StatusMode.LOADING, stringResource(R.string.status_loading), onClick = { activity.onProbeStatusTap() })
             } else if (model.bannerOk) {
@@ -262,9 +266,11 @@ private fun HomePage(activity: MainActivity, state: MainUiState, bottom: Dp, onO
                 )
             }
         }
+        }
         val alert = model?.alert
-        if (alert != null) {
-            item(key = "alert") {
+        item(key = "alert") {
+            AnimatedContent(targetState = alert, label = "homeAlert") { alert ->
+                if (alert != null) {
                 MiuixCard(insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp), color = Color(palette.errorContainer)) {
                     Row {
                         Icon(
@@ -277,6 +283,7 @@ private fun HomePage(activity: MainActivity, state: MainUiState, bottom: Dp, onO
                     }
                 }
             }
+        }
         }
         item(key = "healthTitle") { SmallTitle(text = stringResource(R.string.section_health)) }
         item(key = "sim") { SimCard(activity, model, palette) }
@@ -463,11 +470,10 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
                 )
             }
         }
-        if (logVisible) {
-            item(key = "logTitle") {
+        item(key = "logSection") {
+            AnimatedVisibility(visible = logVisible) {
+                Column {
                 SmallTitle(text = stringResource(R.string.tester_console_title))
-            }
-            item(key = "log") {
                 MiuixCard(insideMargin = PaddingValues(0.dp)) {
                     SelectionContainer {
                         Text(
@@ -484,13 +490,12 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
                         )
                     }
                 }
-            }
-            item(key = "clearLog") {
                 TextButton(
                     text = stringResource(R.string.tester_clear_log),
                     onClick = { tester.clearLog() },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                 )
+                }
             }
         }
     }

@@ -48,7 +48,7 @@
     <string name="ptr_release">放開重新整理</string>
     <string name="ptr_refreshing">正在重新整理…</string>
     <string name="ptr_done">重新整理成功</string>
-    <string name="theme_miuix_version">Miuix UI 版本</string>
+    <string name="theme_miuix_version">UI 版本</string>
     <string name="theme_amoled">AMOLED 純黑背景</string>
     <string name="theme_amoled_summary">深色模式下使用純黑頁面背景</string>
     <string name="theme_predictive_back">預測性返回動畫</string>

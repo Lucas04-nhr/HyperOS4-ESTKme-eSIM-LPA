@@ -208,7 +208,7 @@ public final class Scaffold {
     }
 
     public void setActionsVisible(boolean visible) {
-        actions.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+        UiKit.setAnimatedVisibility(actions, visible ? View.VISIBLE : View.INVISIBLE);
     }
 
     /**
@@ -328,11 +328,11 @@ public final class Scaffold {
 
     public void setBusy(boolean busy) {
         if (busy) {
-            progress.setVisibility(View.VISIBLE);
+            UiKit.setAnimatedVisibility(progress, View.VISIBLE);
             progress.start();
         } else {
             progress.stop();
-            progress.setVisibility(View.INVISIBLE);
+            UiKit.setAnimatedVisibility(progress, View.INVISIBLE);
         }
     }
 

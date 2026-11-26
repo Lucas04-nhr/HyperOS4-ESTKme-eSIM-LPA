@@ -1042,7 +1042,7 @@ public final class MainActivity extends ThemedActivity {
             }
 
             // 2. Alert banner
-            cardAlertBanner.setVisibility(m.alert != null ? View.VISIBLE : View.GONE);
+            UiKit.setAnimatedVisibility(cardAlertBanner, m.alert != null ? View.VISIBLE : View.GONE);
             if (m.alert != null) tvAlertMessage.setText(m.alert);
 
             // 3. SIM2 card

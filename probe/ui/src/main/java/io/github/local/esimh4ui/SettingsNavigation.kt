@@ -1,5 +1,13 @@
 package io.github.local.esimh4ui
 
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,16 +35,28 @@ fun SettingsNavigation(
     backStack: NavBackStack,
     content: @Composable (String) -> Unit,
 ) {
+    val context = LocalContext.current
+    var animation by remember { mutableIntStateOf(ThemeConfig.predictiveBack) }
+    var direction by remember { mutableIntStateOf(ThemeConfig.backExitDirection) }
+    DisposableEffect(context) {
+        val preferences = context.getSharedPreferences("ui_prefs", Context.MODE_PRIVATE)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            animation = ThemeConfig.predictiveBack
+            direction = ThemeConfig.backExitDirection
+        }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     InstallerNavContainer(
         backStack = backStack,
-        animation = when (ThemeConfig.predictiveBack) {
+        animation = when (animation) {
             ThemeConfig.BACK_SCALE -> PredictiveBackAnimation.Scale
             ThemeConfig.BACK_CLASSIC -> PredictiveBackAnimation.Classic
             ThemeConfig.BACK_NONE -> PredictiveBackAnimation.None
             ThemeConfig.BACK_MIUIX -> PredictiveBackAnimation.MIUIX
             else -> PredictiveBackAnimation.AOSP
         },
-        exitDirection = when (ThemeConfig.backExitDirection) {
+        exitDirection = when (direction) {
             1 -> PredictiveBackExitDirection.ALWAYS_RIGHT
             2 -> PredictiveBackExitDirection.ALWAYS_LEFT
             else -> PredictiveBackExitDirection.FOLLOW_GESTURE

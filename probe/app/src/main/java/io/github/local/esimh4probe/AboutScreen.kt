@@ -2,6 +2,9 @@
 
 package io.github.local.esimh4probe
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.SystemClock
@@ -156,6 +159,7 @@ internal fun AboutPage(
     }
     val collapsed by remember { derivedStateOf { progress >= 0.6f } }
     val titleAlpha by animateFloatAsState(if (collapsed) 1f else 0f, tween(200), label = "title")
+    val topBarColor by animateColorAsState(if (collapsed) colors.surface else Color.Transparent, tween(200), label = "aboutTopBar")
 
     val openFailed = stringResource(R.string.snack_open_link_failed)
     val open: (String) -> Unit = { url ->
@@ -178,7 +182,7 @@ internal fun AboutPage(
             topBar = {
                 SmallTopAppBar(
                     title = stringResource(R.string.section_about),
-                    color = if (collapsed) colors.surface else Color.Transparent,
+                    color = topBarColor,
                     titleColor = colors.onSurface.copy(alpha = titleAlpha),
                     scrollBehavior = scrollBehavior,
                     navigationIcon = {
@@ -219,7 +223,7 @@ internal fun AboutPage(
                             title = stringResource(R.string.update_check),
                             onClick = { UpdateChecker.check(activity) },
                         )
-                        if (textureUnlocked) {
+                        AnimatedVisibility(visible = textureUnlocked) {
                             ArrowPreference(
                                 title = stringResource(R.string.texture_set_title),
                                 onClick = { showTextureSet = true },

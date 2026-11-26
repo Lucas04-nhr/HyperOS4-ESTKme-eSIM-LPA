@@ -103,7 +103,7 @@ final class TesterPage {
         if (logVisible) return;
         if (logGesture.tap(activity, R.string.log_taps_remaining, R.string.log_shown)) {
             logVisible = true;
-            if (logSection != null) logSection.setVisibility(View.VISIBLE);
+            if (logSection != null) UiKit.setAnimatedVisibility(logSection, View.VISIBLE);
             notifyChanged();
         }
     }

@@ -48,7 +48,7 @@
     <string name="ptr_release">Release to refresh</string>
     <string name="ptr_refreshing">Refreshing…</string>
     <string name="ptr_done">Refreshed</string>
-    <string name="theme_miuix_version">Miuix UI Version</string>
+    <string name="theme_miuix_version">UI Version</string>
     <string name="theme_amoled">AMOLED Background</string>
     <string name="theme_amoled_summary">Use a pure black page background in dark mode</string>
     <string name="theme_predictive_back">Predictive back animation</string>
