@@ -610,7 +610,7 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         }
         if (page == "core") {
         item(key = "core") {
-            MiuixCard {
+            MiuixCard(modifier = Modifier.padding(top = 8.dp)) {
                 SettingSwitch(MainActivity.SW_SYSTEM_ESIM, model?.systemEsim, R.string.row_system_esim, R.drawable.ic_sync_alt_24)
                 SettingSwitch(MainActivity.SW_CARRIER_BRIDGE, model?.carrierBridge, R.string.row_carrier_bridge, R.drawable.ic_verified_user_24)
                 SettingSwitch(MainActivity.SW_LPA_URI_BRIDGE, model?.lpaUriBridge, R.string.row_lpa_uri, R.drawable.ic_link_24)
@@ -620,7 +620,7 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
         }
         if (page == "system") {
         item(key = "root") {
-            MiuixCard {
+            MiuixCard(modifier = Modifier.padding(top = 8.dp)) {
                 SwitchPreference(
                     checked = state.showTester,
                     onCheckedChange = { activity.setTesterTabShown(it) },

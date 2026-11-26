@@ -139,7 +139,7 @@ public final class ThemeActivity extends ThemedActivity {
         UiKit.SwitchRow rowGlass = new UiKit.SwitchRow(
                 this, palette, R.drawable.ic_bottom_bar_24,
                 getString(R.string.theme_bar_glass), "", 24f, 6f, 2);
-        rowGlass.setRowState(ThemeConfig.barGlass, miuix,
+        rowGlass.setRowState(ThemeConfig.barGlass, miuix && ThemeConfig.miuixVersion == 4,
                 miuix ? getString(R.string.theme_bar_glass_summary) : miuixOnly);
         col.addView(rowGlass.card);
 
@@ -170,7 +170,7 @@ public final class ThemeActivity extends ThemedActivity {
         setDependentRow(rowLiquid, ThemeConfig.liquidGlass, miuix, ThemeConfig.barFloating,
                 R.string.theme_liquid_glass_summary, R.string.theme_liquid_glass_needs_floating);
         rowLiquid.toggle.setOnCheckedChangeListener((sw, checked) -> ThemeConfig.setLiquidGlass(this, checked));
-        col.addView(rowLiquid.card);
+        if (ThemeConfig.miuixVersion == 4) col.addView(rowLiquid.card);
 
         rowFloating.toggle.setOnCheckedChangeListener((sw, checked) -> {
             ThemeConfig.setBarFloating(this, checked);

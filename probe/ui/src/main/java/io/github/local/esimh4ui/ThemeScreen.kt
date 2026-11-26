@@ -160,7 +160,7 @@ fun ThemePage(
     Scaffold(
         containerColor = colors.surface,
         topBar = {
-            if (barGlass && ThemeConfig.miuixVersion >= 3) {
+            if (barGlass && ThemeConfig.miuixVersion == 4) {
                 // Glass bar: transparent at rest; once the page scrolls, the back button gets its
                 // glass pill and the band behind the bar fades in (a progressive blur if enabled).
                 GlassTopAppBar(
@@ -335,7 +335,8 @@ fun ThemePage(
                         SwitchPreference(
                             title = stringResource(R.string.theme_bar_glass),
                             summary = stringResource(R.string.theme_bar_glass_summary),
-                            checked = barGlass,
+                            checked = barGlass && ThemeConfig.miuixVersion == 4,
+                            enabled = ThemeConfig.miuixVersion == 4,
                             startAction = { RowIcon(R.drawable.ic_bottom_bar_24) },
                             onCheckedChange = {
                                 ThemeConfig.setBarGlass(activity, it)
@@ -347,8 +348,8 @@ fun ThemePage(
                             summary = stringResource(
                                 if (barGlass) R.string.theme_progressive_blur_summary else R.string.theme_needs_glass,
                             ),
-                            checked = progressiveBlur && barGlass,
-                            enabled = barGlass,
+                            checked = progressiveBlur && barGlass && ThemeConfig.miuixVersion == 4,
+                            enabled = barGlass && ThemeConfig.miuixVersion == 4,
                             startAction = { RowIcon(R.drawable.ic_blur_24) },
                             onCheckedChange = {
                                 ThemeConfig.setProgressiveBlur(activity, it)
@@ -365,19 +366,21 @@ fun ThemePage(
                                 barFloating = it
                             },
                         )
-                        SwitchPreference(
-                            title = stringResource(R.string.theme_liquid_glass),
-                            summary = stringResource(
-                                if (barFloating) R.string.theme_liquid_glass_summary else R.string.theme_liquid_glass_needs_floating,
-                            ),
-                            checked = liquidGlass && barFloating,
-                            enabled = barFloating,
-                            startAction = { RowIcon(R.drawable.ic_liquid_glass_24) },
-                            onCheckedChange = {
-                                ThemeConfig.setLiquidGlass(activity, it)
-                                liquidGlass = it
-                            },
-                        )
+                        if (ThemeConfig.miuixVersion == 4) {
+                            SwitchPreference(
+                                title = stringResource(R.string.theme_liquid_glass),
+                                summary = stringResource(
+                                    if (barFloating) R.string.theme_liquid_glass_summary else R.string.theme_liquid_glass_needs_floating,
+                                ),
+                                checked = liquidGlass && barFloating,
+                                enabled = barFloating,
+                                startAction = { RowIcon(R.drawable.ic_liquid_glass_24) },
+                                onCheckedChange = {
+                                    ThemeConfig.setLiquidGlass(activity, it)
+                                    liquidGlass = it
+                                },
+                            )
+                        }
                     }
                 }
 

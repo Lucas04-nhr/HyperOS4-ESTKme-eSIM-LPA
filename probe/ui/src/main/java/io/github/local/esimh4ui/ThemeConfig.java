@@ -77,11 +77,9 @@ public final class ThemeConfig {
         bgBlur = sp.getInt(KEY_BG_BLUR, 0);
         bgDim = sp.getInt(KEY_BG_DIM, 20);
         cardAlpha = sp.getInt(KEY_CARD_ALPHA, 85);
-        barGlass = sp.getBoolean(KEY_BAR_GLASS, true);
         barFloating = sp.getBoolean(KEY_BAR_FLOATING, false);
-        liquidGlass = sp.getBoolean(KEY_LIQUID_GLASS, false);
-        progressiveBlur = sp.getBoolean(KEY_PROGRESSIVE, true);
         miuixVersion = Math.max(2, Math.min(4, sp.getInt("miuix_version", 4)));
+        loadGlassPreferences(sp);
         amoledBackground = sp.getBoolean("amoled_background", false);
         showTexture = sp.getBoolean("show_texture", false);
         predictiveBack = Math.max(0, Math.min(2, sp.getInt("predictive_back", 0)));
@@ -92,11 +90,20 @@ public final class ThemeConfig {
     public static void setMiuixVersion(Context ctx, int value) {
         miuixVersion = Math.max(2, Math.min(4, value));
         prefs(ctx).edit().putInt("miuix_version", miuixVersion).apply();
+        loadGlassPreferences(prefs(ctx));
         version++;
     }
 
+    private static void loadGlassPreferences(SharedPreferences sp) {
+        // Keep OS4 preferences, but never enable glass effects in OS2/OS3.
+        boolean supported = miuixVersion == 4;
+        barGlass = supported && sp.getBoolean(KEY_BAR_GLASS, true);
+        liquidGlass = supported && sp.getBoolean(KEY_LIQUID_GLASS, false);
+        progressiveBlur = supported && sp.getBoolean(KEY_PROGRESSIVE, true);
+    }
+
     public static boolean useGlass() {
-        return miuixVersion >= 3 && barGlass;
+        return miuixVersion == 4 && barGlass;
     }
 
     public static boolean useLiquidGlass() {
@@ -179,7 +186,7 @@ public final class ThemeConfig {
     }
 
     public static void setBarGlass(Context ctx, boolean value) {
-        barGlass = value;
+        barGlass = miuixVersion == 4 && value;
         prefs(ctx).edit().putBoolean(KEY_BAR_GLASS, value).apply();
         version++;
     }
@@ -191,13 +198,13 @@ public final class ThemeConfig {
     }
 
     public static void setLiquidGlass(Context ctx, boolean value) {
-        liquidGlass = value;
+        liquidGlass = miuixVersion == 4 && value;
         prefs(ctx).edit().putBoolean(KEY_LIQUID_GLASS, value).apply();
         version++;
     }
 
     public static void setProgressiveBlur(Context ctx, boolean value) {
-        progressiveBlur = value;
+        progressiveBlur = miuixVersion == 4 && value;
         prefs(ctx).edit().putBoolean(KEY_PROGRESSIVE, value).apply();
         version++;
     }
