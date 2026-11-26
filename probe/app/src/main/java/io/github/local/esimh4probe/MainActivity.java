@@ -522,9 +522,19 @@ public final class MainActivity extends ThemedActivity {
                 getString(R.string.row_estk_se1), getString(R.string.row_estk_se1_summary), 6f, 24f, 0);
         col.addView(rowEstkSe1.card);
 
+        UiKit.SwitchRow startupRow = new UiKit.SwitchRow(this, palette, R.drawable.ic_link_24,
+                getString(R.string.update_startup), null, 24f, 6f, 2);
+        startupRow.setRowState(UpdateChecker.checkAtStartup(this), true, null);
+        startupRow.toggle.setOnCheckedChangeListener((view, enabled) -> {
+            UpdateChecker.setCheckAtStartup(this, enabled);
+            startupRow.refreshIconTint(enabled);
+        });
+        ((LinearLayout.LayoutParams) startupRow.card.getLayoutParams()).topMargin = UiKit.dp(this, 10);
+        col.addView(startupRow.card);
+
         UiKit.NavRow channelRow = new UiKit.NavRow(
                 this, palette, R.drawable.ic_link_24, getString(R.string.update_channel),
-                null, 24f, 6f, 2, null);
+                null, 6f, 6f, 2, null);
         channelRow.setValue(UpdateChecker.isNightly(this) ? "Nightly" : "Stable");
         channelRow.card.setOnClickListener(v -> UiKit.showChoiceDialog(this, palette,
                 getString(R.string.update_channel), new String[]{"Stable", "Nightly"},
@@ -532,16 +542,42 @@ public final class MainActivity extends ThemedActivity {
                     UpdateChecker.setNightly(this, index == 1);
                     channelRow.setValue(index == 1 ? "Nightly" : "Stable");
                 }));
-        ((LinearLayout.LayoutParams) channelRow.card.getLayoutParams()).topMargin = UiKit.dp(this, 10);
         col.addView(channelRow.card);
-        UiKit.SwitchRow startupRow = new UiKit.SwitchRow(this, palette, R.drawable.ic_link_24,
-                getString(R.string.update_startup), null, 6f, 24f, 0);
-        startupRow.setRowState(UpdateChecker.checkAtStartup(this), true, null);
-        startupRow.toggle.setOnCheckedChangeListener((view, enabled) -> {
-            UpdateChecker.setCheckAtStartup(this, enabled);
-            startupRow.refreshIconTint(enabled);
+        UiKit.SwitchRow installRow = new UiKit.SwitchRow(this, palette, R.drawable.ic_link_24,
+                getString(R.string.update_auto_install), null, 6f, 6f, 2);
+        installRow.setRowState(UpdateChecker.autoInstall(this), true, null);
+        col.addView(installRow.card);
+        UiKit.NavRow managerRow = new UiKit.NavRow(this, palette, R.drawable.ic_link_24,
+                getString(R.string.update_manager), null, 6f, 24f, 0, null);
+        managerRow.setValue(UpdateChecker.managerLabel(this));
+        managerRow.card.setVisibility(UpdateChecker.autoInstall(this) ? View.VISIBLE : View.GONE);
+        managerRow.card.setOnClickListener(v -> {
+            java.util.List<UpdateChecker.Manager> managers = UpdateChecker.installedManagers(this);
+            if (managers.isEmpty()) {
+                android.widget.Toast.makeText(this, R.string.update_manager_none,
+                        android.widget.Toast.LENGTH_LONG).show();
+                return;
+            }
+            String[] labels = new String[managers.size()];
+            int selected = -1;
+            for (int i = 0; i < managers.size(); i++) {
+                labels[i] = managers.get(i).name;
+                if (managers.get(i).packageName.equals(UpdateChecker.selectedManager(this))) selected = i;
+            }
+            UiKit.showChoiceDialog(this, palette, getString(R.string.update_manager), labels, selected, index -> {
+                UpdateChecker.setSelectedManager(this, managers.get(index).packageName);
+                managerRow.setValue(managers.get(index).name);
+            });
         });
-        col.addView(startupRow.card);
+        col.addView(managerRow.card);
+        installRow.toggle.setOnCheckedChangeListener((view, enabled) -> {
+            UpdateChecker.setAutoInstall(this, enabled);
+            installRow.refreshIconTint(enabled);
+            android.transition.TransitionManager.beginDelayedTransition(col,
+                    new android.transition.AutoTransition().setDuration(250));
+            managerRow.setValue(UpdateChecker.managerLabel(this));
+            managerRow.card.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        });
 
         rowTesterApp = new UiKit.SwitchRow(this, palette, R.drawable.ic_science_24,
                 getString(R.string.row_tester), getString(R.string.row_tester_summary), 24f, 24f, 0);

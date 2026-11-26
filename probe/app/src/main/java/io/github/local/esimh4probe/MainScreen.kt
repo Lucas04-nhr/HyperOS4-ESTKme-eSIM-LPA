@@ -648,6 +648,17 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
             MiuixCard {
                 var nightly by remember { mutableStateOf(UpdateChecker.isNightly(activity)) }
                 var startup by remember { mutableStateOf(UpdateChecker.checkAtStartup(activity)) }
+                var autoInstall by remember { mutableStateOf(UpdateChecker.autoInstall(activity)) }
+                var selectedManager by remember { mutableStateOf(UpdateChecker.selectedManager(activity)) }
+                val managers = UpdateChecker.installedManagers(activity)
+                SwitchPreference(
+                    title = stringResource(R.string.update_startup),
+                    checked = startup,
+                    onCheckedChange = {
+                        startup = it
+                        UpdateChecker.setCheckAtStartup(activity, it)
+                    },
+                )
                 VersionedDropdownPreference(
                     title = stringResource(R.string.update_channel),
                     backdrop = backdrop,
@@ -659,13 +670,33 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
                     },
                 )
                 SwitchPreference(
-                    title = stringResource(R.string.update_startup),
-                    checked = startup,
+                    title = stringResource(R.string.update_auto_install),
+                    checked = autoInstall,
                     onCheckedChange = {
-                        startup = it
-                        UpdateChecker.setCheckAtStartup(activity, it)
+                        autoInstall = it
+                        UpdateChecker.setAutoInstall(activity, it)
                     },
                 )
+                AnimatedVisibility(visible = autoInstall) {
+                    if (managers.isEmpty()) {
+                        ArrowPreference(
+                            title = stringResource(R.string.update_manager),
+                            endActions = { EndText(stringResource(R.string.update_manager_none)) },
+                            onClick = {},
+                        )
+                    } else {
+                        VersionedDropdownPreference(
+                            title = stringResource(R.string.update_manager),
+                            backdrop = backdrop,
+                            items = listOf(stringResource(R.string.update_manager_select)) + managers.map { it.name },
+                            selectedIndex = managers.indexOfFirst { it.packageName == selectedManager } + 1,
+                            onSelectedIndexChange = { index ->
+                                selectedManager = managers.getOrNull(index - 1)?.packageName.orEmpty()
+                                UpdateChecker.setSelectedManager(activity, selectedManager)
+                            },
+                        )
+                    }
+                }
             }
         }
         }

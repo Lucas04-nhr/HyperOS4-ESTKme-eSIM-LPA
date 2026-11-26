@@ -259,6 +259,11 @@
     <string name="texture_saturation">飽和度</string>
     <string name="texture_reset">恢復預設值</string>
     <string name="update_channel">更新通道</string>
+    <string name="update_auto_install">自動安裝</string>
+    <string name="update_manager">管理器選擇</string>
+    <string name="update_manager_select">請選擇已安裝的管理器</string>
+    <string name="update_manager_none">未安裝支援的管理器</string>
+    <string name="update_download_saved">更新套件已儲存至 %1$s</string>
     <string name="update_check">檢查更新</string>
     <string name="update_startup">啟動時檢查更新</string>
     <string name="update_available">發現更新：%1$s</string>

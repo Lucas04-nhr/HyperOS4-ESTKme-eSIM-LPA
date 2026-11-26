@@ -258,6 +258,11 @@
     <string name="texture_brightness">Brightness</string>
     <string name="texture_saturation">Saturation</string>
     <string name="texture_reset">Restore Defaults</string>
+    <string name="update_auto_install">Auto Install</string>
+    <string name="update_manager">Manager</string>
+    <string name="update_manager_select">Select an installed manager</string>
+    <string name="update_manager_none">No supported manager installed</string>
+    <string name="update_download_saved">Update saved to %1$s</string>
     <string name="update_channel">Update Channel</string>
     <string name="update_check">Check Update</string>
     <string name="update_startup">Check for Updates at Startup</string>
