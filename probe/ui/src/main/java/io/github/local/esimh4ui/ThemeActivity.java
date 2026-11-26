@@ -179,10 +179,11 @@ public final class ThemeActivity extends ThemedActivity {
         });
 
         col.addView(UiKit.createSectionHeader(this, palette, getString(R.string.personalization_navigation)));
-        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_system),
-                getString(R.string.theme_back_scale), getString(R.string.theme_back_slide)},
+        addChoice(col, R.string.theme_predictive_back, new String[]{getString(R.string.theme_back_aosp),
+                getString(R.string.theme_back_scale), getString(R.string.theme_back_classic),
+                getString(R.string.theme_back_none), getString(R.string.theme_back_miuix)},
                 ThemeConfig.predictiveBack, index -> ThemeConfig.setPredictiveBack(this, index));
-        if (ThemeConfig.predictiveBack != 0) {
+        if (ThemeConfig.predictiveBack == ThemeConfig.BACK_SCALE) {
             addChoice(col, R.string.theme_back_direction, new String[]{getString(R.string.theme_back_follow),
                     getString(R.string.theme_back_right), getString(R.string.theme_back_left)},
                     ThemeConfig.backExitDirection, index -> ThemeConfig.setBackExitDirection(this, index));

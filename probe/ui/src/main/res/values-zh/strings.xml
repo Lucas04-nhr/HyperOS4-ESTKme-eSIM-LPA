@@ -52,9 +52,11 @@
     <string name="theme_amoled">AMOLED 纯黑背景</string>
     <string name="theme_amoled_summary">深色模式下使用纯黑页面背景</string>
     <string name="theme_predictive_back">预测性返回动画</string>
-    <string name="theme_back_system">系统默认</string>
+    <string name="theme_back_aosp">AOSP</string>
     <string name="theme_back_scale">缩放</string>
-    <string name="theme_back_slide">滑动</string>
+    <string name="theme_back_classic">经典</string>
+    <string name="theme_back_none">无</string>
+    <string name="theme_back_miuix">Miuix</string>
     <string name="theme_back_direction">退出方向</string>
     <string name="theme_back_follow">跟随手势</string>
     <string name="theme_back_right">始终向右</string>

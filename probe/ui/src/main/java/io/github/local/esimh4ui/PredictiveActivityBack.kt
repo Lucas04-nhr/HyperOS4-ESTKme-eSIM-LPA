@@ -14,7 +14,7 @@ import kotlin.math.roundToInt
 
 /** Activity-local motion; the system remains responsible for back-to-home and cross-window previews. */
 internal fun installPredictiveActivityBack(activity: ThemedActivity) {
-    if (activity.isTaskRoot || ThemeConfig.predictiveBack == 0) return
+    if (activity.isTaskRoot || ThemeConfig.predictiveBack == ThemeConfig.BACK_AOSP) return
     val callback = object : OnBackPressedCallback(true), DefaultLifecycleObserver {
         private val easing = PathInterpolator(0.1f, 0.1f, 0f, 1f)
         private var edge = BackEventCompat.EDGE_LEFT
@@ -44,8 +44,17 @@ internal fun installPredictiveActivityBack(activity: ThemedActivity) {
         override fun handleOnBackProgressed(backEvent: BackEventCompat) {
             if (committing) return
             val progress = easing.getInterpolation(backEvent.progress.coerceIn(0f, 1f))
-            if (ThemeConfig.predictiveBack == 1) render(1f - 0.15f * progress, 0f)
-            else render(1f, direction() * page.width * 0.25f * progress)
+            when (ThemeConfig.predictiveBack) {
+                ThemeConfig.BACK_NONE -> Unit
+                ThemeConfig.BACK_SCALE -> render(1f - 0.15f * progress, 0f)
+                ThemeConfig.BACK_CLASSIC -> {
+                    pivotX = 0.5f
+                    pivotY = 0.5f
+                    render(1f - 0.1f * progress, 0f)
+                    page.alpha = 1f - progress
+                }
+                ThemeConfig.BACK_MIUIX -> render(1f, page.width * 0.25f * progress)
+            }
         }
 
         private fun direction(): Float = when (ThemeConfig.backExitDirection) {
@@ -73,8 +82,18 @@ internal fun installPredictiveActivityBack(activity: ThemedActivity) {
             cancelAnimation()
             val fromScale = page.scaleX
             val fromX = page.translationX
-            val toScale = if (commit && ThemeConfig.predictiveBack == 1) 0.85f else 1f
-            val toX = if (commit) direction() * page.width else 0f
+            val fromAlpha = page.alpha
+            val classic = ThemeConfig.predictiveBack == ThemeConfig.BACK_CLASSIC
+            val toScale = if (!commit) 1f else when (ThemeConfig.predictiveBack) {
+                ThemeConfig.BACK_SCALE -> 0.85f
+                ThemeConfig.BACK_CLASSIC -> 0.9f
+                else -> 1f
+            }
+            val toX = if (!commit || classic) 0f else {
+                val sign = if (ThemeConfig.predictiveBack == ThemeConfig.BACK_SCALE) direction() else 1f
+                sign * page.width
+            }
+            val toAlpha = if (commit && classic) 0f else 1f
             animator = ValueAnimator.ofFloat(0f, 1f).apply {
                 duration = if (commit) 200L else 300L
                 // Critical damping gives cancellation a quick response without a hard stop.
@@ -86,6 +105,7 @@ internal fun installPredictiveActivityBack(activity: ThemedActivity) {
                 addUpdateListener {
                     val fraction = it.animatedValue as Float
                     render(fromScale + (toScale - fromScale) * fraction, fromX + (toX - fromX) * fraction)
+                    page.alpha = fromAlpha + (toAlpha - fromAlpha) * fraction
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {

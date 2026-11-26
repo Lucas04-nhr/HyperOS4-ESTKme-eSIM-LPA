@@ -30,8 +30,10 @@ fun SettingsNavigation(
     InstallerNavContainer(
         backStack = backStack,
         animation = when (ThemeConfig.predictiveBack) {
-            1 -> PredictiveBackAnimation.Scale
-            2 -> PredictiveBackAnimation.Classic
+            ThemeConfig.BACK_SCALE -> PredictiveBackAnimation.Scale
+            ThemeConfig.BACK_CLASSIC -> PredictiveBackAnimation.Classic
+            ThemeConfig.BACK_NONE -> PredictiveBackAnimation.None
+            ThemeConfig.BACK_MIUIX -> PredictiveBackAnimation.MIUIX
             else -> PredictiveBackAnimation.AOSP
         },
         exitDirection = when (ThemeConfig.backExitDirection) {

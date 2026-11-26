@@ -34,7 +34,13 @@ public final class ThemeConfig {
     public static int miuixVersion = 4;
     public static boolean amoledBackground = false;
     public static boolean showTexture = false;
-    /** 0: system, 1: scale, 2: slide. */
+    // Keep persisted IDs stable when adding animation styles.
+    public static final int BACK_AOSP = 0;
+    public static final int BACK_SCALE = 1;
+    public static final int BACK_CLASSIC = 2;
+    public static final int BACK_NONE = 3;
+    public static final int BACK_MIUIX = 4;
+    /** AOSP, Scale, Classic, None, Miuix; shared by both UI styles. */
     public static int predictiveBack = 0;
     /** 0: follow gesture, 1: right, 2: left. */
     public static int backExitDirection = 0;
@@ -82,7 +88,7 @@ public final class ThemeConfig {
         loadGlassPreferences(sp);
         amoledBackground = sp.getBoolean("amoled_background", false);
         showTexture = sp.getBoolean("show_texture", false);
-        predictiveBack = Math.max(0, Math.min(2, sp.getInt("predictive_back", 0)));
+        predictiveBack = Math.max(BACK_AOSP, Math.min(BACK_MIUIX, sp.getInt("predictive_back", BACK_AOSP)));
         backExitDirection = Math.max(0, Math.min(2, sp.getInt("back_exit_direction", 0)));
         loaded = true;
     }
@@ -123,7 +129,7 @@ public final class ThemeConfig {
     }
 
     public static void setPredictiveBack(Context ctx, int value) {
-        predictiveBack = Math.max(0, Math.min(2, value));
+        predictiveBack = Math.max(BACK_AOSP, Math.min(BACK_MIUIX, value));
         prefs(ctx).edit().putInt("predictive_back", predictiveBack).apply();
         version++;
     }

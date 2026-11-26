@@ -389,7 +389,13 @@ fun ThemePage(
                     SettingsCard(cardColor) {
                         GlassDropdownPreference(
                             title = stringResource(R.string.theme_predictive_back),
-                            items = listOf(stringResource(R.string.theme_back_system), stringResource(R.string.theme_back_scale), stringResource(R.string.theme_back_slide)),
+                            items = listOf(
+                                stringResource(R.string.theme_back_aosp),
+                                stringResource(R.string.theme_back_scale),
+                                stringResource(R.string.theme_back_classic),
+                                stringResource(R.string.theme_back_none),
+                                stringResource(R.string.theme_back_miuix),
+                            ),
                             selectedIndex = ThemeConfig.predictiveBack,
                             backdrop = backdrop,
                             onSelectedIndexChange = {
@@ -397,7 +403,7 @@ fun ThemePage(
                                 activity.recreate()
                             },
                         )
-                        if (ThemeConfig.predictiveBack != 0) {
+                        if (ThemeConfig.predictiveBack == ThemeConfig.BACK_SCALE) {
                             GlassDropdownPreference(
                                 title = stringResource(R.string.theme_back_direction),
                                 items = listOf(stringResource(R.string.theme_back_follow), stringResource(R.string.theme_back_right), stringResource(R.string.theme_back_left)),
