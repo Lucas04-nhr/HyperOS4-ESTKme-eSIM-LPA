@@ -76,6 +76,10 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import io.github.local.esimh4ui.AppIcons
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassIconButton
+import top.yukonga.miuix.kmp.glass.GlassTopAppBar
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
@@ -134,6 +138,7 @@ internal fun AboutPage(
         value = withContext(Dispatchers.IO) { AboutInfo.load(activity) }
     }
     val listState = rememberLazyListState()
+    val backdrop = rememberLayerBackdrop()
     val scrollBehavior = MiuixScrollBehavior()
     val texture = remember { TextureSettings() }
     var showTextureSet by remember { mutableStateOf(false) }
@@ -169,16 +174,30 @@ internal fun AboutPage(
         }
     }
 
-    BgEffectBackground(
-        isDark = isDark,
-        surface = colors.surface,
-        modifier = Modifier.fillMaxSize(),
-        alpha = { 1f - progress },
-        settings = texture,
-    ) { _ ->
+    Box(Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
+                if (ThemeConfig.useGlass()) {
+                    GlassTopAppBar(
+                        title = stringResource(R.string.section_about),
+                        expandable = false,
+                        backdrop = backdrop,
+                        scrollBehavior = scrollBehavior,
+                        progressiveBlur = ThemeConfig.progressiveBlur,
+                        titleAlpha = { titleAlpha },
+                        navigationIcon = {
+                            GlassIconButton(onClick = onBack) {
+                                Icon(
+                                    imageVector = AppIcons.Back,
+                                    contentDescription = stringResource(io.github.local.esimh4ui.R.string.ui_back),
+                                    modifier = Modifier.size(28.dp),
+                                    tint = colors.onSurface,
+                                )
+                            }
+                        },
+                    )
+                } else {
                 SmallTopAppBar(
                     title = stringResource(R.string.section_about),
                     color = topBarColor,
@@ -194,8 +213,17 @@ internal fun AboutPage(
                         }
                     },
                 )
+                }
             },
         ) { innerPadding ->
+            // Record the animated background and list together, excluding the glass bar itself.
+            BgEffectBackground(
+                isDark = isDark,
+                surface = colors.surface,
+                modifier = Modifier.fillMaxSize().layerBackdrop(backdrop),
+                alpha = { 1f - progress },
+                settings = texture,
+            ) { _ ->
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -309,6 +337,7 @@ internal fun AboutPage(
                 }
             }
         }
+    }
     }
     TextureSetSheet(showTextureSet, texture) { showTextureSet = false }
 }
