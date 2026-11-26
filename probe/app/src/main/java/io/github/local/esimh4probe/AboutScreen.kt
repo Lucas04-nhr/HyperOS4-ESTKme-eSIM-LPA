@@ -125,6 +125,7 @@ internal fun AboutPage(
     onBack: () -> Unit,
     onOpenLicenses: () -> Unit,
 ) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val exportAction = remember(activity) { AboutLogExport(activity) }
     val colors = MiuixTheme.colorScheme
     val info by produceState<AboutInfo?>(null) {
@@ -280,6 +281,7 @@ internal fun AboutPage(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable(interactionSource = null, indication = null) {
+                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
                                         if (ThemeConfig.showTexture) {
                                             Toast.makeText(activity, io.github.local.esimh4ui.R.string.theme_texture_no_need, Toast.LENGTH_SHORT).show()
                                             return@clickable

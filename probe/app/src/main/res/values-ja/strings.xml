@@ -191,9 +191,9 @@
     <string name="tester_mock_uri_intercepted">安全にブロックしました。Xiaomi LPA は模擬アクティベーションコードを受信しました。物理カードへのテストデータの書き込みは行われていません。</string>
     <string name="tester_safety_note">test.esim.local を含むコードはカードに書き込まれません。</string>
     <string name="tester_reset_code">コードをリセット</string>
-    <string name="tester_test1">テスト 1: 通信事業者のインストールダイアログ</string>
-    <string name="tester_test2">テスト 2: LPA:// リンクを開く</string>
-    <string name="tester_test3">テスト 3: 標準アクティベーション画面</string>
+    <string name="tester_test1">通信事業者のインストールダイアログ</string>
+    <string name="tester_test2">LPA:// リンクを開く</string>
+    <string name="tester_test3">標準アクティベーション画面</string>
     <string name="tester_console_title">コールバックログ</string>
     <string name="tester_clear_log">消去</string>
     <string name="st_mount">LPA マウント</string>
@@ -217,7 +217,7 @@
     <string name="card_regular">通常の SIM または未設定</string>
     <string name="card_wait_mount">LPA のマウント待ち</string>
     <string name="card_detecting">検出中…</string>
-    <string name="log_ready">準備完了（%1$s）。テスト 1 をタップして通信事業者のインストールダイアログを確認してください。</string>
+    <string name="log_ready">準備完了（%1$s）。「通信事業者のインストールダイアログ」をタップして認証画面を確認してください。</string>
     <string name="log_reset_code">コードを %1$s にリセットしました</string>
     <string name="log_cleared">ログを消去しました。</string>
     <string name="log_resolvable">コールバック: RESOLVABLE_ERROR (1)</string>

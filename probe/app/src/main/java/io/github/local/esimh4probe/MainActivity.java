@@ -447,19 +447,6 @@ public final class MainActivity extends ThemedActivity {
         manageLp.topMargin = UiKit.dp(this, 10);
         simCard.addView(btnManageEsim, manageLp);
 
-        LinearLayout secBtnRow = new LinearLayout(this);
-        secBtnRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams sbrLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        sbrLp.topMargin = UiKit.dp(this, 10);
-        secBtnRow.setLayoutParams(sbrLp);
-
-        LinearLayout btnMobileNetwork = UiKit.createActionButton(
-                this, palette, UiKit.ButtonStyle.TONAL, R.drawable.ic_settings_cell_24,
-                getString(R.string.btn_mobile_network), 44, this::openMobileNetwork);
-        LinearLayout.LayoutParams mnLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        secBtnRow.addView(btnMobileNetwork, mnLp);
-        simCard.addView(secBtnRow);
         return simCard;
     }
 

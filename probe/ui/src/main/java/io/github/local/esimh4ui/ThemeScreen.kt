@@ -8,6 +8,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -108,6 +116,7 @@ fun ThemePage(
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
 
+    var miuixVersion by remember { mutableIntStateOf(ThemeConfig.miuixVersion) }
     var barGlass by remember { mutableStateOf(ThemeConfig.barGlass) }
     var progressiveBlur by remember { mutableStateOf(ThemeConfig.progressiveBlur) }
     var barFloating by remember { mutableStateOf(ThemeConfig.barFloating) }
@@ -159,7 +168,7 @@ fun ThemePage(
     Scaffold(
         containerColor = colors.surface,
         topBar = {
-            if (barGlass && ThemeConfig.miuixVersion == 4) {
+            if (barGlass && miuixVersion == 4) {
                 // Glass bar: transparent at rest; once the page scrolls, the back button gets its
                 // glass pill and the band behind the bar fades in (a progressive blur if enabled).
                 GlassTopAppBar(
@@ -300,12 +309,15 @@ fun ThemePage(
                         VersionedDropdownPreference(
                             title = stringResource(R.string.theme_miuix_version),
                             items = listOf("OS2", "OS3", "OS4"),
-                            selectedIndex = ThemeConfig.miuixVersion - 2,
+                            selectedIndex = miuixVersion - 2,
                             backdrop = backdrop,
                             startAction = { RowIcon(R.drawable.ic_style_24) },
                             onSelectedIndexChange = {
                                 ThemeConfig.setMiuixVersion(activity, it + 2)
-                                activity.recreate()
+                                miuixVersion = ThemeConfig.miuixVersion
+                                barGlass = ThemeConfig.barGlass
+                                progressiveBlur = ThemeConfig.progressiveBlur
+                                liquidGlass = ThemeConfig.liquidGlass
                             },
                         )
                         SwitchPreference(
@@ -331,11 +343,17 @@ fun ThemePage(
                 item(key = "barsTitle") { SmallTitle(text = stringResource(R.string.theme_section_bottom_bar)) }
                 item(key = "bars") {
                     SettingsCard(cardColor) {
+                        Crossfade(
+                            targetState = Pair(miuixVersion == 4, barGlass),
+                            animationSpec = tween(250),
+                            label = "glassAvailability",
+                        ) { (supportsGlass, glassEnabled) ->
+                            Column {
                         SwitchPreference(
                             title = stringResource(R.string.theme_bar_glass),
                             summary = stringResource(R.string.theme_bar_glass_summary),
-                            checked = barGlass && ThemeConfig.miuixVersion == 4,
-                            enabled = ThemeConfig.miuixVersion == 4,
+                            checked = glassEnabled && supportsGlass,
+                            enabled = supportsGlass,
                             startAction = { RowIcon(R.drawable.ic_bottom_bar_24) },
                             onCheckedChange = {
                                 ThemeConfig.setBarGlass(activity, it)
@@ -345,16 +363,18 @@ fun ThemePage(
                         SwitchPreference(
                             title = stringResource(R.string.theme_progressive_blur),
                             summary = stringResource(
-                                if (barGlass) R.string.theme_progressive_blur_summary else R.string.theme_needs_glass,
+                                if (glassEnabled) R.string.theme_progressive_blur_summary else R.string.theme_needs_glass,
                             ),
-                            checked = progressiveBlur && barGlass && ThemeConfig.miuixVersion == 4,
-                            enabled = barGlass && ThemeConfig.miuixVersion == 4,
+                            checked = progressiveBlur && glassEnabled && supportsGlass,
+                            enabled = glassEnabled && supportsGlass,
                             startAction = { RowIcon(R.drawable.ic_blur_24) },
                             onCheckedChange = {
                                 ThemeConfig.setProgressiveBlur(activity, it)
                                 progressiveBlur = it
                             },
                         )
+                            }
+                        }
                         SwitchPreference(
                             title = stringResource(R.string.theme_bar_floating),
                             summary = stringResource(R.string.theme_bar_floating_summary),
@@ -365,7 +385,11 @@ fun ThemePage(
                                 barFloating = it
                             },
                         )
-                        if (ThemeConfig.miuixVersion == 4) {
+                        AnimatedVisibility(
+                            visible = miuixVersion == 4,
+                            enter = expandVertically(tween(250)) + fadeIn(tween(250)),
+                            exit = shrinkVertically(tween(250)) + fadeOut(tween(200)),
+                        ) {
                             SwitchPreference(
                                 title = stringResource(R.string.theme_liquid_glass),
                                 summary = stringResource(

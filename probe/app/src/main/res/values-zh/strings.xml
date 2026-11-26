@@ -191,9 +191,9 @@
     <string name="tester_mock_uri_intercepted">【安全拦截】小米写卡页已成功接收模拟 LPA 激活码，未向实体卡写入测试数据</string>
     <string name="tester_safety_note">含 test.esim.local 的激活码不会写入卡片。</string>
     <string name="tester_reset_code">恢复默认码</string>
-    <string name="tester_test1">测试 1：运营商写卡授权弹窗</string>
-    <string name="tester_test2">测试 2：打开 LPA:// 链接</string>
-    <string name="tester_test3">测试 3：标准激活页</string>
+    <string name="tester_test1">运营商写卡授权弹窗</string>
+    <string name="tester_test2">打开 LPA:// 链接</string>
+    <string name="tester_test3">标准激活页</string>
     <string name="tester_console_title">回调日志</string>
     <string name="tester_clear_log">清空</string>
     <string name="st_mount">LPA 挂载</string>
@@ -217,7 +217,7 @@
     <string name="card_regular">普通 SIM 卡或未适配</string>
     <string name="card_wait_mount">等待 LPA 挂载</string>
     <string name="card_detecting">识别中…</string>
-    <string name="log_ready">就绪（%1$s）。点击「测试 1」检查运营商写卡弹窗。</string>
+    <string name="log_ready">就绪（%1$s）。点击「运营商写卡授权弹窗」检查授权提示。</string>
     <string name="log_reset_code">已恢复默认激活码：%1$s</string>
     <string name="log_cleared">日志已清空。</string>
     <string name="log_resolvable">系统回调：RESOLVABLE_ERROR (1)</string>
@@ -266,6 +266,6 @@
     <string name="update_download">下载</string>
     <string name="update_checking">正在检查更新…</string>
     <string name="update_current">暂无更新的版本</string>
-    <string name="update_download_started">已加入系统下载：%1$s</string>
+    <string name="update_download_started">下载中...</string>
     <string name="update_failed">检查更新或下载失败：%1$s</string>
 </resources>

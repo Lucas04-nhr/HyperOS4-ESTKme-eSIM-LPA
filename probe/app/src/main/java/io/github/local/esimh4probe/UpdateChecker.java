@@ -126,7 +126,7 @@ public final class UpdateChecker {
                             ? "application/vnd.android.package-archive" : "application/zip")
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                     .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, update.name));
-            toast(app, app.getString(R.string.update_download_started, update.name));
+            toast(app, app.getString(R.string.update_download_started));
         } catch (Exception e) {
             toast(app, app.getString(R.string.update_failed, e.getMessage()));
         }

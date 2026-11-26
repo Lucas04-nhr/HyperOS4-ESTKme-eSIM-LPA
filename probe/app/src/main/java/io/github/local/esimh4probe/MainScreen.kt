@@ -350,11 +350,6 @@ private fun SimCard(activity: MainActivity, model: DashboardModel?, palette: UiK
             enabled = model?.manageEnabled ?: false,
             colors = ButtonDefaults.textButtonColorsPrimary(),
         )
-        TextButton(
-            text = stringResource(R.string.btn_mobile_network),
-            onClick = { activity.openMobileNetwork() },
-            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-        )
     }
 }
 

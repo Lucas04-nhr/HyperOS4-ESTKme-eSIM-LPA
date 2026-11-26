@@ -191,9 +191,9 @@
     <string name="tester_mock_uri_intercepted">Safely intercepted: Xiaomi LPA received the mock activation code. No test data was written to the physical card.</string>
     <string name="tester_safety_note">Codes with test.esim.local are not written to the card.</string>
     <string name="tester_reset_code">Reset code</string>
-    <string name="tester_test1">Test 1: Carrier install dialog</string>
-    <string name="tester_test2">Test 2: Open an LPA:// link</string>
-    <string name="tester_test3">Test 3: Standard activation page</string>
+    <string name="tester_test1">Carrier install dialog</string>
+    <string name="tester_test2">Open an LPA:// link</string>
+    <string name="tester_test3">Standard activation page</string>
     <string name="tester_console_title">Callback log</string>
     <string name="tester_clear_log">Clear</string>
     <string name="st_mount">LPA mount</string>
@@ -217,7 +217,7 @@
     <string name="card_regular">Regular SIM or not set up</string>
     <string name="card_wait_mount">Waiting for the LPA mount</string>
     <string name="card_detecting">Detecting…</string>
-    <string name="log_ready">Ready (%1$s). Tap Test 1 to check the carrier install dialog.</string>
+    <string name="log_ready">Ready (%1$s). Tap “Carrier install dialog” to check the authorization prompt.</string>
     <string name="log_reset_code">Code reset to %1$s</string>
     <string name="log_cleared">Log cleared.</string>
     <string name="log_resolvable">Callback: RESOLVABLE_ERROR (1)</string>
@@ -266,6 +266,6 @@
     <string name="update_download">Download</string>
     <string name="update_checking">Checking for updates…</string>
     <string name="update_current">No newer update is available</string>
-    <string name="update_download_started">Added to system downloads: %1$s</string>
+    <string name="update_download_started">Downloading...</string>
     <string name="update_failed">Update check or download failed: %1$s</string>
 </resources>
