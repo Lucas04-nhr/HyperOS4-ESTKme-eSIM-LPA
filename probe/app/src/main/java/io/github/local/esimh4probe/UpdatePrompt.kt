@@ -48,6 +48,7 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
             Toast.makeText(activity, R.string.snack_open_link_failed, Toast.LENGTH_SHORT).show()
         }
     }
+    val actionLabel = if (UpdateChecker.autoInstall(activity)) R.string.update_install else R.string.update_download
     val label = activity.getString(R.string.update_details, "GitHub")
     if (!UiKit.isMiuix()) {
         val message = SpannableString(label)
@@ -64,7 +65,7 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
         val dialog = AlertDialog.Builder(activity)
             .setTitle(title)
             .setMessage(message)
-            .setPositiveButton(R.string.update_download) { _, _ -> download.run() }
+            .setPositiveButton(actionLabel) { _, _ -> download.run() }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
         dialog.findViewById<TextView>(android.R.id.message)?.apply {
@@ -134,7 +135,7 @@ fun show(activity: Activity, title: String, details: String, download: Runnable)
                             modifier = Modifier.weight(1f),
                         )
                         TextButton(
-                            text = activity.getString(R.string.update_download),
+                            text = activity.getString(actionLabel),
                             onClick = { dismiss(); download.run() },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.textButtonColorsPrimary(),

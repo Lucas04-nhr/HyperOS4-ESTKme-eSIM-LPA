@@ -271,6 +271,7 @@
     <string name="update_available">发现更新：%1$s</string>
     <string name="update_details">在 %1$s 查看详情</string>
     <string name="update_download">下载</string>
+    <string name="update_install">安装</string>
     <string name="update_checking">正在检查更新…</string>
     <string name="update_current">暂无更新的版本</string>
     <string name="update_download_started">下载中...</string>
