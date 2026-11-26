@@ -130,7 +130,8 @@ public final class MainActivity extends ThemedActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        LaunchAnimation.install(this);
+        LaunchAnimation launchAnimation = LaunchAnimation.install(this);
+        refreshDone.add(launchAnimation::markReady);
         boolean showTester = TesterPage.isEnabled(this);
         int savedPage = savedInstanceState != null ? savedInstanceState.getInt(STATE_PAGE, PAGE_HOME) : PAGE_HOME;
         boolean autoTest = showTester && savedInstanceState == null
