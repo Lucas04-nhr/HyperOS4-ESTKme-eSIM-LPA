@@ -67,9 +67,6 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -125,7 +122,7 @@ fun MiuixPage(
                         if (onBack != null) {
                             GlassIconButton(onClick = onBack) {
                                 Icon(
-                                    imageVector = MiuixIcons.Glass.ChevronBackward,
+                                    imageVector = AppIcons.ChevronBackward,
                                     contentDescription = back,
                                     modifier = Modifier.size(28.dp),
                                     tint = colors.onSurface,
@@ -144,7 +141,7 @@ fun MiuixPage(
                         if (onBack != null) {
                             IconButton(onClick = onBack) {
                                 Icon(
-                                    imageVector = MiuixIcons.Back,
+                                    imageVector = AppIcons.ChevronBackward,
                                     contentDescription = back,
                                     tint = colors.onBackground,
                                 )

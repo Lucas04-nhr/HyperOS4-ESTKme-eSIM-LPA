@@ -68,9 +68,6 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -190,7 +187,7 @@ fun ThemePage(
                     navigationIcon = {
                         GlassIconButton(onClick = navigateBack) {
                             Icon(
-                                imageVector = MiuixIcons.Glass.ChevronBackward,
+                                imageVector = AppIcons.ChevronBackward,
                                 contentDescription = back,
                                 modifier = Modifier.size(28.dp),
                                 tint = colors.onSurface,
@@ -206,7 +203,7 @@ fun ThemePage(
                     navigationIcon = {
                         IconButton(onClick = navigateBack) {
                             Icon(
-                                imageVector = MiuixIcons.Back,
+                                imageVector = AppIcons.ChevronBackward,
                                 contentDescription = back,
                                 tint = colors.onBackground,
                             )

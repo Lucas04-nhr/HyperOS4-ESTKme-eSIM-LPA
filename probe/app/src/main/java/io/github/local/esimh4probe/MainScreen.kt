@@ -74,6 +74,7 @@ import io.github.local.esimh4ui.ThemeConfig
 import io.github.local.esimh4ui.UiKit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import io.github.local.esimh4ui.AppIcons
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
@@ -591,14 +592,25 @@ private fun SettingsPage(activity: MainActivity, state: MainUiState, bottom: Dp,
             item(key = "categories") {
                 MiuixCard {
                     listOf(
-                        Triple("core", R.string.section_core, R.drawable.ic_verified_user_24),
+                        Triple("core", R.string.section_core, R.drawable.ic_sim_card_24),
                         Triple("system", R.string.section_root, R.drawable.ic_shield_24),
                         Triple("personalize", R.string.section_personalize, UiR.drawable.ic_palette_24),
                         Triple("status", R.string.row_device_status, R.drawable.ic_monitor_heart_24),
                     ).forEach { (route, label, icon) ->
                         ArrowPreference(
                             title = stringResource(label),
-                            startAction = { MiuixRowIcon(icon) },
+                            startAction = {
+                                if (route == "core") {
+                                    Icon(
+                                        imageVector = AppIcons.Edashcard,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(end = 6.dp),
+                                        tint = MiuixTheme.colorScheme.onBackground,
+                                    )
+                                } else {
+                                    MiuixRowIcon(icon)
+                                }
+                            },
                             onClick = {
                                 if (route == "status") activity.openDeviceStatus()
                                 else navigator.push(SettingsRoute(route))

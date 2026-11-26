@@ -44,9 +44,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.glass.GlassIconButton
 import top.yukonga.miuix.kmp.glass.GlassTopAppBar
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.glass.ChevronBackward
+import io.github.local.esimh4ui.AppIcons
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -200,7 +198,7 @@ private fun PageScaffold(
                     navigationIcon = {
                         GlassIconButton(onClick = onBack) {
                             Icon(
-                                imageVector = MiuixIcons.Glass.ChevronBackward,
+                                imageVector = AppIcons.ChevronBackward,
                                 contentDescription = back,
                                 modifier = Modifier.size(28.dp),
                                 tint = colors.onSurface,
@@ -216,7 +214,7 @@ private fun PageScaffold(
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
-                                imageVector = MiuixIcons.Back,
+                                imageVector = AppIcons.ChevronBackward,
                                 contentDescription = back,
                                 tint = colors.onBackground,
                             )
