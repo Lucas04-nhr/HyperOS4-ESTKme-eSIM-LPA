@@ -226,11 +226,22 @@ sync_lpa_umount_guard() {
   if [ "$UMOUNT_GUARD" = off ]; then
     if is_lpa_updated_system_pkg; then
       logmsg "Stripping UPDATED_SYSTEM_APP layer for com.miui.euicc (umount_guard=off)."
-      if ! pm uninstall-system-updates com.miui.euicc 2>&1; then
-        logmsg "Failed to remove the LPA update layer."
+      # Some Android builds print Success but return a nonzero exit status.
+      # Verify package state instead of treating that status as a failure.
+      pm uninstall-system-updates com.miui.euicc 2>&1 || logmsg "Checking package state after nonzero uninstall exit status."
+      if ! is_lpa_system_pkg; then
+        logmsg "Cannot verify the system LPA after removing updates."
         return 1
       fi
-      if is_lpa_updated_system_pkg; then
+      if ! guard_pkg_dump=$(dumpsys package com.miui.euicc 2>&1); then
+        logmsg "Cannot read LPA package flags after removing updates."
+        return 1
+      fi
+      if ! echo "$guard_pkg_dump" | grep -Eq '(pkgFlags|flags)=\['; then
+        logmsg "LPA package flags are missing after removing updates."
+        return 1
+      fi
+      if echo "$guard_pkg_dump" | grep -Eq '(pkgFlags|flags)=\[([[:space:]]|[^]]*[[:space:]])?UPDATED_SYSTEM_APP([[:space:]]|\])'; then
         logmsg "LPA still has an UPDATED_SYSTEM_APP layer after removal."
         return 1
       fi
