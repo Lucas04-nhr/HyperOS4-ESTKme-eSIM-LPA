@@ -21,6 +21,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import io.github.local.esimh4ui.StatusBanner;
 import io.github.local.esimh4ui.UiKit;
 import java.text.SimpleDateFormat;
@@ -100,7 +101,10 @@ final class TesterPage {
     }
 
     void onStatusTap() {
-        if (logVisible) return;
+        if (logVisible) {
+            Toast.makeText(activity, R.string.log_already_shown, Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (logGesture.tap(activity, R.string.log_taps_remaining, R.string.log_shown)) {
             logVisible = true;
             if (logSection != null) UiKit.setAnimatedVisibility(logSection, View.VISIBLE);
@@ -189,6 +193,12 @@ final class TesterPage {
         receiverRegistered = true;
         refreshStatus();
         appendLog(activity.getString(R.string.log_ready, ProbeInspector.MODULE_VERSION));
+    }
+
+    void hideLog() {
+        logVisible = false;
+        if (logSection != null) UiKit.setAnimatedVisibility(logSection, View.GONE);
+        notifyChanged();
     }
 
     void clearLog() {
@@ -298,6 +308,9 @@ final class TesterPage {
         addFullWidth(logSection, UiKit.createActionButton(
                 ctx, palette, UiKit.ButtonStyle.TONAL, 0,
                 str(R.string.tester_clear_log), 44, this::clearLog), 10);
+        addFullWidth(logSection, UiKit.createActionButton(
+                ctx, palette, UiKit.ButtonStyle.TONAL, 0,
+                str(R.string.tester_hide_log), 44, this::hideLog), 10);
 
         start();
         showStatus();

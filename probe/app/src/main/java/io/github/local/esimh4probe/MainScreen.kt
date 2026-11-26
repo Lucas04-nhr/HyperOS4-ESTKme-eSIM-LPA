@@ -496,6 +496,11 @@ private fun TesterTab(activity: MainActivity, state: MainUiState, bottom: Dp) {
                     onClick = { tester.clearLog() },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
                 )
+                TextButton(
+                    text = stringResource(R.string.tester_hide_log),
+                    onClick = { tester.hideLog() },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                )
                 }
             }
         }

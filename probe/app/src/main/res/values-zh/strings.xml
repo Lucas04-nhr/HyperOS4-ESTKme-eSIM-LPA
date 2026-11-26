@@ -5,7 +5,7 @@
     <string name="tab_home">首页</string>
     <string name="tab_settings">设置</string>
     <string name="tab_tester">测试</string>
-    <string name="tester_title">eSIM 模拟写卡测试</string>
+    <string name="tester_title">写卡测试</string>
     <string name="status_loading">正在检测…</string>
     <string name="status_loading_summary">正在读取模块与框架状态</string>
     <string name="status_off">未启用</string>
@@ -196,6 +196,8 @@
     <string name="tester_test3">标准激活页</string>
     <string name="tester_console_title">回调日志</string>
     <string name="tester_clear_log">清空</string>
+    <string name="tester_hide_log">隐藏</string>
+    <string name="log_already_shown">回调日志已显示，无需重复开启</string>
     <string name="st_mount">LPA 挂载</string>
     <string name="st_mount_ok">已生效</string>
     <string name="st_mount_bad">未挂载</string>

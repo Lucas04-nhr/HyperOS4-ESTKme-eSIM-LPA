@@ -5,7 +5,7 @@
     <string name="tab_home">Home</string>
     <string name="tab_settings">Settings</string>
     <string name="tab_tester">Test</string>
-    <string name="tester_title">eSIM Test</string>
+    <string name="tester_title">Card Write Test</string>
     <string name="status_loading">Checking…</string>
     <string name="status_loading_summary">Reading module and framework status</string>
     <string name="status_off">Not enabled</string>
@@ -196,6 +196,8 @@
     <string name="tester_test3">Standard activation page</string>
     <string name="tester_console_title">Callback log</string>
     <string name="tester_clear_log">Clear</string>
+    <string name="tester_hide_log">Hide</string>
+    <string name="log_already_shown">Callback logs are already shown; no need to enable them again</string>
     <string name="st_mount">LPA mount</string>
     <string name="st_mount_ok">Active</string>
     <string name="st_mount_bad">Not mounted</string>

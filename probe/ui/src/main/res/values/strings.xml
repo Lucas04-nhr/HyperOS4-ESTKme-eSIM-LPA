@@ -32,8 +32,8 @@
     <string name="theme_bg_blur">Background blur</string>
     <string name="theme_bg_dim">Background dim</string>
     <string name="theme_card_alpha">Card opacity</string>
-    <string name="theme_show_texture">Show Texture</string>
-    <string name="theme_texture_no_need">No need to activate Texture again; it is already enabled.</string>
+    <string name="theme_show_texture">Show Texture Set</string>
+    <string name="theme_texture_no_need">No need to activate Texture Set again; it is already enabled.</string>
     <string name="theme_bg_pick_failed">Could not load the image</string>
     <string name="lang_title">Language</string>
     <string name="lang_system">Follow system</string>

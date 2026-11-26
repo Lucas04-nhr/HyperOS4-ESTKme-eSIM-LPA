@@ -5,7 +5,7 @@
     <string name="tab_home">ホーム</string>
     <string name="tab_settings">設定</string>
     <string name="tab_tester">テスト</string>
-    <string name="tester_title">eSIM テスト</string>
+    <string name="tester_title">書き込みテスト</string>
     <string name="status_loading">確認中…</string>
     <string name="status_loading_summary">モジュールとフレームワークの状態を読み込み中</string>
     <string name="status_off">無効</string>
@@ -196,6 +196,8 @@
     <string name="tester_test3">標準アクティベーション画面</string>
     <string name="tester_console_title">コールバックログ</string>
     <string name="tester_clear_log">消去</string>
+    <string name="tester_hide_log">非表示</string>
+    <string name="log_already_shown">コールバックログは表示済みです。再度有効にする必要はありません</string>
     <string name="st_mount">LPA マウント</string>
     <string name="st_mount_ok">有効</string>
     <string name="st_mount_bad">未マウント</string>
